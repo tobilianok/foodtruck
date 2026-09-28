@@ -1,0 +1,7 @@
+# Secrets de la stack (mots de passe base de données)
+.env
+# Données MariaDB
+data/
+# Divers
+*.log
+.DS_Store

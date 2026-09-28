@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Foodtruck - raccourci pour lancer une commande dans le conteneur PHP
+# avec le bon utilisateur (les fichiers créés t'appartiennent).
+# Exemples :
+#   ./ft php artisan migrate
+#   ./ft php artisan foodtruck:check
+#   ./ft composer install
+cd "$(dirname "$0")" || exit 1
+if [ -t 0 ] && [ -t 1 ]; then TTY=""; else TTY="-T"; fi
+exec docker compose exec $TTY -u www-data app "$@"

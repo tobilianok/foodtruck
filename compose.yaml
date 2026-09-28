@@ -1,0 +1,76 @@
+# Foodtruck - stack Docker
+# Règles de cohabitation avec la VM : aucun port publié sur l'hôte,
+# accès uniquement via Nginx Proxy Manager (réseau externe npm_default),
+# conteneurs et réseau préfixés "foodtruck".
+# Les noms de conteneurs (foodtruck-app, foodtruck-db...) sont utilisés
+# partout comme noms d'hôte, pour éviter toute ambiguïté DNS avec les
+# services "app" ou "db" d'autres stacks présents sur npm_default.
+
+name: foodtruck
+
+services:
+  app:
+    build:
+      context: ./docker/php
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: foodtruck-app:local
+    container_name: foodtruck-app
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  web:
+    image: nginx:stable-alpine
+    container_name: foodtruck-web
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+    volumes:
+      - ./src:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - internal
+      - proxy
+
+  db:
+    image: mariadb:11.4
+    container_name: foodtruck-db
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      MARIADB_DATABASE: foodtruck
+      MARIADB_USER: foodtruck
+      MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans .env}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD manquant dans .env}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=128M
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - internal
+
+networks:
+  internal:
+    name: foodtruck_internal
+  proxy:
+    name: npm_default
+    external: true
