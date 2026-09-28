@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-28 (v0.1.0)
+Dernière mise à jour : 2026-09-28 (v0.1.1)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -48,11 +48,14 @@ Authentik (application + fournisseur OAuth2/OpenID) :
 - Fournisseur : type OAuth2/OpenID, client confidentiel, flux d'autorisation default-provider-authorization-implicit-consent, flux d'invalidation default-provider-invalidation-flow
 - URI de redirection (stricte) : https://foodtruck.louisrousseaux.fr/auth/callback
 - Clé de signature : authentik Self-signed Certificate ; scopes openid, email, profile
+- Grant types : Authorization Code et Refresh token uniquement
 - Émetteur : https://auth.louisrousseaux.fr/application/o/foodtruck/
-- Accès : liaison au groupe "foodtruck" (membres de la famille)
+- Accès : liaison au groupe "foodtruck" (membres de la famille) - à faire
+- Comptes : akadmin réservé à l'administration d'Authentik ; compte personnel de Louis : Tobilianok
 
 Nginx Proxy Manager (hôte proxy) :
-- Domaine foodtruck.louisrousseaux.fr → http://foodtruck-web:80, Block Common Exploits
+- Domaine foodtruck.louisrousseaux.fr → http://foodtruck-web:80, Block Common Exploits, Websockets activé
+- Attention : saisir le nom foodtruck-web, pas l'IP 192.168.1.14 (aucun port n'est publié sur l'hôte, sinon 502)
 - SSL : certificat Let's Encrypt, Force SSL, HTTP/2
 
 ## Commandes utiles
@@ -61,6 +64,9 @@ Nginx Proxy Manager (hôte proxy) :
     docker compose ps                       état des conteneurs
     docker compose logs -f --tail=100       journaux
     ./ft php artisan foodtruck:check        contrôle du socle
+    ./ft php artisan foodtruck:users        liste des comptes
+    ./ft php artisan foodtruck:role louis admin      change un rôle (admin|membre)
+    ./ft php artisan foodtruck:remove-user akadmin   supprime un compte Foodtruck
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
     docker compose restart                  redémarrage
@@ -68,6 +74,8 @@ Nginx Proxy Manager (hôte proxy) :
 Journal Laravel : src/storage/logs/laravel-AAAA-MM-JJ.log
 
 ## Livraisons
+
+Les comptes Foodtruck sont créés à la première connexion ; ils sont identifiés par leur identifiant Authentik (sub), l'e-mail n'est pas unique. Le compte akadmin d'Authentik n'est pas destiné à un usage quotidien.
 
 Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (ou ~/foodtruck-update-vX.Y.Z.sh), à coller puis exécuter sur la VM, suivi des commandes Git (commit, tag vX.Y.Z, push vers git@github.com:tobilianok/foodtruck.git).
 

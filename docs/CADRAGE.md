@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.1.0 (étape 2 - socle livré, en attente de validation)
+Version du document : v0.1.1 (étape 2 - socle en ligne, validation en cours)
 Dernière mise à jour : 2026-09-28
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -35,7 +35,7 @@ Fonctionnel
 ## Modèle de données
 
 Comptes et foyers
-- users : authentik_sub, username, email, nom affiché, rôle (admin/membre), dernière connexion, foyer (v0.2.0)
+- users : authentik_sub (identifiant unique), username, email (non unique), nom affiché, rôle (admin/membre), dernière connexion, foyer (v0.2.0)
 - households : nom, budget hebdo (10000 centimes par défaut), magasin principal, onboarding terminé
 - household_members : nom, catégorie (adulte/enfant/tout-petit), coefficient de portion, lié ou non à un compte
 - equipment : référentiel des appareils (four, air fryer, Companion, Cookeo, yaourtière...)
@@ -91,7 +91,7 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 ## Feuille de route (validation à chaque étape)
 
 1. Cadrage et modèle de données - VALIDÉ (v0.0.2)
-2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0) - LIVRÉ, en attente de validation
+2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0, correctif v0.1.1) - EN LIGNE, validation en cours
 3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles (v0.2.0)
 4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0)
 5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0)
@@ -108,7 +108,8 @@ Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé 
 
 - v0.0.1 : cadrage rédigé.
 - v0.0.2 : cadrage validé, reconnaissance de la VM (lecture seule).
-- v0.1.0 : socle livré (installeur ~/foodtruck-install-v0.1.0.sh), en attente d'installation et de validation par Louis.
+- v0.1.0 : socle installé sur la VM et en ligne (https://foodtruck.louisrousseaux.fr), connexion Authentik fonctionnelle.
+- v0.1.1 : correctif - e-mail non unique (deux comptes Authentik avec la même adresse bloquaient la connexion) + commandes de gestion des comptes. Validation du socle en cours.
 
 ## Questions ouvertes
 
