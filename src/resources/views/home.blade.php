@@ -4,7 +4,7 @@
 
 @section('content')
     @php
-        $household = auth()->user()->household->loadMissing('members', 'equipment');
+        $household = auth()->user()->household->loadMissing('members', 'equipment', 'mainStore', 'produceStore');
     @endphp
 
     <section class="hero">
@@ -14,7 +14,6 @@
 
     @php
         $modules = [
-            ['Ingrédients et prix', 'Unités, rayons, magasins, conditionnements', 'v0.3.0'],
             ['Recettes', 'Saisie, étapes, photos, étiquettes, recettes de saison', 'v0.4.0'],
             ['Planning', 'Repas choisis librement, cumulables', 'v0.6.0'],
             ['Liste de courses', 'Mutualisée, par magasin et par rayon', 'v0.7.0'],
@@ -31,6 +30,15 @@
                 {{ $portions }} parts par repas<br>
                 Budget {{ number_format($household->budgetEuros(), 0, ',', ' ') }} € / semaine ·
                 {{ $household->equipment->count() }} appareil{{ $household->equipment->count() > 1 ? 's' : '' }}
+            </p>
+            <span class="tag tag-accent">Disponible</span>
+        </a>
+        <a class="card card-link" href="{{ route('ingredients.index') }}">
+            <h2>Ingrédients et prix</h2>
+            <p>
+                {{ \App\Models\Ingredient::count() }} ingrédients, prix par magasin<br>
+                @if ($household->mainStore) Magasin principal : {{ $household->mainStore->name }} @endif
+                @if ($household->produceStore) · fruits et légumes : {{ $household->produceStore->name }} @endif
             </p>
             <span class="tag tag-accent">Disponible</span>
         </a>

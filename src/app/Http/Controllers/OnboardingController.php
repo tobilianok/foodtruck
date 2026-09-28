@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Equipment;
 use App\Models\Household;
 use App\Models\HouseholdMember;
+use App\Models\Store;
 use App\Models\User;
 use App\Support\HouseholdEquipment;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class OnboardingController extends Controller
         return view('onboarding.show', [
             'categories' => HouseholdMember::CATEGORIES,
             'equipment' => Equipment::ordered(),
+            'stores' => Store::active(),
         ]);
     }
 
@@ -40,6 +42,8 @@ class OnboardingController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:60'],
             'budget' => ['required', 'numeric', 'min:10', 'max:2000'],
+            'main_store_id' => ['nullable', 'integer', 'exists:stores,id'],
+            'produce_store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'members' => ['required', 'array', 'min:1', 'max:20'],
             'members.*.name' => ['required', 'string', 'max:60'],
             'members.*.category' => ['required', Rule::in(array_keys(HouseholdMember::CATEGORIES))],
@@ -61,6 +65,8 @@ class OnboardingController extends Controller
             $household = Household::create([
                 'name' => trim($data['name']),
                 'weekly_budget_cents' => (int) round($data['budget'] * 100),
+                'main_store_id' => $data['main_store_id'] ?? null,
+                'produce_store_id' => $data['produce_store_id'] ?? null,
                 'created_by' => $user->id,
             ]);
 

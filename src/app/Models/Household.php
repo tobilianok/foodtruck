@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Household extends Model
 {
-    protected $fillable = ['name', 'weekly_budget_cents', 'created_by'];
+    protected $fillable = ['name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'created_by'];
 
     protected function casts(): array
     {
@@ -30,6 +31,17 @@ class Household extends Model
     public function equipment(): BelongsToMany
     {
         return $this->belongsToMany(Equipment::class, 'household_equipment')->orderBy('position')->orderBy('name');
+    }
+
+    public function mainStore(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'main_store_id');
+    }
+
+    /** Magasin habituel pour les fruits et légumes (ex. le primeur). */
+    public function produceStore(): BelongsTo
+    {
+        return $this->belongsTo(Store::class, 'produce_store_id');
     }
 
     public function invitations(): HasMany

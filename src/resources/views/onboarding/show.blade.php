@@ -26,6 +26,7 @@
                     </span>
                     <small>Plafond pour les ingrédients des repas planifiés.</small>
                 </label>
+                @include('household.store-fields', ['main' => old('main_store_id'), 'produce' => old('produce_store_id')])
             </div>
         </section>
 

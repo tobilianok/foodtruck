@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\OidcClient;
+use App\Support\ReferenceImporter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -125,3 +126,15 @@ Artisan::command('foodtruck:remove-user {username}', function (string $username)
 
     return 0;
 })->purpose('Supprime un compte Foodtruck');
+
+/*
+ * ./ft php artisan foodtruck:reference
+ * Importe le jeu d'ingrédients de départ (n'ajoute que les absents, n'écrase rien).
+ */
+Artisan::command('foodtruck:reference', function () {
+    $counts = ReferenceImporter::import();
+    $this->info("Ingrédients ajoutés : {$counts['ingredients']} ({$counts['packs']} conditionnements, {$counts['prices']} prix estimés).");
+    if ($counts['skipped'] > 0) {
+        $this->line("Déjà présents, laissés tels quels : {$counts['skipped']}.");
+    }
+})->purpose('Importe le jeu d\'ingrédients de départ');

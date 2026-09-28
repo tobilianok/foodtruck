@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.2.0)
+Dernière mise à jour : 2026-09-29 (v0.3.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -69,6 +69,7 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan foodtruck:role louis admin      change un rôle (admin|membre)
     ./ft php artisan foodtruck:remove-user akadmin   supprime un compte Foodtruck
     ./ft php artisan test                   tests automatisés (base SQLite en mémoire, sans toucher aux données)
+    ./ft php artisan foodtruck:reference    importe les ingrédients de départ manquants (n'écrase rien)
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
     docker compose restart                  redémarrage
@@ -82,6 +83,11 @@ Les comptes Foodtruck sont créés à la première connexion ; ils sont identifi
 Chaque script de mise à jour : vérifie la version en place, les conteneurs et un dépôt Git propre ; sauvegarde la base dans backups/ ; écrit les fichiers ; lance les tests (en cas d'échec, restaure les fichiers via Git et s'arrête sans migrer) ; puis migre et contrôle.
 
 Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (ou ~/foodtruck-update-vX.Y.Z.sh), à coller puis exécuter sur la VM, suivi des commandes Git (commit, tag vX.Y.Z, push vers git@github.com:tobilianok/foodtruck.git).
+
+## Données de référence
+
+- Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
+- Rayons et magasins : créés par la migration 2026_09_29_100001 ; les foyers existants ont reçu Leclerc Drive (principal) et Morin (fruits et légumes).
 
 ## État du dépôt
 

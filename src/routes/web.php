@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Auth\OidcController;
 use App\Http\Controllers\HouseholdController;
+use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PriceController;
 use Illuminate\Support\Facades\Route;
 
 // Connexion via Authentik (OIDC)
@@ -32,6 +34,21 @@ Route::middleware('auth')->group(function () {
         Route::view('/', 'home')->name('home');
         Route::get('/foyer', [HouseholdController::class, 'show'])->name('household.show');
         Route::post('/foyer/quitter', [HouseholdController::class, 'leave'])->name('household.leave');
+
+        // Référentiel : ingrédients, conditionnements, prix (tous les membres d'un foyer)
+        Route::get('/ingredients', [IngredientController::class, 'index'])->name('ingredients.index');
+        Route::get('/ingredients/nouveau', [IngredientController::class, 'create'])->name('ingredients.create');
+        Route::post('/ingredients', [IngredientController::class, 'store'])->name('ingredients.store');
+        Route::get('/ingredients/{ingredient:slug}', [IngredientController::class, 'show'])->name('ingredients.show');
+        Route::put('/ingredients/{ingredient:slug}', [IngredientController::class, 'update'])->name('ingredients.update');
+        Route::post('/ingredients/{ingredient:slug}/conditionnements', [IngredientController::class, 'storePack'])->name('ingredients.packs.store');
+        Route::put('/ingredients/{ingredient:slug}/conditionnements/{pack}', [IngredientController::class, 'updatePack'])->name('ingredients.packs.update');
+        Route::delete('/ingredients/{ingredient:slug}/conditionnements/{pack}', [IngredientController::class, 'destroyPack'])->name('ingredients.packs.destroy');
+        Route::post('/ingredients/{ingredient:slug}/prix', [IngredientController::class, 'storePrice'])->name('ingredients.prices.store');
+
+        Route::get('/prix', [PriceController::class, 'index'])->name('prices.index');
+        Route::get('/prix/{store:slug}', [PriceController::class, 'edit'])->name('prices.edit');
+        Route::post('/prix/{store:slug}', [PriceController::class, 'update'])->name('prices.update');
 
         Route::middleware('can:manage-household')->prefix('foyer')->group(function () {
             Route::put('/reglages', [HouseholdController::class, 'updateSettings'])->name('household.settings');

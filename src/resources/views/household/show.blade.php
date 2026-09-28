@@ -43,10 +43,12 @@
                         <span>€</span>
                     </span>
                 </label>
+                @include('household.store-fields', ['main' => $household->main_store_id, 'produce' => $household->produce_store_id])
                 <div class="actions"><button type="submit" class="btn">Enregistrer</button></div>
             </form>
         @else
             <p>Budget : {{ number_format($household->budgetEuros(), 0, ',', ' ') }} € par semaine.</p>
+            <p>Magasin principal : {{ $household->mainStore->name ?? 'non défini' }} · fruits et légumes : {{ $household->produceStore->name ?? 'non défini' }}.</p>
         @endif
     </section>
 

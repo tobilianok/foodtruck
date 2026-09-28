@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.2.0 (étape 3 - Mon foyer livré, en attente de validation)
+Version du document : v0.3.0 (étape 4 - référentiel livré, en attente de validation)
 Dernière mise à jour : 2026-09-28
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -31,6 +31,9 @@ Fonctionnel
 - Budget : 100 EUR par semaine, plafond ferme, calculé sur les ingrédients uniquement.
 - Priorité au fait maison pour remplacer l'industriel : goûters (barres de céréales gourmandes...), yaourts (yaourtière), bases (pâte à tarte, bouillon, pain...).
 - Prix : pas de scraping des enseignes. Mise à jour des prix à partir des tickets de caisse, rapprochés de la liste de courses de départ.
+- Magasins du foyer (décision v0.3.0) : magasin principal Leclerc Drive, fruits et légumes chez Morin (primeur). Réglables dans Mon foyer (et dès l'assistant pour un nouveau foyer).
+- Référentiel ouvert (décision v0.3.0) : tout membre d'un foyer peut ajouter des ingrédients, des conditionnements et corriger les prix. Liste d'ingrédients et prix communs à toute l'instance.
+- Jeu de départ : 138 ingrédients courants avec rayon, saison, conditionnements et prix ESTIMÉS (Leclerc Drive, Morin) datés du 01/09/2026, marqués « estimé » jusqu'à confirmation. Fichier src/database/data/ingredients.php, import idempotent (foodtruck:reference) qui n'écrase jamais une correction.
 - Premier lot de recettes de saison fourni par Claude, incluant goûters, yaourts et bases maison.
 - Aucune contrainte alimentaire.
 - Étiquettes de recettes.
@@ -39,18 +42,18 @@ Fonctionnel
 
 Comptes et foyers
 - users : authentik_sub (identifiant unique), username, email (non unique), nom affiché, rôle applicatif (admin/membre), dernière connexion, household_id, household_role (admin/membre)
-- households : nom, budget hebdo en centimes (10000 par défaut), créateur ; magasin principal ajouté en v0.3.0
+- households : nom, budget hebdo en centimes (10000 par défaut), magasin principal, magasin des fruits et légumes, créateur
 - household_members : nom, catégorie (adulte/enfant/tout-petit), coefficient de portion (décimal 0 à 2), compte lié optionnel (un compte = une fiche au plus), position
 - equipment : liste commune des appareils (nom, slug unique, par défaut ou ajouté, créé par)
 - household_equipment : appareils dont dispose le foyer
 - household_invitations : foyer, empreinte SHA-256 du jeton (jamais le jeton en clair), créée par, expiration, utilisée le / par
 
 Référentiel
-- units : g, kg, ml, cl, dl, l, c. à soupe (15 ml), c. à café (5 ml), pièce, pot... avec dimension (masse/volume/pièce) et facteur vers l'unité de base
-- ingredients : nom, rayon, unité de base, poids moyen d'une pièce, densité (optionnel), mois de saison, produit frais, produit de base "toujours en stock" (sel, huile...)
-- ingredient_packs : conditionnements achetables (bouteille 1 L, brique 20 cl, vrac au kg...)
-- aisles, stores, store_aisle_order : rayons, magasins, ordre des rayons par magasin
-- prices : prix par conditionnement et par magasin, historisé (date, source manuelle/ticket, promo)
+- Unités (définies dans le code, App\Support\Units, pas en base) : g, kg, pincée (0,5 g), ml, cl, dl, L, c. à café (5 ml), c. à soupe (15 ml), verre (200 ml), pièce ; trois dimensions (masse → g, volume → ml, pièce) ; conversions entre dimensions via la densité et le poids d'une pièce de l'ingrédient
+- ingredients : nom, slug (stable, sert d'URL), rayon, unité de base (g, ml ou pièce, verrouillée dès qu'un conditionnement existe), poids d'une pièce (g), densité (g/ml), mois de saison (null = toute l'année), produit frais, produit de base (listé « à vérifier »), créé par
+- ingredient_packs : conditionnements achetables (libellé, quantité dans l'unité de base, vrac oui/non)
+- aisles : 14 rayons avec ordre par défaut ; stores : 6 magasins (Leclerc Drive, Morin, Lidl, Carrefour, Hyper U, Grand Frais) ; households.main_store_id et produce_store_id ; ordre des rayons propre à chaque magasin : prévu avec la liste de courses (v0.7.0)
+- prices : prix par conditionnement et par magasin, historisé (centimes, date du prix, origine estimation/manuel/ticket, promo, saisi par) ; le prix courant est le plus récent par date ; meilleure offre = prix le plus bas ramené au kg / L / pièce
 
 Recettes
 - recipes : auteur, titre, catégorie (plat, entrée, dessert, goûter, petit-déjeuner, base maison, boisson), rendement (quantité + type : personnes, pots, pièces, grammes), temps (préparation/cuisson/repos), difficulté, photo, source, type de protéine, prix de l'équivalent industriel (optionnel), brouillon/publié, parent (duplication)
@@ -96,8 +99,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 
 1. Cadrage et modèle de données - VALIDÉ (v0.0.2)
 2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0, correctif v0.1.1) - VALIDÉ le 2026-09-28
-3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles, invitations (v0.2.0) - LIVRÉ, en attente de validation
-4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0)
+3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles, invitations (v0.2.0) - VALIDÉ le 2026-09-28
+4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0) - LIVRÉ, en attente de validation
 5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0)
 6. Affichage d'une recette proratisée (v0.5.0)
 7. Planning libre et repas cumulables (v0.6.0)
@@ -115,8 +118,10 @@ Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé 
 - v0.1.0 : socle installé sur la VM et en ligne (https://foodtruck.louisrousseaux.fr), connexion Authentik fonctionnelle.
 - v0.1.1 : correctif - e-mail non unique (deux comptes Authentik avec la même adresse bloquaient la connexion) + commandes de gestion des comptes. Appliqué sur la VM ; v0.1.0 et v0.1.1 poussées sur GitHub (tags). Compte Tobilianok admin, compte akadmin retiré de Foodtruck.
 - Socle validé par Louis le 2026-09-28 : groupe foodtruck lié à l'application dans Authentik (accès réservé au groupe), déconnexion testée.
-- v0.2.0 : Mon foyer livré - assistant de création (nom, budget, membres et coefficients, appareils), page Mon foyer (réglages, membres, appareils, comptes, invitations), invitations à usage unique, messages de validation en français, 23 tests automatisés exécutés par le script de mise à jour.
+- v0.2.0 : Mon foyer livré - assistant de création (nom, budget, membres et coefficients, appareils), page Mon foyer (réglages, membres, appareils, comptes, invitations), invitations à usage unique, messages de validation en français, 23 tests automatisés exécutés par le script de mise à jour. Installé et validé par Louis le 2026-09-28 (foyer « Famille Tobilianok » créé).
+
+- v0.3.0 : référentiel livré - liste des ingrédients (recherche, rayon, de saison, meilleur prix), fiche ingrédient (prix par magasin, conditionnements, caractéristiques, historique), création, mise à jour rapide des prix par magasin (par défaut les produits déjà vendus dans ce magasin), magasins du foyer, 138 ingrédients de départ, 41 tests.
 
 ## Questions ouvertes
 
-Aucune bloquante. Pour la v0.3.0 (référentiel) : magasin principal du foyer, liste des rayons et leur ordre par magasin (Louis pourra la corriger).
+Aucune bloquante. Pour la v0.4.0 (recettes) : format de saisie des ingrédients d'une recette (ligne libre analysée ou champs séparés), photos (taille, stockage), premier lot de recettes de saison.

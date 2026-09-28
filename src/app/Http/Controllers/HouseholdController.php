@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Equipment;
 use App\Models\HouseholdMember;
+use App\Models\Store;
 use App\Models\User;
 use App\Support\HouseholdEquipment;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class HouseholdController extends Controller
 {
     public function show(Request $request)
     {
-        $household = $request->user()->household->load(['members.user', 'users', 'equipment']);
+        $household = $request->user()->household->load(['members.user', 'users', 'equipment', 'mainStore', 'produceStore']);
 
         return view('household.show', [
             'household' => $household,
@@ -26,6 +27,7 @@ class HouseholdController extends Controller
             'owned' => $household->equipment->pluck('id')->all(),
             'invitations' => $household->invitations()->with('creator', 'user')->limit(10)->get(),
             'canManage' => $request->user()->can('manage-household'),
+            'stores' => Store::active(),
         ]);
     }
 
@@ -34,11 +36,15 @@ class HouseholdController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:60'],
             'budget' => ['required', 'numeric', 'min:10', 'max:2000'],
-        ], [], ['name' => 'nom du foyer', 'budget' => 'budget hebdomadaire']);
+            'main_store_id' => ['nullable', 'integer', 'exists:stores,id'],
+            'produce_store_id' => ['nullable', 'integer', 'exists:stores,id'],
+        ], [], ['name' => 'nom du foyer', 'budget' => 'budget hebdomadaire', 'main_store_id' => 'magasin principal', 'produce_store_id' => 'magasin des fruits et légumes']);
 
         $request->user()->household->update([
             'name' => trim($data['name']),
             'weekly_budget_cents' => (int) round($data['budget'] * 100),
+            'main_store_id' => $data['main_store_id'] ?? null,
+            'produce_store_id' => $data['produce_store_id'] ?? null,
         ]);
 
         return back()->with('status', 'Réglages du foyer enregistrés.');
