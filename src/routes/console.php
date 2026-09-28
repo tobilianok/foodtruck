@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\OidcClient;
+use App\Support\RecipeImporter;
 use App\Support\ReferenceImporter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -138,3 +139,15 @@ Artisan::command('foodtruck:reference', function () {
         $this->line("Déjà présents, laissés tels quels : {$counts['skipped']}.");
     }
 })->purpose('Importe le jeu d\'ingrédients de départ');
+
+/*
+ * ./ft php artisan foodtruck:recipes
+ * Importe le premier lot de recettes (n'ajoute que les absentes, n'écrase rien).
+ */
+Artisan::command('foodtruck:recipes', function () {
+    $counts = RecipeImporter::import();
+    $this->info("Recettes ajoutées : {$counts['recipes']}.");
+    if ($counts['skipped'] > 0) {
+        $this->line("Déjà présentes, laissées telles quelles : {$counts['skipped']}.");
+    }
+})->purpose('Importe le premier lot de recettes');

@@ -6,6 +6,7 @@ use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PriceController;
+use App\Http\Controllers\RecipeController;
 use Illuminate\Support\Facades\Route;
 
 // Connexion via Authentik (OIDC)
@@ -34,6 +35,17 @@ Route::middleware('auth')->group(function () {
         Route::view('/', 'home')->name('home');
         Route::get('/foyer', [HouseholdController::class, 'show'])->name('household.show');
         Route::post('/foyer/quitter', [HouseholdController::class, 'leave'])->name('household.leave');
+
+        // Recettes : publiques, saisies par tous ; modification par l'auteur ou un admin
+        Route::get('/recettes', [RecipeController::class, 'index'])->name('recipes.index');
+        Route::get('/recettes/nouvelle', [RecipeController::class, 'create'])->name('recipes.create');
+        Route::post('/recettes', [RecipeController::class, 'store'])->name('recipes.store');
+        Route::get('/recettes/{recipe:slug}', [RecipeController::class, 'show'])->name('recipes.show');
+        Route::get('/recettes/{recipe:slug}/modifier', [RecipeController::class, 'edit'])->name('recipes.edit');
+        Route::put('/recettes/{recipe:slug}', [RecipeController::class, 'update'])->name('recipes.update');
+        Route::delete('/recettes/{recipe:slug}', [RecipeController::class, 'destroy'])->name('recipes.destroy');
+        Route::post('/recettes/{recipe:slug}/dupliquer', [RecipeController::class, 'duplicate'])->name('recipes.duplicate');
+        Route::post('/recettes/{recipe:slug}/favori', [RecipeController::class, 'favorite'])->name('recipes.favorite');
 
         // Référentiel : ingrédients, conditionnements, prix (tous les membres d'un foyer)
         Route::get('/ingredients', [IngredientController::class, 'index'])->name('ingredients.index');

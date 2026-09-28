@@ -14,7 +14,7 @@
 
     @php
         $modules = [
-            ['Recettes', 'Saisie, étapes, photos, étiquettes, recettes de saison', 'v0.4.0'],
+            ['Recette proratisée', 'Quantités ajustées au nombre de personnes', 'v0.5.0'],
             ['Planning', 'Repas choisis librement, cumulables', 'v0.6.0'],
             ['Liste de courses', 'Mutualisée, par magasin et par rayon', 'v0.7.0'],
             ['Économies', 'Budget, tickets de caisse, anti-gaspi', 'v0.8.0'],
@@ -30,6 +30,14 @@
                 {{ $portions }} parts par repas<br>
                 Budget {{ number_format($household->budgetEuros(), 0, ',', ' ') }} € / semaine ·
                 {{ $household->equipment->count() }} appareil{{ $household->equipment->count() > 1 ? 's' : '' }}
+            </p>
+            <span class="tag tag-accent">Disponible</span>
+        </a>
+        <a class="card card-link" href="{{ route('recipes.index') }}">
+            <h2>Recettes</h2>
+            <p>
+                {{ \App\Models\Recipe::visibleTo(auth()->user())->count() }} recettes partagées<br>
+                {{ auth()->user()->favoriteRecipes()->count() }} en favoris
             </p>
             <span class="tag tag-accent">Disponible</span>
         </a>

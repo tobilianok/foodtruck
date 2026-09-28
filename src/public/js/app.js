@@ -88,3 +88,46 @@
         updateTotal();
     }
 })();
+
+// Lignes dynamiques génériques (recettes : ingrédients, étapes)
+// <div data-rows="nom"> + <template data-row-template="nom"> (clé __KEY__) + <button data-add-row="nom">
+(function () {
+    'use strict';
+    var counter = 1000;
+
+    function renumber(container) {
+        container.querySelectorAll('.step-number').forEach(function (el, i) { el.textContent = String(i + 1); });
+    }
+
+    document.querySelectorAll('[data-rows]').forEach(renumber);
+
+    document.addEventListener('click', function (event) {
+        var add = event.target.closest('[data-add-row]');
+        if (add) {
+            var name = add.getAttribute('data-add-row');
+            var container = document.querySelector('[data-rows="' + name + '"]');
+            var template = document.querySelector('[data-row-template="' + name + '"]');
+            if (!container || !template) return;
+            container.insertAdjacentHTML('beforeend', template.innerHTML.replace(/__KEY__/g, String(counter++)));
+            var rows = container.querySelectorAll('[data-row]');
+            var first = rows[rows.length - 1].querySelector('input[type=text], textarea');
+            if (first) first.focus();
+            renumber(container);
+            return;
+        }
+
+        var remove = event.target.closest('[data-remove-row]');
+        if (remove) {
+            var holder = remove.closest('[data-rows]');
+            if (!holder) return;
+            if (holder.querySelectorAll('[data-row]').length <= 1) {
+                remove.closest('[data-row]').querySelectorAll('input, textarea').forEach(function (el) {
+                    if (el.type === 'checkbox') el.checked = false; else el.value = '';
+                });
+                return;
+            }
+            remove.closest('[data-row]').remove();
+            renumber(holder);
+        }
+    });
+})();

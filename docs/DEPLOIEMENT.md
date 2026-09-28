@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.3.0)
+Dernière mise à jour : 2026-09-29 (v0.4.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -70,6 +70,7 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan foodtruck:remove-user akadmin   supprime un compte Foodtruck
     ./ft php artisan test                   tests automatisés (base SQLite en mémoire, sans toucher aux données)
     ./ft php artisan foodtruck:reference    importe les ingrédients de départ manquants (n'écrase rien)
+    ./ft php artisan foodtruck:recipes      importe les recettes de départ manquantes (n'écrase rien)
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
     docker compose restart                  redémarrage
@@ -87,6 +88,8 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
+- Recettes de départ : src/database/data/recipes.php (ingrédients désignés par leur identifiant, ex. « potimarron »).
+- Photos des recettes : src/storage/app/public/recettes (hors Git), servies via le lien src/public/storage (créé par storage:link). À inclure dans les sauvegardes.
 - Rayons et magasins : créés par la migration 2026_09_29_100001 ; les foyers existants ont reçu Leclerc Drive (principal) et Morin (fruits et légumes).
 
 ## État du dépôt
@@ -96,4 +99,4 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## Sauvegardes
 
-À mettre en place (étape bonus) : dump MariaDB quotidien + photos des recettes.
+À mettre en place (étape bonus) : dump MariaDB quotidien + photos des recettes (src/storage/app/public). En attendant, chaque script de mise à jour sauvegarde la base dans backups/.

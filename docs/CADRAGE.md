@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.3.0 (étape 4 - référentiel livré, en attente de validation)
+Version du document : v0.4.0 (étape 5 - recettes livrées, en attente de validation)
 Dernière mise à jour : 2026-09-28
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -37,6 +37,10 @@ Fonctionnel
 - Premier lot de recettes de saison fourni par Claude, incluant goûters, yaourts et bases maison.
 - Aucune contrainte alimentaire.
 - Étiquettes de recettes.
+- Saisie des ingrédients d'une recette (décision v0.4.0) : une ligne par ingrédient, ingrédient choisi dans le référentiel (autocomplétion), quantité + unité (vides = « selon goût »), précision, facultatif, groupe (« Pour la pâte »). Une quantité non convertible (ex. farine « à la pièce ») est refusée avec un message.
+- Photos (décision v0.4.0) : stockées sur la VM (src/storage/app/public/recettes), redressées, redimensionnées à 1600 px + vignette 640 px, WebP.
+- Brouillons : une recette en brouillon n'est visible que par son auteur. La duplication crée un brouillon rattaché à l'original (variante).
+- Premier lot : 24 recettes (15 plats d'automne, 3 bases/yaourts, 6 goûters et petit-déjeuner), fichier src/database/data/recipes.php, import idempotent (foodtruck:recipes). Elles n'ont pas d'auteur : seul un admin de l'appli peut les modifier, les autres les dupliquent.
 
 ## Modèle de données
 
@@ -56,12 +60,13 @@ Référentiel
 - prices : prix par conditionnement et par magasin, historisé (centimes, date du prix, origine estimation/manuel/ticket, promo, saisi par) ; le prix courant est le plus récent par date ; meilleure offre = prix le plus bas ramené au kg / L / pièce
 
 Recettes
-- recipes : auteur, titre, catégorie (plat, entrée, dessert, goûter, petit-déjeuner, base maison, boisson), rendement (quantité + type : personnes, pots, pièces, grammes), temps (préparation/cuisson/repos), difficulté, photo, source, type de protéine, prix de l'équivalent industriel (optionnel), brouillon/publié, parent (duplication)
+- recipes : slug, auteur, titre, présentation, catégorie (plat, entrée, accompagnement, dessert, goûter, petit-déjeuner, base maison, boisson), rendement (quantité + personnes | parts | pièces | pots | grammes), temps (préparation/cuisson/repos en min), difficulté, protéine principale, source, prix de l'équivalent industriel (centimes), photo + vignette, statut (publie | brouillon), parent (duplication)
 - recipe_ingredients : position, groupe ("Pour la sauce"), ingrédient, quantité, unité, note ("émincé"), optionnel
-- recipe_steps : position, texte, minuteur optionnel, appareil utilisé (optionnel)
+- recipe_steps : position, texte, minuteur optionnel, appareil utilisé (optionnel, ajouté automatiquement aux appareils requis)
 - recipe_equipment : appareils requis (une recette dont un appareil manque au foyer est signalée ou masquée)
-- tags, recipe_tags : catégories (régime, temps, occasion, ambiance)
-- favorites (et plus tard notes, historique "cuisiné le")
+- tags, recipe_tag : 13 étiquettes manuelles
+- recipe_favorites : favoris par compte (plus tard : notes, historique « cuisiné le »)
+- Coût d'une recette (App\Support\RecipeCost) : quantité utilisée × meilleur prix connu ramené au kg/L/pièce (estimation au prorata, hors « selon goût » et facultatifs) ; par personne, par pot, par pièce ou pour 100 g. « Économique » : ≤ 1,50 € par personne avec des prix complets.
 
 Planning et stock
 - meal_plans : foyer, semaine, statut
@@ -100,8 +105,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 1. Cadrage et modèle de données - VALIDÉ (v0.0.2)
 2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0, correctif v0.1.1) - VALIDÉ le 2026-09-28
 3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles, invitations (v0.2.0) - VALIDÉ le 2026-09-28
-4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0) - LIVRÉ, en attente de validation
-5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0)
+4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0) - VALIDÉ le 2026-09-28
+5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0) - LIVRÉ, en attente de validation
 6. Affichage d'une recette proratisée (v0.5.0)
 7. Planning libre et repas cumulables (v0.6.0)
 8. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.7.0)
@@ -122,6 +127,9 @@ Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé 
 
 - v0.3.0 : référentiel livré - liste des ingrédients (recherche, rayon, de saison, meilleur prix), fiche ingrédient (prix par magasin, conditionnements, caractéristiques, historique), création, mise à jour rapide des prix par magasin (par défaut les produits déjà vendus dans ce magasin), magasins du foyer, 138 ingrédients de départ, 41 tests.
 
+- v0.3.0 validée par Louis le 2026-09-28.
+- v0.4.0 : recettes livrées - liste en cartes (recherche, catégorie, étiquette, de saison, 30 min max, faisable avec mes appareils, favoris, brouillons), fiche (ingrédients groupés, équivalences, étapes avec minuteur et appareil, coût, économie vs industriel, appareils manquants), formulaire (lignes dynamiques, autocomplétion), photo, brouillon, duplication, favoris, 24 recettes de départ, 50 tests. Choix de saisie et photos pris par défaut (voir décisions), à confirmer par Louis.
+
 ## Questions ouvertes
 
-Aucune bloquante. Pour la v0.4.0 (recettes) : format de saisie des ingrédients d'une recette (ligne libre analysée ou champs séparés), photos (taille, stockage), premier lot de recettes de saison.
+Aucune bloquante. Pour la v0.5.0 (recette proratisée) : choix du nombre de personnes (membres du foyer présents + invités, avec coefficients), arrondis d'affichage (« 1,3 œuf » → 1 ou 2 ?).

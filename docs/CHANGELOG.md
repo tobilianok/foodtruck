@@ -1,5 +1,15 @@
 # Journal des versions - Foodtruck
 
+## v0.4.0 - 2026-09-29 - Recettes
+
+- Recettes publiques : liste en cartes avec filtres (recherche, catégorie, étiquette, de saison, 30 min max, faisable avec mes appareils, favoris, brouillons).
+- Fiche recette : ingrédients groupés (« Pour la pâte »), équivalences (« 3 pièces ≈ 600 g »), étapes numérotées avec minuteur et appareil, coût estimé total et par personne/pot/pièce/100 g, comparaison avec l'équivalent industriel, appareils manquants au foyer, étiquettes calculées « de saison » et « économique ».
+- Saisie : lignes d'ingrédients et d'étapes dynamiques, autocomplétion sur le référentiel, contrôle des unités convertibles, étiquettes, appareils, photo (redimensionnée 1600 px + vignette, WebP), brouillon.
+- Droits : modification et suppression par l'auteur ou un admin ; les autres dupliquent (brouillon rattaché à l'original). Favoris par compte.
+- Premier lot : 24 recettes (plats d'automne, soupes, curry, gratins, quiche, yaourts nature et vanille, pâte brisée, barres de céréales, cookies, gâteau au yaourt, compote, granola, crêpes) ; commande foodtruck:recipes, idempotente.
+- Ingrédient « Eau » ajouté au référentiel (produit de base, gratuit).
+- 50 tests automatisés.
+
 ## v0.3.0 - 2026-09-29 - Ingrédients et prix
 
 - Référentiel : 14 rayons, 6 magasins, ingrédients avec unité de base (g, ml, pièce), poids d'une pièce, densité, mois de saison, produit frais, produit de base.

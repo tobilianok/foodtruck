@@ -97,6 +97,15 @@ class Units
         };
     }
 
+    /** Quantité saisie dans une recette : « 2 pièces », « 1 c. à soupe », « 20 cl ». */
+    public static function quantityLabel(float $quantity, string $unit): string
+    {
+        $plurals = ['piece' => 'pièces', 'pincee' => 'pincées', 'verre' => 'verres'];
+        $label = $quantity > 1 && isset($plurals[$unit]) ? $plurals[$unit] : self::label($unit);
+
+        return self::number($quantity).' '.$label;
+    }
+
     /** Affichage lisible d'une quantité exprimée dans l'unité de base : 1500 g → « 1,5 kg ». */
     public static function format(float $quantity, string $baseUnit): string
     {
