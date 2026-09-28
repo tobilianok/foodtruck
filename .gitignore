@@ -2,6 +2,8 @@
 .env
 # Données MariaDB
 data/
+# Sauvegardes SQL
+backups/
 # Divers
 *.log
 .DS_Store

@@ -1,5 +1,15 @@
 # Journal des versions - Foodtruck
 
+## v0.2.0 - 2026-09-29 - Mon foyer
+
+- Assistant de première connexion : nom du foyer, budget hebdomadaire, membres avec catégorie et coefficient de portion (adulte 1, enfant 0,6, tout-petit 0), « c'est moi », appareils de cuisine.
+- Page « Mon foyer » : réglages, membres (ajout, modification, retrait, compte lié), appareils (14 par défaut + ajout libre), comptes (nommer/retirer admin, retirer du foyer, quitter), invitations.
+- Invitations : lien à usage unique valable 7 jours, créé par un admin du foyer ; accessible avant connexion ; choix de sa fiche membre en rejoignant ; jeton stocké uniquement sous forme d'empreinte.
+- Droits : seuls les admins du foyer modifient ; protection du dernier admin.
+- Navigation Accueil / Mon foyer, messages de confirmation et d'erreur, messages de validation en français.
+- 23 tests automatisés (connexion Authentik simulée, assistant, foyer, invitations), lancés par le script de mise à jour avant toute migration.
+- Sauvegarde automatique de la base avant migration (dossier backups/, hors Git).
+
 ## v0.1.1 - 2026-09-28 - Correctif comptes
 
 - Correctif : l'e-mail n'est plus unique dans la table users. Un compte est identifié par son identifiant Authentik ; deux comptes Authentik partageant une adresse (ex. akadmin et un compte personnel) peuvent se connecter.

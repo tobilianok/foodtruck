@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.1.1 (étape 2 - socle en ligne, validation en cours)
+Version du document : v0.2.0 (étape 3 - Mon foyer livré, en attente de validation)
 Dernière mise à jour : 2026-09-28
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -22,8 +22,11 @@ Fonctionnel
 - Mutualisation des ingrédients dans la liste de courses (ex. 20 cl + 40 cl de lait = 1 bouteille de 1 L, une seule ligne).
 - Planning libre : on choisit les repas voulus, pas de grille obligatoire (imprévus, restaurant, invités).
 - Multi-foyers ; un seul foyer créé au départ.
+- Rattachement d'un compte à un foyer (décision v0.2.0) : l'admin du foyer génère un lien d'invitation à usage unique, valable 7 jours ; sans invitation, un compte crée son propre foyer via l'assistant. Un compte = un seul foyer ; il peut le quitter.
+- Droits sur le foyer (décision v0.2.0) : seuls les admins du foyer modifient réglages, membres, appareils, comptes et invitations ; les autres consultent. Le créateur du foyer en est admin ; le dernier admin ne peut ni partir ni être rétrogradé.
+- Deux niveaux de rôle : rôle applicatif (users.role admin/membre) et rôle dans le foyer (users.household_role admin/membre).
 - Composition du foyer paramétrable à la création du compte (assistant de première connexion). Coefficients : adulte 1, enfant 0,6, tout-petit 0 (modifiables).
-- Équipements de cuisine du foyer paramétrables : four, plaques, micro-ondes, air fryer, Companion Moulinex, Cookeo, yaourtière, robot pâtissier, mixeur/blender, machine à pain...
+- Équipements de cuisine du foyer paramétrables : liste commune de 14 appareils par défaut (four, plaques, micro-ondes, air fryer, Companion, Cookeo, yaourtière, robot pâtissier, blender, mixeur plongeant, machine à pain, autocuiseur, congélateur, barbecue/plancha), extensible par saisie libre (décision v0.2.0) ; chaque appareil a un slug qui servira aux recettes.
 - Magasins : Leclerc Drive, Carrefour, Grand Frais, Hyper U, Lidl, Morin Fruits et Légumes (primeur). Toutes les enseignes sont fréquentées.
 - Budget : 100 EUR par semaine, plafond ferme, calculé sur les ingrédients uniquement.
 - Priorité au fait maison pour remplacer l'industriel : goûters (barres de céréales gourmandes...), yaourts (yaourtière), bases (pâte à tarte, bouillon, pain...).
@@ -35,11 +38,12 @@ Fonctionnel
 ## Modèle de données
 
 Comptes et foyers
-- users : authentik_sub (identifiant unique), username, email (non unique), nom affiché, rôle (admin/membre), dernière connexion, foyer (v0.2.0)
-- households : nom, budget hebdo (10000 centimes par défaut), magasin principal, onboarding terminé
-- household_members : nom, catégorie (adulte/enfant/tout-petit), coefficient de portion, lié ou non à un compte
-- equipment : référentiel des appareils (four, air fryer, Companion, Cookeo, yaourtière...)
+- users : authentik_sub (identifiant unique), username, email (non unique), nom affiché, rôle applicatif (admin/membre), dernière connexion, household_id, household_role (admin/membre)
+- households : nom, budget hebdo en centimes (10000 par défaut), créateur ; magasin principal ajouté en v0.3.0
+- household_members : nom, catégorie (adulte/enfant/tout-petit), coefficient de portion (décimal 0 à 2), compte lié optionnel (un compte = une fiche au plus), position
+- equipment : liste commune des appareils (nom, slug unique, par défaut ou ajouté, créé par)
 - household_equipment : appareils dont dispose le foyer
+- household_invitations : foyer, empreinte SHA-256 du jeton (jamais le jeton en clair), créée par, expiration, utilisée le / par
 
 Référentiel
 - units : g, kg, ml, cl, dl, l, c. à soupe (15 ml), c. à café (5 ml), pièce, pot... avec dimension (masse/volume/pièce) et facteur vers l'unité de base
@@ -91,8 +95,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 ## Feuille de route (validation à chaque étape)
 
 1. Cadrage et modèle de données - VALIDÉ (v0.0.2)
-2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0, correctif v0.1.1) - EN LIGNE, validation en cours
-3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles (v0.2.0)
+2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0, correctif v0.1.1) - VALIDÉ le 2026-09-28
+3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles, invitations (v0.2.0) - LIVRÉ, en attente de validation
 4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0)
 5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0)
 6. Affichage d'une recette proratisée (v0.5.0)
@@ -109,8 +113,10 @@ Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé 
 - v0.0.1 : cadrage rédigé.
 - v0.0.2 : cadrage validé, reconnaissance de la VM (lecture seule).
 - v0.1.0 : socle installé sur la VM et en ligne (https://foodtruck.louisrousseaux.fr), connexion Authentik fonctionnelle.
-- v0.1.1 : correctif - e-mail non unique (deux comptes Authentik avec la même adresse bloquaient la connexion) + commandes de gestion des comptes. Validation du socle en cours.
+- v0.1.1 : correctif - e-mail non unique (deux comptes Authentik avec la même adresse bloquaient la connexion) + commandes de gestion des comptes. Appliqué sur la VM ; v0.1.0 et v0.1.1 poussées sur GitHub (tags). Compte Tobilianok admin, compte akadmin retiré de Foodtruck.
+- Socle validé par Louis le 2026-09-28 : groupe foodtruck lié à l'application dans Authentik (accès réservé au groupe), déconnexion testée.
+- v0.2.0 : Mon foyer livré - assistant de création (nom, budget, membres et coefficients, appareils), page Mon foyer (réglages, membres, appareils, comptes, invitations), invitations à usage unique, messages de validation en français, 23 tests automatisés exécutés par le script de mise à jour.
 
 ## Questions ouvertes
 
-Aucune bloquante. À traiter en v0.2.0 : nom du foyer, composition exacte, appareils possédés (saisis dans l'assistant).
+Aucune bloquante. Pour la v0.3.0 (référentiel) : magasin principal du foyer, liste des rayons et leur ordre par magasin (Louis pourra la corriger).

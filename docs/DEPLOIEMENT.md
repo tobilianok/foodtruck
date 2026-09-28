@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-28 (v0.1.1)
+Dernière mise à jour : 2026-09-29 (v0.2.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -36,6 +36,7 @@ Dernière mise à jour : 2026-09-28 (v0.1.1)
     ├── docker/php         Dockerfile + php.ini
     ├── docker/nginx       default.conf
     ├── data/mariadb       données (hors Git)
+    ├── backups            sauvegardes SQL avant migration (hors Git)
     ├── docs               CADRAGE, DEPLOIEMENT, CHANGELOG
     └── src                application Laravel (src/.env hors Git)
 
@@ -50,8 +51,8 @@ Authentik (application + fournisseur OAuth2/OpenID) :
 - Clé de signature : authentik Self-signed Certificate ; scopes openid, email, profile
 - Grant types : Authorization Code et Refresh token uniquement
 - Émetteur : https://auth.louisrousseaux.fr/application/o/foodtruck/
-- Accès : liaison au groupe "foodtruck" (membres de la famille) - à faire
-- Comptes : akadmin réservé à l'administration d'Authentik ; compte personnel de Louis : Tobilianok
+- Accès : groupe "foodtruck" lié à l'application (seuls ses membres peuvent se connecter). Ajouter chaque nouveau compte familial à ce groupe.
+- Comptes : akadmin réservé à l'administration d'Authentik ; compte personnel de Louis : Tobilianok (admin Foodtruck depuis v0.1.1)
 
 Nginx Proxy Manager (hôte proxy) :
 - Domaine foodtruck.louisrousseaux.fr → http://foodtruck-web:80, Block Common Exploits, Websockets activé
@@ -67,6 +68,7 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan foodtruck:users        liste des comptes
     ./ft php artisan foodtruck:role louis admin      change un rôle (admin|membre)
     ./ft php artisan foodtruck:remove-user akadmin   supprime un compte Foodtruck
+    ./ft php artisan test                   tests automatisés (base SQLite en mémoire, sans toucher aux données)
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
     docker compose restart                  redémarrage
@@ -77,7 +79,14 @@ Journal Laravel : src/storage/logs/laravel-AAAA-MM-JJ.log
 
 Les comptes Foodtruck sont créés à la première connexion ; ils sont identifiés par leur identifiant Authentik (sub), l'e-mail n'est pas unique. Le compte akadmin d'Authentik n'est pas destiné à un usage quotidien.
 
+Chaque script de mise à jour : vérifie la version en place, les conteneurs et un dépôt Git propre ; sauvegarde la base dans backups/ ; écrit les fichiers ; lance les tests (en cas d'échec, restaure les fichiers via Git et s'arrête sans migrer) ; puis migre et contrôle.
+
 Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (ou ~/foodtruck-update-vX.Y.Z.sh), à coller puis exécuter sur la VM, suivi des commandes Git (commit, tag vX.Y.Z, push vers git@github.com:tobilianok/foodtruck.git).
+
+## État du dépôt
+
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 et v0.1.1.
+- Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes
 
