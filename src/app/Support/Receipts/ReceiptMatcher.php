@@ -27,7 +27,7 @@ class ReceiptMatcher
         'OEUF' => 'oeuf', 'OEUFS' => 'oeuf', 'POUL' => 'poulet', 'JAMB' => 'jambon', 'EMMENT' => 'emmental', 'EMMEN' => 'emmental',
         'LIQ' => 'liquide', 'FAR' => 'farine', 'HUIL' => 'huile', 'OLIV' => 'olive', 'CHAMPI' => 'champignon', 'CHAMP' => 'champignon',
         'STK' => 'steak', 'HACH' => 'hache', 'SUC' => 'sucre', 'CR' => 'creme', 'CRE' => 'creme', 'FRAICH' => 'fraiche',
-        'FLEURETTE' => 'liquide', 'EPAISSE' => 'epaisse fraiche', 'SPAGHETTI' => 'pate spaghetti', 'PENNE' => 'pate penne',
+        'FLEURETTE' => 'liquide', 'BUTTERNUT' => 'courge butternut', 'VIANDE' => 'boeuf', 'PDTS' => 'pomme terre', 'EPAISSE' => 'epaisse fraiche', 'SPAGHETTI' => 'pate spaghetti', 'PENNE' => 'pate penne',
         'TORTI' => 'pate', 'COQUILLETTES' => 'pate', 'FUSILLI' => 'pate', 'EMMENTAL' => 'emmental', 'RAPE' => 'rape',
     ];
 
@@ -39,7 +39,10 @@ class ReceiptMatcher
         'pot', 'filet', 'botte', 'les', 'des', 'aux', 'avec', 'sans', 'pour', 'the', 'and',
     ];
 
-    private const STOPWORDS = ['de', 'du', 'des', 'la', 'le', 'les', 'en', 'au', 'aux', 'et', 'pour', 'a', 'd', 'l', 'a'];
+    private const STOPWORDS = ['de', 'du', 'des', 'la', 'le', 'les', 'en', 'au', 'aux', 'et', 'pour', 'a', 'd', 'l'];
+
+    /** Mots accentués à ne pas confondre une fois les accents retirés (pâté ≠ pâtes). */
+    private const ACCENTED = ['pâtés' => 'terrine', 'pâté' => 'terrine'];
 
     public const MIN_SCORE = 0.66;
 
@@ -50,14 +53,14 @@ class ReceiptMatcher
     {
         $ingredients ??= Ingredient::with('packs')->get();
 
-        $this->index = $ingredients->map(fn (Ingredient $i) => [
-            'ingredient' => $i,
-            'tokens' => $this->ingredientTokens($i->name),
-        ])->filter(fn ($row) => $row['tokens'] !== [])->values();
+        // Un nom comme « Prune, quetsche » ou « Salade (laitue, batavia) » donne plusieurs variantes reconnaissables.
+        $this->index = $ingredients->flatMap(fn (Ingredient $i) => collect($this->nameVariants($i->name))
+            ->map(fn (string $variant) => ['ingredient' => $i, 'tokens' => $this->ingredientTokens($variant)]))
+            ->filter(fn ($row) => $row['tokens'] !== [])->values();
     }
 
-    /** @return array{status: string, pack: ?IngredientPack} */
-    public function match(string $normalized, ?int $storeId, bool $weighted): array
+    /** @return array{status: string, pack: ?IngredientPack, ingredient?: ?Ingredient} */
+    public function match(string $normalized, ?int $storeId, bool $weighted, ?string $raw = null): array
     {
         if ($storeId !== null) {
             $alias = ReceiptAlias::with('pack.ingredient')->where('store_id', $storeId)->where('normalized_label', $normalized)->first();
@@ -74,12 +77,15 @@ class ReceiptMatcher
             return ['status' => ReceiptLine::STATUS_SUGGESTED, 'pack' => $elsewhere->pack];
         }
 
-        $ingredient = $this->bestIngredient($normalized);
+        $ingredient = $this->bestIngredient($this->protectAccents($normalized, $raw));
         if ($ingredient) {
-            $pack = $this->choosePack($ingredient, $normalized, $weighted);
-            if ($pack) {
-                return ['status' => ReceiptLine::STATUS_SUGGESTED, 'pack' => $pack];
-            }
+            // Quantité lue absente du référentiel (« Oeufs x30 ») : on propose l'ingrédient,
+            // le conditionnement sera créé à la validation.
+            $quantity = $weighted ? null : self::labelQuantity($normalized, $ingredient);
+            $exact = $quantity === null || $ingredient->packs->contains(fn ($p) => abs($p->quantity - $quantity) <= $p->quantity * 0.02);
+            $pack = $exact ? $this->choosePack($ingredient, $normalized, $weighted) : null;
+
+            return ['status' => ReceiptLine::STATUS_SUGGESTED, 'pack' => $pack, 'ingredient' => $ingredient];
         }
 
         return ['status' => ReceiptLine::STATUS_UNKNOWN, 'pack' => null];
@@ -110,7 +116,8 @@ class ReceiptMatcher
                 continue;
             }
 
-            $rank = [$score, $matched, count($row['tokens'])];
+            // Le plus de mots reconnus d'abord (« Tomates pelées » → tomates pelées en conserve, pas tomate)
+            $rank = [$matched, $score, count($row['tokens'])];
             if ($best === null || $rank > $best['rank']) {
                 $best = ['rank' => $rank, 'ingredient' => $row['ingredient']];
             }
@@ -180,10 +187,40 @@ class ReceiptMatcher
         }
     }
 
+    /** « Pâtes (spaghetti, penne…) » → [« Pâtes », « spaghetti », « penne »] */
+    private function nameVariants(string $name): array
+    {
+        $main = trim(preg_replace('/\(.*?\)/u', ' ', $name));
+        $variants = array_merge([$main], preg_split('/\s*,\s*/u', $main));
+
+        if (preg_match('/\((.*?)\)/u', $name, $m)) {
+            $variants = array_merge($variants, preg_split('/\s*,\s*/u', str_replace('…', '', $m[1])));
+        }
+
+        return array_values(array_unique(array_filter(array_map('trim', $variants))));
+    }
+
+    /** Remplace les mots accentués ambigus du libellé d'origine avant comparaison. */
+    private function protectAccents(string $normalized, ?string $raw): string
+    {
+        if ($raw === null) {
+            return $normalized;
+        }
+
+        $lower = mb_strtolower($raw);
+        foreach (self::ACCENTED as $word => $replacement) {
+            if (preg_match('/(?<!\pL)'.preg_quote($word, '/').'(?!\pL)/u', $lower)) {
+                $normalized = preg_replace('/\bPATES?\b/', strtoupper($replacement), $normalized);
+            }
+        }
+
+        return $normalized;
+    }
+
     /** @return array<int, string> */
     private function ingredientTokens(string $name): array
     {
-        $words = explode(' ', Str::slug($name, ' '));
+        $words = explode(' ', Str::slug(str_replace(["'", '’'], ' ', $name), ' '));
 
         return array_values(array_unique(array_filter(array_map(
             fn ($w) => $this->singular($w),

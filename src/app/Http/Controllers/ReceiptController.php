@@ -87,7 +87,7 @@ class ReceiptController extends Controller
     public function show(Request $request, Receipt $receipt)
     {
         $this->authorizeReceipt($request, $receipt);
-        $receipt->load(['store', 'lines.pack.ingredient', 'lines.price', 'household', 'processor']);
+        $receipt->load(['store', 'lines.pack.ingredient', 'lines.ingredient', 'lines.price', 'household', 'processor']);
 
         return view('receipts.show', [
             'receipt' => $receipt,

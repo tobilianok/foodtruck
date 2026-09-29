@@ -196,4 +196,19 @@ Artisan::command('foodtruck:tickets', function (ReceiptSync $sync) {
     return $failed ? 1 : 0;
 })->purpose('Synchronise les tickets de caisse depuis Paperless');
 
+/*
+ * ./ft php artisan foodtruck:reparse
+ * Relit les tickets encore « à valider » avec le lecteur à jour (après une mise à jour des règles).
+ */
+Artisan::command('foodtruck:reparse', function (\App\Support\Receipts\ReceiptProcessor $processor) {
+    $receipts = \App\Models\Receipt::where('status', \App\Models\Receipt::STATUS_TO_REVIEW)->get();
+
+    foreach ($receipts as $receipt) {
+        $receipt->total_cents = null;
+        $processor->ingest($receipt);
+    }
+
+    $this->info($receipts->count().' ticket(s) à valider relu(s).');
+})->purpose('Relit les tickets à valider avec les règles de lecture à jour');
+
 Schedule::command('foodtruck:tickets')->hourly()->withoutOverlapping(30);

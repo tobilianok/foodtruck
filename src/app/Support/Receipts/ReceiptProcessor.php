@@ -42,8 +42,14 @@ class ReceiptProcessor
             foreach ($parsed['lines'] as $i => $line) {
                 $normalized = ReceiptParser::normalize($line['label']);
                 $match = $line['kind'] === 'produit'
-                    ? $this->matcher()->match($normalized, $receipt->store_id, $line['quantity_unit'] === 'kg')
+                    ? $this->matcher()->match($normalized, $receipt->store_id, $line['quantity_unit'] === 'kg', $line['label'])
                     : ['status' => ReceiptLine::STATUS_IGNORED, 'pack' => null];
+
+                // TVA à 20 % : produit d'entretien, hygiène, alcool… ignoré sauf libellé déjà associé
+                $vat = $line['vat_rate'] ?? null;
+                if ($vat !== null && $vat >= ReceiptLine::NON_FOOD_VAT && $match['status'] !== ReceiptLine::STATUS_KNOWN) {
+                    $match = ['status' => ReceiptLine::STATUS_IGNORED, 'pack' => null];
+                }
 
                 $receipt->lines()->create([
                     'position' => ($i + 1) * 10,
@@ -55,7 +61,9 @@ class ReceiptProcessor
                     'unit_price_cents' => $line['unit_price_cents'],
                     'total_cents' => $line['total_cents'],
                     'discount_cents' => $line['discount_cents'],
+                    'vat_rate' => $vat,
                     'status' => $match['status'],
+                    'ingredient_id' => ($match['ingredient'] ?? $match['pack']?->ingredient)?->id,
                     'ingredient_pack_id' => $match['pack']?->id,
                 ]);
             }

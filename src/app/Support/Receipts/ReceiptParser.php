@@ -27,23 +27,24 @@ class ReceiptParser
         'SOUS TOTAL', 'SOUS-TOTAL', 'S/TOTAL', 'STOTAL', 'TVA', 'T.V.A', 'HT', 'TTC', 'BASE', 'TAUX', 'CB', 'CARTE BANCAIRE',
         'CARTE BLEUE', 'CARTE CB', 'CARTE FIDELITE', 'VISA', 'MASTERCARD', 'ESPECES', 'ESP', 'RENDU', 'MONNAIE', 'PAIEMENT',
         'REGLEMENT', 'TICKET', 'CAISSE', 'CAISSIER', 'CAISSIERE', 'HOTE', 'HOTESSE', 'MERCI', 'FIDELITE', 'CAGNOTTE', 'POINTS', 'SOLDE',
-        'NB ARTICLE', 'NB ARTICLES', 'NBRE ARTICLES', 'NOMBRE D', 'ARTICLES', 'SIRET', 'SIREN', 'TEL', 'TEL.', 'TELEPHONE', 'WWW', 'HTTP',
+        'NB ARTICLE', 'NB ARTICLES', 'NBRE ARTICLES', 'NOMBRE DE LIGNES', 'NOMBRE D ARTICLES', 'NOMBRE ARTICLES', 'ARTICLES', 'ARTICLE', 'SIRET', 'SIREN', 'TEL', 'TEL.', 'TELEPHONE', 'WWW', 'HTTP',
         'BIENVENUE', 'AU REVOIR', 'A BIENTOT', 'DATE', 'HEURE', 'TRANSACTION', 'AUTORISATION', 'DEBIT', 'CREDIT', 'SANS CONTACT',
         'CONTACTLESS', 'REPARTITION', 'MAGASIN', 'COMMANDE', 'FACTURE', 'CLIENT', 'VENDEUR', 'OPERATEUR', 'A CONSERVER', 'CONSERVEZ',
         'ECONOMIE', 'ECONOMIES', 'VOUS AVEZ', 'DONT', 'MONTANT TVA', 'EUR', 'EURO', 'EUROS',
     ];
 
     /** Lignes de total (fin de la liste des articles). */
-    private const TOTAL = '/^(TOTAL(?! REMISE)(\s+TTC|\s+A PAYER|\s+EUR)?|NET A PAYER|A PAYER|MONTANT (A PAYER|DU|TOTAL)|TOTAL CB)\b/';
+    private const TOTAL = '/^(TOTAL(?! (REMISE|PROMO|ELIGIBLE|ECONOMI|HT|TVA))(\s+TTC|\s+A PAYER|\s+EUR)?|NET A PAYER|A PAYER|MONTANT (A PAYER|DU|TOTAL)|TOTAL CB)\b/';
 
     /** Lignes de remise (en tête de libellé ; un montant négatif suffit aussi). */
     private const DISCOUNT = '/^(REMISE|REDUC|REDUCTION|PROMO|COUPON|BON D.?ACHAT|AVANTAGE|RABAIS|ANNUL|OFFRE)/';
 
     /**
-     * @return array{lines: array<int, array{kind: string, label: string, quantity: float, quantity_unit: string, unit_price_cents: ?int, total_cents: int, discount_cents: int}>, total_cents: ?int, date: ?string}
+     * @return array{lines: array<int, array{kind: string, label: string, quantity: float, quantity_unit: string, unit_price_cents: ?int, total_cents: int, discount_cents: int, vat_rate: ?float}>, total_cents: ?int, date: ?string}
      */
     public function parse(string $text): array
     {
+        $vatRates = $this->vatTable($text);
         $items = [];
         $total = null;
         $pendingQuantity = null;
@@ -76,7 +77,14 @@ class ReceiptParser
             if ($quantity !== null && $price !== null && $price[1] < $quantity[2]) {
                 $price = null;
             }
-            $label = $this->label($line, $weight, $quantity, $price);
+            // Colonnes « P.U. Qté Total » (Lidl…) : « Kiwi jaune pièce   0,89  4   3,56 A T »
+            $columns = $weight === null && $quantity === null && $price !== null ? $this->columns($line, $price) : null;
+            if ($columns !== null) {
+                $quantity = [$columns[0], $columns[1], $price[1]];
+                $label = $this->label(substr($line, 0, $columns[2]), null, null, null);
+            } else {
+                $label = $this->label($line, $weight, $quantity, $price);
+            }
             $hasLabel = preg_match_all('/\pL/u', $label) >= 2;
 
             // Ligne sans libellé : quantité ou poids qui complète l'article voisin
@@ -113,6 +121,7 @@ class ReceiptParser
             }
 
             $item = $this->item('produit', $label, 1, 'piece', null, $price[0] ?? null);
+            $item['vat_rate'] = isset($price[2]) ? ($vatRates[$price[2]] ?? null) : null;
             $this->applyDetails($item, $weight, $quantity, $price);
 
             if ($pendingQuantity !== null) {
@@ -156,6 +165,7 @@ class ReceiptParser
             'unit_price_cents' => $unitPrice,
             'total_cents' => $total,
             'discount_cents' => 0,
+            'vat_rate' => null,
         ];
     }
 
@@ -203,14 +213,51 @@ class ReceiptParser
         return null;
     }
 
-    /** Dernier montant de la ligne, éventuellement suivi de « € » et d'un code TVA. @return array{0: int, 1: int}|null [centimes, position] */
+    /**
+     * Dernier montant de la ligne, éventuellement suivi de « € » et de codes (TVA « A », « B »… ; « T » titre-restaurant).
+     * @return array{0: int, 1: int, 2: ?string}|null [centimes, position, code TVA]
+     */
     private function trailingPrice(string $line): ?array
     {
-        if (preg_match('/(?<![\d,.\/])('.self::PRICE.')\s*(?:€|eur|euros?)?\s*(?:[A-D]|[1-4]|\*|T\d?)?\s*$/iu', $line, $m, PREG_OFFSET_CAPTURE)) {
-            return [$this->cents($m[1][0]), $m[1][1]];
+        if (preg_match('/(?<![\d,.\/])('.self::PRICE.')\s*(?:€|eur|euros?)?((?:\s*\b(?:[A-D]|T\d?|\*))*)\s*$/iu', $line, $m, PREG_OFFSET_CAPTURE)) {
+            $code = preg_match('/\b([A-D])\b/i', $m[2][0], $c) ? strtoupper($c[1]) : null;
+
+            return [$this->cents($m[1][0]), $m[1][1], $code];
         }
 
         return null;
+    }
+
+    /**
+     * Colonnes prix unitaire + quantité juste avant le total, si elles sont cohérentes avec lui.
+     * @return array{0: float, 1: int, 2: int}|null [quantité, prix unitaire, position de début]
+     */
+    private function columns(string $line, array $price): ?array
+    {
+        $before = substr($line, 0, $price[1]);
+
+        if (preg_match('/(?<![\d,.])(\d{1,4}[,.]\d{2})\s+(\d{1,3})\s*$/', $before, $m, PREG_OFFSET_CAPTURE)) {
+            $unit = $this->cents($m[1][0]);
+            $count = (int) $m[2][0];
+            if ($count > 0 && abs($unit * $count - $price[0]) <= 2) {
+                return [(float) $count, $unit, $m[0][1]];
+            }
+        }
+
+        return null;
+    }
+
+    /** Tableau de TVA du ticket : « A 5,5% », « B 20% » → taux par code. @return array<string, float> */
+    private function vatTable(string $text): array
+    {
+        preg_match_all('/^\s*([A-D])\s+(\d{1,2}(?:[,.]\d{1,2})?)\s*%/mi', $text, $m, PREG_SET_ORDER);
+
+        $rates = [];
+        foreach ($m as $row) {
+            $rates[strtoupper($row[1])] ??= (float) str_replace(',', '.', $row[2]);
+        }
+
+        return $rates;
     }
 
     private function label(string $line, ?array $weight, ?array $quantity, ?array $price): string
@@ -253,20 +300,24 @@ class ReceiptParser
         return Str::upper(Str::ascii($value));
     }
 
+    /** Première date plausible du ticket (les codes du type « 522183/04/11/02 » sont écartés). */
     private function date(string $text): ?string
     {
-        if (! preg_match('/\b(\d{2})[\/.\-](\d{2})[\/.\-](\d{4}|\d{2})\b/', $text, $m)) {
-            return null;
+        preg_match_all('/(?<![\d\/])(\d{2})[\/.\-](\d{2})[\/.\-](\d{4}|\d{2})(?![\d\/])/', $text, $matches, PREG_SET_ORDER);
+
+        foreach ($matches as $m) {
+            $year = strlen($m[3]) === 2 ? 2000 + (int) $m[3] : (int) $m[3];
+            if (! checkdate((int) $m[2], (int) $m[1], $year) || $year < 2020) {
+                continue;
+            }
+
+            $date = Carbon::create($year, (int) $m[2], (int) $m[1]);
+            if (! $date->isFuture()) {
+                return $date->toDateString();
+            }
         }
 
-        $year = strlen($m[3]) === 2 ? 2000 + (int) $m[3] : (int) $m[3];
-        if (! checkdate((int) $m[2], (int) $m[1], $year) || $year < 2020) {
-            return null;
-        }
-
-        $date = Carbon::create($year, (int) $m[2], (int) $m[1]);
-
-        return $date->isFuture() ? null : $date->toDateString();
+        return null;
     }
 
     private function number(string $value): float

@@ -75,7 +75,7 @@
                         @continue
                     @endif
                     @php
-                        $current = $line->pack ? \App\Http\Controllers\ReceiptController::packChoiceLabel($line->pack) : '';
+                        $current = $line->pack ? \App\Http\Controllers\ReceiptController::packChoiceLabel($line->pack) : ($line->ingredient?->name ?? '');
                         $action = $line->status === 'ignore' ? 'ignorer' : 'associer';
                     @endphp
                     <div @class(['receipt-line', 'is-muted' => $line->status === 'ignore'])>
@@ -102,6 +102,12 @@
                                     @case('applique') <span class="badge-season">prix enregistré</span> @break
                                     @case('ignore') <span class="badge-off">ignoré</span> @break
                                 @endswitch
+                                @if ($line->status === 'propose' && ! $line->pack && $line->ingredient)
+                                    <span class="muted small">quantité du ticket absente du référentiel : le conditionnement sera créé</span>
+                                @endif
+                                @if ($line->isNonFoodVat())
+                                    <span class="tag" title="Taux de TVA des produits non alimentaires (entretien, hygiène, alcool…)">TVA {{ rtrim(rtrim(number_format($line->vat_rate, 2, ',', ''), '0'), ',') }} %</span>
+                                @endif
                                 @if ($line->pack_price_cents && $line->pack)
                                     <span class="muted small">→ {{ \App\Models\Price::formatCents($line->pack_price_cents) }} le conditionnement « {{ $line->pack->label }} »</span>
                                 @endif

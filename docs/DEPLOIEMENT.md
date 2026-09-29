@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.5.0)
+Dernière mise à jour : 2026-09-29 (v0.5.1)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -73,6 +73,7 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan foodtruck:reference    importe les ingrédients de départ manquants (n'écrase rien)
     ./ft php artisan foodtruck:recipes      importe les recettes de départ manquantes (n'écrase rien)
     ./ft php artisan foodtruck:tickets      synchronise les tickets Paperless maintenant
+    ./ft php artisan foodtruck:reparse      relit les tickets à valider avec les règles de lecture à jour
     docker compose logs -f scheduler        journal des tâches planifiées
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env

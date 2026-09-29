@@ -23,8 +23,11 @@ class ReceiptLine extends Model
 
     protected $fillable = [
         'receipt_id', 'position', 'kind', 'raw_label', 'normalized_label', 'quantity', 'quantity_unit',
-        'unit_price_cents', 'total_cents', 'discount_cents', 'status', 'ingredient_pack_id', 'pack_price_cents', 'price_id',
+        'unit_price_cents', 'total_cents', 'discount_cents', 'vat_rate', 'status', 'ingredient_id', 'ingredient_pack_id', 'pack_price_cents', 'price_id',
     ];
+
+    /** Taux de TVA à partir duquel une ligne est présumée non alimentaire (produits d'entretien, alcool…). */
+    public const NON_FOOD_VAT = 19.0;
 
     protected function casts(): array
     {
@@ -34,6 +37,7 @@ class ReceiptLine extends Model
             'total_cents' => 'integer',
             'discount_cents' => 'integer',
             'pack_price_cents' => 'integer',
+            'vat_rate' => 'float',
         ];
     }
 
@@ -45,6 +49,17 @@ class ReceiptLine extends Model
     public function pack(): BelongsTo
     {
         return $this->belongsTo(IngredientPack::class, 'ingredient_pack_id');
+    }
+
+    /** Ingrédient proposé sans conditionnement (quantité du ticket absente du référentiel). */
+    public function ingredient(): BelongsTo
+    {
+        return $this->belongsTo(Ingredient::class);
+    }
+
+    public function isNonFoodVat(): bool
+    {
+        return $this->vat_rate !== null && $this->vat_rate >= self::NON_FOOD_VAT;
     }
 
     public function price(): BelongsTo

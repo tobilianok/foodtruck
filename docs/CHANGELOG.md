@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.5.1 - 2026-09-29 - Lecteur ajusté aux tickets Lidl
+
+- Format Lidl Plus : colonnes prix unitaire / quantité / total, codes « A T » et « B », pesées, remises Lidl Plus, « Prix en baisse », « Rabais », « Rem LPM », tableau de TVA, date du ticket (codes numériques écartés). Validé sur 5 vrais tickets : la somme des lignes retombe exactement sur « A payer ».
+- Lignes à TVA 20 % (entretien, hygiène, alcool) ignorées d'office, avec un badge « TVA 20 % ».
+- Rapprochement : variantes des noms d'ingrédients, priorité au plus grand nombre de mots reconnus, pâté ≠ pâtes, apostrophes (« Huile d'olive »), nouvelles abréviations (butternut, viande hachée).
+- Quantité absente du référentiel (« Oeufs x30 ») : ingrédient proposé, conditionnement « 30 pièces (ticket) » créé à la validation.
+- Nouvelle commande foodtruck:reparse : relit les tickets à valider avec les règles à jour (lancée par le script de mise à jour).
+- 69 tests automatisés.
+
 ## v0.5.0 - 2026-09-29 - Tickets de caisse et Paperless
 
 - Connexion à Paperless-ngx par foyer (Mon foyer, admins) : adresse, jeton d'API chiffré, étiquette ; test de connexion à l'enregistrement.
