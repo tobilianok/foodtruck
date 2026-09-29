@@ -19,6 +19,15 @@ class PaperlessClient
     {
     }
 
+    /** Jeton tel qu'il a pu être collé : « Token abc… », espaces, retour à la ligne. */
+    public static function cleanToken(?string $token): ?string
+    {
+        $token = preg_replace('/^\s*(?:Authorization\s*:\s*)?Token\s+/i', '', (string) $token);
+        $token = preg_replace('/\s+/u', '', $token);
+
+        return $token === '' ? null : $token;
+    }
+
     public static function for(Household $household): self
     {
         if (! $household->hasPaperless()) {
@@ -83,8 +92,22 @@ class PaperlessClient
             throw new RuntimeException('Paperless injoignable : '.Str::limit($e->getMessage(), 160));
         }
 
-        if ($response->status() === 401 || $response->status() === 403) {
-            throw new RuntimeException('Paperless refuse l\'accès : jeton invalide ou droits insuffisants.');
+        if ($response->status() === 401) {
+            throw new RuntimeException('Paperless refuse le jeton : il est invalide ou a été supprimé (recrée-le avec drf_create_token).');
+        }
+
+        if ($response->status() === 403) {
+            $what = match (true) {
+                str_starts_with($path, '/api/tags') => 'les étiquettes',
+                str_starts_with($path, '/api/correspondents') => 'les correspondants',
+                default => 'les documents',
+            };
+
+            throw new RuntimeException("Le compte Paperless n'a pas le droit d'afficher {$what} : donne-lui la permission « Afficher » correspondante.");
+        }
+
+        if ($response->status() === 302 || $response->redirect()) {
+            throw new RuntimeException('Paperless redirige vers sa page de connexion : vérifie l\'adresse (http://IP:port, sans passer par le portail Authentik).');
         }
 
         if (! $response->successful() || ! is_array($response->json())) {
@@ -96,7 +119,7 @@ class PaperlessClient
 
     private function http(): PendingRequest
     {
-        return Http::timeout(20)->connectTimeout(5)->acceptJson()
+        return Http::timeout(20)->connectTimeout(5)->acceptJson()->withoutRedirecting()
             ->withHeaders(['Authorization' => 'Token '.$this->token]);
     }
 }

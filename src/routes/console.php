@@ -197,18 +197,23 @@ Artisan::command('foodtruck:tickets', function (ReceiptSync $sync) {
 })->purpose('Synchronise les tickets de caisse depuis Paperless');
 
 /*
- * ./ft php artisan foodtruck:reparse
+ * ./ft php artisan foodtruck:reparse [--tout]
  * Relit les tickets encore « à valider » avec le lecteur à jour (après une mise à jour des règles).
+ * --tout : relit aussi les tickets traités (les libellés déjà validés restent reconnus, les prix ne sont pas dupliqués).
  */
-Artisan::command('foodtruck:reparse', function (\App\Support\Receipts\ReceiptProcessor $processor) {
-    $receipts = \App\Models\Receipt::where('status', \App\Models\Receipt::STATUS_TO_REVIEW)->get();
+Artisan::command('foodtruck:reparse {--tout : relire aussi les tickets déjà traités}', function (\App\Support\Receipts\ReceiptProcessor $processor) {
+    $statuses = $this->option('tout')
+        ? [\App\Models\Receipt::STATUS_TO_REVIEW, \App\Models\Receipt::STATUS_DONE]
+        : [\App\Models\Receipt::STATUS_TO_REVIEW];
+    $receipts = \App\Models\Receipt::whereIn('status', $statuses)->get();
 
     foreach ($receipts as $receipt) {
         $receipt->total_cents = null;
         $processor->ingest($receipt);
     }
 
-    $this->info($receipts->count().' ticket(s) à valider relu(s).');
-})->purpose('Relit les tickets à valider avec les règles de lecture à jour');
+    $done = $receipts->filter(fn ($r) => $r->fresh()->status === \App\Models\Receipt::STATUS_DONE)->count();
+    $this->info($receipts->count().' ticket(s) relu(s) : '.$done.' entièrement reconnu(s), '.($receipts->count() - $done).' à valider.');
+})->purpose('Relit les tickets avec les règles de lecture à jour');
 
 Schedule::command('foodtruck:tickets')->hourly()->withoutOverlapping(30);

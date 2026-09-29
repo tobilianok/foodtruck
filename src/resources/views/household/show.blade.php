@@ -175,8 +175,16 @@
                     <input type="text" name="paperless_tag" value="{{ old('paperless_tag', $household->paperlessTag()) }}" maxlength="80">
                 </label>
                 <label class="field span-2">
-                    <span>Jeton d'API {{ $household->paperless_token ? '(enregistré, laisser vide pour le conserver)' : '' }}</span>
-                    <input type="password" name="paperless_token" value="" autocomplete="new-password" placeholder="{{ $household->paperless_token ? '••••••••••••' : 'jeton du compte Paperless dédié' }}">
+                    <span>Jeton d'API</span>
+                    {{-- Champ texte masqué (pas un mot de passe) : les gestionnaires de mots de passe ne le remplissent pas --}}
+                    <input type="text" name="paperless_token" value="" class="mono secret-field" autocomplete="off" autocapitalize="off" spellcheck="false"
+                           data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" maxlength="200"
+                           placeholder="{{ $household->paperless_token ? 'laisser vide pour conserver le jeton enregistré' : 'colle ici les 40 caractères du jeton' }}">
+                    @if ($household->paperless_token)
+                        <small>Jeton enregistré, se termine par « …{{ \Illuminate\Support\Str::substr($household->paperless_token, -6) }} ».</small>
+                    @else
+                        <small>Uniquement le jeton : « Token » devant ou des espaces sont retirés automatiquement.</small>
+                    @endif
                 </label>
                 <div class="actions span-2">
                     @if ($household->hasPaperless())

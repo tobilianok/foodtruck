@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.5.1)
+Dernière mise à jour : 2026-09-29 (v0.5.2)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -74,6 +74,7 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan foodtruck:recipes      importe les recettes de départ manquantes (n'écrase rien)
     ./ft php artisan foodtruck:tickets      synchronise les tickets Paperless maintenant
     ./ft php artisan foodtruck:reparse      relit les tickets à valider avec les règles de lecture à jour
+    ./ft php artisan foodtruck:reparse --tout   relit aussi les tickets traités (sans doubler les prix)
     docker compose logs -f scheduler        journal des tâches planifiées
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
@@ -94,6 +95,34 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Paperless-ngx tourne sur la même VM (stack paperless, port 8010, LAN/Tailscale uniquement). Foodtruck l'appelle en http://192.168.1.14:8010 depuis ses conteneurs ; rien n'est modifié côté Paperless hormis le compte dédié.
 - Compte Paperless « foodtruck » : non administrateur, permissions « Afficher » sur Documents, Étiquettes et Correspondants ; jeton d'API créé pour lui. Un workflow Paperless (déclencheur : document ajouté ou mis à jour avec l'étiquette « courses alimentaires ») lui donne la permission de lecture sur ces documents.
 - Réglage dans Foodtruck : Mon foyer → « Tickets de caisse : Paperless » (adresse, jeton, étiquette). Le jeton est chiffré en base avec APP_KEY.
+- L'étiquette « courses alimentaires » appartient au compte tobilianok : foodtruck a reçu le droit « Afficher » dessus (sinon Foodtruck répond « étiquette introuvable »). Connexion vérifiée le 2026-09-29 (HTTP 302 sans jeton, API OK avec le jeton).
+- Le workflow ne s'applique qu'aux documents ajoutés ou modifiés après sa création. Pour des tickets déjà présents (ou si une modification en masse ne déclenche pas le workflow), relancer ce script, sans risque de doublon : il donne uniquement le droit « Afficher » à foodtruck sur l'étiquette, ses documents et leurs correspondants.
+
+      cd /opt/stacks/paperless && docker compose exec -T webserver python3 manage.py shell -c "
+      NOM = 'courses alimentaires'
+      from django.contrib.auth.models import User
+      from documents.models import Tag, Document, Correspondent
+      from guardian.shortcuts import assign_perm
+      u = User.objects.get(username='foodtruck')
+      t = Tag.objects.get(name__iexact=NOM)
+      assign_perm('view_tag', u, t)
+      docs = Document.objects.filter(tags=t)
+      for d in docs:
+          assign_perm('view_document', u, d)
+      cors = Correspondent.objects.filter(documents__in=docs).distinct()
+      for c in cors:
+          assign_perm('view_correspondent', u, c)
+      print('Etiquette :', t.name, '| tickets :', docs.count(), '| magasins :', ', '.join(c.name for c in cors))
+      "
+
+- Le magasin d'un ticket est déduit du correspondant Paperless, sinon du texte du ticket (LIDL, LECLERC…).
+- Connexion Paperless : compte foodtruck avec les permissions générales « Afficher » (Documents, Étiquettes, Correspondants) ET le droit sur chaque objet (workflow ou script ci-dessus). Diagnostic depuis le conteneur :
+
+      cd /opt/stacks/foodtruck && for p in documents tags correspondents; do printf '%-15s ' $p; ./ft curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Token LE_JETON" "http://192.168.1.14:8010/api/$p/?page_size=1"; done
+
+- Texte d'un document Paperless (pour ajuster le lecteur à une nouvelle enseigne) :
+
+      cd /opt/stacks/paperless && docker compose exec -T webserver python3 manage.py shell -c "from documents.models import Document; print(Document.objects.get(pk=ID).content)" 2>/dev/null > ~/paperless-ticket-ID.txt
 - Point d'attention (rapport d'infra) : le mot de passe admin de Paperless est à renforcer.
 
 ## Données de référence
@@ -105,7 +134,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 et v0.1.1.
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.5.1 (v0.5.1 installée et poussée le 2026-09-29) ; v0.5.2 livrée, à installer puis pousser.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

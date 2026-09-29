@@ -34,6 +34,8 @@ class ReceiptProcessor
         DB::transaction(function () use ($receipt, $parsed) {
             $receipt->total_cents ??= $parsed['total_cents'];
             $receipt->purchased_on ??= $parsed['date'];
+            $receipt->expected_lines = $parsed['expected_lines'] ?? null;
+            $receipt->unread_lines = ($parsed['unread'] ?? []) ?: null;
             $receipt->store_id ??= $this->guessStore($receipt->correspondent ?: $receipt->title ?: $receipt->raw_text)?->id;
             $receipt->status = Receipt::STATUS_TO_REVIEW;
             $receipt->save();
@@ -45,10 +47,21 @@ class ReceiptProcessor
                     ? $this->matcher()->match($normalized, $receipt->store_id, $line['quantity_unit'] === 'kg', $line['label'])
                     : ['status' => ReceiptLine::STATUS_IGNORED, 'pack' => null];
 
-                // TVA à 20 % : produit d'entretien, hygiène, alcool… ignoré sauf libellé déjà associé
+                // TVA à 20 % ou rubrique non alimentaire : entretien, hygiène, alcool… ignoré sauf libellé déjà associé
                 $vat = $line['vat_rate'] ?? null;
-                if ($vat !== null && $vat >= ReceiptLine::NON_FOOD_VAT && $match['status'] !== ReceiptLine::STATUS_KNOWN) {
+                $nonFood = ($line['non_food'] ?? false) || ($vat !== null && $vat >= ReceiptLine::NON_FOOD_VAT);
+                if ($nonFood && $match['status'] !== ReceiptLine::STATUS_KNOWN) {
                     $match = ['status' => ReceiptLine::STATUS_IGNORED, 'pack' => null];
+                }
+
+                // Pesée illisible : aucun prix au kilo ne peut en être tiré
+                if ($line['quantity_unit'] === 'kg' && $line['quantity'] <= 0) {
+                    $match = ['status' => ReceiptLine::STATUS_IGNORED, 'pack' => $match['pack'] ?? null, 'ingredient' => $match['ingredient'] ?? null];
+                }
+
+                // Lecture incertaine (ticket peu lisible, montant déduit) : jamais appliquée sans confirmation
+                if (($line['uncertain'] ?? false) && $match['status'] === ReceiptLine::STATUS_KNOWN) {
+                    $match['status'] = ReceiptLine::STATUS_SUGGESTED;
                 }
 
                 $receipt->lines()->create([
@@ -62,6 +75,9 @@ class ReceiptProcessor
                     'total_cents' => $line['total_cents'],
                     'discount_cents' => $line['discount_cents'],
                     'vat_rate' => $vat,
+                    'note' => isset($line['note']) ? mb_substr($line['note'], 0, 120) : null,
+                    'non_food' => (bool) ($line['non_food'] ?? false),
+                    'section' => isset($line['section']) ? mb_substr($line['section'], 0, 60) : null,
                     'status' => $match['status'],
                     'ingredient_id' => ($match['ingredient'] ?? $match['pack']?->ingredient)?->id,
                     'ingredient_pack_id' => $match['pack']?->id,
@@ -114,6 +130,11 @@ class ReceiptProcessor
                 }
 
                 $cents = self::packPrice($line, $line->pack);
+                if ($line->hasUnknownWeight()) {
+                    $line->forceFill(['status' => ReceiptLine::STATUS_IGNORED])->save();
+
+                    continue;
+                }
                 if ($cents === null || $cents <= 0 || $cents > 100000) {
                     continue;
                 }
@@ -123,12 +144,15 @@ class ReceiptProcessor
                     'store_id' => $receipt->store_id,
                     'price_cents' => $cents,
                     'source' => 'ticket',
-                    'is_promo' => $line->discount_cents > 0,
+                    'is_promo' => $line->discount_cents > 0 || str_starts_with((string) $line->note, 'anti-gaspi'),
                     'observed_on' => $receipt->purchased_on,
                     'created_by' => $user?->id,
                 ];
 
+                // Ticket relu : le prix déjà relevé ce jour-là pour ce conditionnement est mis à jour, pas dupliqué
                 $price = $line->price_id ? Price::find($line->price_id) : null;
+                $price ??= Price::where('ingredient_pack_id', $line->pack->id)->where('store_id', $receipt->store_id)
+                    ->where('source', 'ticket')->whereDate('observed_on', $receipt->purchased_on)->first();
                 if ($price) {
                     $price->update($values);
                 } else {

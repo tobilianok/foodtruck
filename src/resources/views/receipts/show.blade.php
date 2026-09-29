@@ -13,10 +13,19 @@
         <h1>{{ $receipt->store?->name ?? $receipt->correspondent ?? 'Ticket' }} <span class="muted">{{ $receipt->purchased_on?->format('d/m/Y') }}</span></h1>
         <p class="lead">
             {{ $products->count() }} article{{ $products->count() > 1 ? 's' : '' }} lu{{ $products->count() > 1 ? 's' : '' }}
+            @if ($receipt->expected_lines) sur {{ $receipt->expected_lines }} annoncé{{ $receipt->expected_lines > 1 ? 's' : '' }} @endif
             · {{ \App\Models\Price::formatCents($linesTotal) }}
             @if ($receipt->total_cents !== null) sur un total de {{ \App\Models\Price::formatCents($receipt->total_cents) }} @endif
             · <span @class(['badge-warn' => $receipt->status === 'a_valider', 'badge-season' => $receipt->status === 'traite', 'badge-off' => $receipt->status === 'ignore'])>{{ $receipt->statusLabel() }}</span>
         </p>
+        @if (! empty($receipt->unread_lines))
+            <div class="alert alert-info">
+                Ligne{{ count($receipt->unread_lines) > 1 ? 's' : '' }} illisible{{ count($receipt->unread_lines) > 1 ? 's' : '' }} sur le ticket, non prise{{ count($receipt->unread_lines) > 1 ? 's' : '' }} en compte :
+                @foreach ($receipt->unread_lines as $unread)
+                    <span class="mono">« {{ $unread }} »</span>@if (! $loop->last), @endif
+                @endforeach
+            </div>
+        @endif
         @if ($gap !== null && abs($gap) > 5)
             <div class="alert alert-info">
                 Écart de {{ \App\Models\Price::formatCents(abs($gap)) }} entre les lignes lues et le total du ticket :
@@ -57,6 +66,7 @@
                 <span class="badge-season">reconnu</span> libellé déjà validé ·
                 <span class="badge-cheap">proposé</span> à confirmer ·
                 <span class="badge-warn">à associer</span> choisis l'ingrédient (tape son nom : « Ingrédient » seul suffit, le conditionnement est déduit du ticket).
+                Absent du référentiel ? Tape le nom voulu et choisis « Créer l'ingrédient ».
             </p>
             <datalist id="pack-choices">
                 @foreach ($choices as $choice)
@@ -77,11 +87,14 @@
                     @php
                         $current = $line->pack ? \App\Http\Controllers\ReceiptController::packChoiceLabel($line->pack) : ($line->ingredient?->name ?? '');
                         $action = $line->status === 'ignore' ? 'ignorer' : 'associer';
+                        $guess = \App\Http\Controllers\ReceiptController::guessAisle($line);
                     @endphp
                     <div @class(['receipt-line', 'is-muted' => $line->status === 'ignore'])>
                         <div class="rl-label">
                             <span class="mono">{{ $line->raw_label }}</span>
-                            @if ($line->isWeighted())
+                            @if ($line->hasUnknownWeight())
+                                <span class="muted small">pesée, poids illisible</span>
+                            @elseif ($line->isWeighted())
                                 <span class="muted small">{{ $line->quantityLabel() }} × {{ \App\Models\Price::formatCents($line->unit_price_cents) }}/kg</span>
                             @elseif ($line->quantity != 1)
                                 <span class="muted small">{{ $line->quantityLabel() }} × {{ \App\Models\Price::formatCents($line->unit_price_cents) }}</span>
@@ -107,20 +120,36 @@
                                 @endif
                                 @if ($line->isNonFoodVat())
                                     <span class="tag" title="Taux de TVA des produits non alimentaires (entretien, hygiène, alcool…)">TVA {{ rtrim(rtrim(number_format($line->vat_rate, 2, ',', ''), '0'), ',') }} %</span>
+                                @elseif ($line->non_food)
+                                    <span class="tag" title="Rubrique non alimentaire">{{ $line->section ?: 'non alimentaire' }}</span>
+                                @endif
+                                @if ($line->note)
+                                    <span class="badge-warn small">{{ $line->note }}</span>
                                 @endif
                                 @if ($line->pack_price_cents && $line->pack)
                                     <span class="muted small">→ {{ \App\Models\Price::formatCents($line->pack_price_cents) }} le conditionnement « {{ $line->pack->label }} »</span>
                                 @endif
                             </div>
                         </div>
-                        <label class="rl-action">
-                            <span class="sr-only">Action</span>
-                            <select name="lines[{{ $line->id }}][action]">
-                                <option value="associer" @selected($action === 'associer')>Associer</option>
-                                <option value="ignorer" @selected($action === 'ignorer')>Ignorer cette fois</option>
-                                <option value="ignorer_toujours">Toujours ignorer (non alimentaire)</option>
-                            </select>
-                        </label>
+                        <div class="rl-action">
+                            <label>
+                                <span class="sr-only">Action</span>
+                                <select name="lines[{{ $line->id }}][action]" data-create-toggle="aisle-{{ $line->id }}">
+                                    <option value="associer" @selected($action === 'associer')>Associer</option>
+                                    <option value="creer">Créer l'ingrédient (nom saisi)</option>
+                                    <option value="ignorer" @selected($action === 'ignorer')>Ignorer cette fois</option>
+                                    <option value="ignorer_toujours">Toujours ignorer (non alimentaire)</option>
+                                </select>
+                            </label>
+                            <label class="rl-aisle" id="aisle-{{ $line->id }}" hidden>
+                                <span class="small muted">Rayon du nouvel ingrédient</span>
+                                <select name="lines[{{ $line->id }}][aisle_id]" disabled>
+                                    @foreach ($aisles as $aisle)
+                                        <option value="{{ $aisle->id }}" @selected($aisle->slug === $guess)>{{ $aisle->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                        </div>
                     </div>
                 @endforeach
             </div>
@@ -137,7 +166,7 @@
     </form>
 
     <div class="row-actions ticket-actions">
-        @if ($receipt->status !== 'traite')
+        @if ($receipt->status !== 'ignore')
             <form method="post" action="{{ route('receipts.reparse', $receipt) }}">
                 @csrf
                 <button type="submit" class="btn btn-small btn-ghost">Relire le ticket</button>
@@ -153,4 +182,18 @@
         <summary>Texte du ticket</summary>
         <pre class="mono raw-text">{{ $receipt->raw_text }}</pre>
     </details>
+
+    <script>
+        // « Créer l'ingrédient » : affiche le choix du rayon de la ligne
+        document.querySelectorAll('[data-create-toggle]').forEach(function (select) {
+            var target = document.getElementById(select.dataset.createToggle);
+            var sync = function () {
+                var on = select.value === 'creer';
+                target.hidden = !on;
+                target.querySelector('select').disabled = !on;
+            };
+            select.addEventListener('change', sync);
+            sync();
+        });
+    </script>
 @endsection

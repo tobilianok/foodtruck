@@ -24,7 +24,7 @@ class Receipt extends Model
 
     protected $fillable = [
         'household_id', 'source', 'paperless_document_id', 'paperless_modified_at', 'title', 'correspondent',
-        'store_id', 'purchased_on', 'total_cents', 'raw_text', 'status', 'auto_applied', 'processed_at', 'processed_by',
+        'store_id', 'purchased_on', 'total_cents', 'expected_lines', 'unread_lines', 'raw_text', 'status', 'auto_applied', 'processed_at', 'processed_by',
     ];
 
     protected function casts(): array
@@ -33,6 +33,8 @@ class Receipt extends Model
             'paperless_modified_at' => 'datetime',
             'purchased_on' => 'date',
             'total_cents' => 'integer',
+            'expected_lines' => 'integer',
+            'unread_lines' => 'array',
             'auto_applied' => 'boolean',
             'processed_at' => 'datetime',
         ];

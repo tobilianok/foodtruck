@@ -132,7 +132,7 @@ body.guest { display: grid; place-items: center; min-height: 100vh; padding: 16p
 .field > span, .field > legend { font-size: .85rem; font-weight: 600; color: var(--muted); }
 .field small { color: var(--muted); font-size: .8rem; }
 .field-small { max-width: 120px; }
-input[type=text], input[type=number], select {
+input[type=text], input[type=number], input[type=url], select {
     width: 100%; font: inherit; color: var(--text); background: var(--bg);
     border: 1px solid var(--line); border-radius: 10px; padding: .55em .7em; min-height: 42px;
 }
@@ -404,3 +404,10 @@ input[type=file] { font: inherit; color: var(--muted); }
     .mainnav { order: 3; width: 100%; margin: 0 0 4px; overflow-x: auto; }
     .account { margin-left: auto; }
 }
+
+/* ---- v0.5.2 : lecture des tickets, création d'ingrédient, jeton ---- */
+.secret-field { -webkit-text-security: disc; text-security: disc; }
+.rl-action { display: flex; flex-direction: column; gap: 6px; }
+.rl-aisle { display: flex; flex-direction: column; gap: 2px; }
+.rl-aisle[hidden] { display: none; }
+.rl-meta .small { font-size: .78rem; }

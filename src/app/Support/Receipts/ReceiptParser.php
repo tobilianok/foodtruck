@@ -16,7 +16,11 @@ use Illuminate\Support\Str;
  *   REMISE IMMEDIATE                   -0,50        remise, rattachée à l'article précédent
  *   TOTAL / NET A PAYER               25,40        total du ticket (fin des articles)
  *
- * Les règles propres à une enseigne viendront s'ajouter ici avec de vrais tickets.
+ * Tickets Lidl Plus lus par OCR (texte Paperless) : colonnes « P.U. Qté Total » bruitées
+ * (« 1,/9 », quantité « 7 » ou « | » pour 1, codes collés « 5,99BT »), remises aberrantes
+ * (« -60,36 » pour -0,36), pesée illisible, lignes illisibles signalées.
+ *
+ * Les bons de commande Leclerc Drive ont leur propre lecteur (LeclercDriveParser).
  */
 class ReceiptParser
 {
@@ -39,16 +43,28 @@ class ReceiptParser
     /** Lignes de remise (en tête de libellé ; un montant négatif suffit aussi). */
     private const DISCOUNT = '/^(REMISE|REDUC|REDUCTION|PROMO|COUPON|BON D.?ACHAT|AVANTAGE|RABAIS|ANNUL|OFFRE)/';
 
+    public const NOTE_WEIGHT = 'poids illisible sur le ticket : prix non enregistré';
+
+    public const NOTE_DEDUCED = 'ligne illisible : montant déduit du total du ticket';
+
+    public const NOTE_CORRECTED = 'lecture corrigée (ticket peu lisible) : vérifie le prix';
+
     /**
-     * @return array{lines: array<int, array{kind: string, label: string, quantity: float, quantity_unit: string, unit_price_cents: ?int, total_cents: int, discount_cents: int, vat_rate: ?float}>, total_cents: ?int, date: ?string}
+     * @return array{lines: array<int, array{kind: string, label: string, quantity: float, quantity_unit: string, unit_price_cents: ?int, total_cents: int, discount_cents: int, vat_rate: ?float, non_food: bool, note: ?string, uncertain: bool}>, total_cents: ?int, date: ?string, expected_lines: ?int, unread: array<int, string>}
      */
     public function parse(string $text): array
     {
+        if (LeclercDriveParser::accepts($text)) {
+            return (new LeclercDriveParser)->parse($text);
+        }
+
         $vatRates = $this->vatTable($text);
         $items = [];
         $total = null;
+        $expected = null;
         $pendingQuantity = null;
         $finished = false;
+        $priced = false;
 
         foreach (preg_split('/\R/u', $text) as $rawLine) {
             $line = $this->clean($rawLine);
@@ -57,6 +73,10 @@ class ReceiptParser
             }
 
             $upper = $this->upper($line);
+
+            if (preg_match('/^NOMBRE (?:DE LIGNES|D.?ARTICLES)\s*:?\s*(\d{1,3})\b/', $upper, $m)) {
+                $expected ??= (int) $m[1];
+            }
 
             if (preg_match(self::TOTAL, $upper) && ($price = $this->trailingPrice($line)) !== null) {
                 $total ??= abs($price[0]);
@@ -73,14 +93,29 @@ class ReceiptParser
             $quantity = $weight === null ? $this->quantity($line) : null;
             $price = $this->trailingPrice($line);
 
+            // Ligne de pesée illisible (« QG 016 KO © L 99 EUR/kg ») : l'article précédent est pesé, poids inconnu
+            if ($weight === null && preg_match('/(?:€|EUR)\s*\/\s*KG\b/', $upper)) {
+                $last = array_key_last($items);
+                if ($last !== null && $this->lineOwnsDetails($items[$last])) {
+                    $items[$last]['quantity'] = 0.0;
+                    $items[$last]['quantity_unit'] = 'kg';
+                    $items[$last]['note'] = self::NOTE_WEIGHT;
+                }
+
+                continue;
+            }
+
             // « 2 x 1,05 » sans total : le montant de fin de ligne est le prix unitaire, pas un total
             if ($quantity !== null && $price !== null && $price[1] < $quantity[2]) {
                 $price = null;
             }
             // Colonnes « P.U. Qté Total » (Lidl…) : « Kiwi jaune pièce   0,89  4   3,56 A T »
             $columns = $weight === null && $quantity === null && $price !== null ? $this->columns($line, $price) : null;
+            $corrected = false;
             if ($columns !== null) {
                 $quantity = [$columns[0], $columns[1], $price[1]];
+                $corrected = $columns[4];
+                $price[0] = $columns[3];
                 $label = $this->label(substr($line, 0, $columns[2]), null, null, null);
             } else {
                 $label = $this->label($line, $weight, $quantity, $price);
@@ -112,16 +147,24 @@ class ReceiptParser
                 $amount = abs($price[0]);
                 $last = array_key_last($items);
                 if ($last !== null && $items[$last]['kind'] === 'produit' && $items[$last]['total_cents'] !== null) {
+                    $room = $items[$last]['total_cents'] - $items[$last]['discount_cents'];
+                    // Remise plus grande que l'article : chiffre parasite de l'OCR (« -60,36 », « -6,92 » pour -0,36, -0,92)
+                    if ($amount > $room && $amount % 100 > 0 && $amount % 100 <= $room) {
+                        $amount %= 100;
+                    }
                     $items[$last]['discount_cents'] += $amount;
                 } else {
-                    $items[] = $this->item('remise', $label, 1, 'piece', null, -$amount);
+                    $items[] = self::item('remise', $label, 1, 'piece', null, -$amount);
                 }
 
                 continue;
             }
 
-            $item = $this->item('produit', $label, 1, 'piece', null, $price[0] ?? null);
+            $item = self::item('produit', $label, 1, 'piece', null, $price[0] ?? null);
             $item['vat_rate'] = isset($price[2]) ? ($vatRates[$price[2]] ?? null) : null;
+            $item['uncertain'] = $corrected;
+            $item['note'] = $corrected ? self::NOTE_CORRECTED : null;
+            $item['raw'] = $line;
             $this->applyDetails($item, $weight, $quantity, $price);
 
             if ($pendingQuantity !== null) {
@@ -132,18 +175,79 @@ class ReceiptParser
             $items[] = $item;
         }
 
+        // Libellés sans prix situés après le premier article chiffré : lignes que l'OCR n'a pas su lire
         $lines = [];
+        $unread = [];
+        $seenPriced = false;
         foreach ($items as $item) {
             if ($item['total_cents'] === null) {
+                if ($seenPriced && $item['kind'] === 'produit') {
+                    $unread[] = $item['raw'] ?? $item['label'];
+                    $lines[] = $item + ['unread' => true];
+                }
+
                 continue;
             }
+            $seenPriced = true;
             if ($item['unit_price_cents'] === null && $item['quantity'] > 0) {
                 $item['unit_price_cents'] = (int) round($item['total_cents'] / $item['quantity']);
             }
             $lines[] = $item;
         }
 
-        return ['lines' => $lines, 'total_cents' => $total, 'date' => $this->date($text)];
+        $lines = $this->resolveUnread($lines, $unread, $total, $expected);
+
+        return ['lines' => $lines, 'total_cents' => $total, 'date' => $this->date($text), 'expected_lines' => $expected, 'unread' => $unread];
+    }
+
+    /** Somme payée des lignes lues (remises déduites). */
+    public static function paidSum(array $lines): int
+    {
+        return (int) array_sum(array_map(fn ($l) => $l['total_cents'] - $l['discount_cents'], $lines));
+    }
+
+    /**
+     * Une seule ligne illisible et un ticket qui annonce son nombre de lignes : son montant est l'écart avec le total.
+     * Si la somme retombe exactement sur le total, les corrections de lecture sont confirmées.
+     */
+    private function resolveUnread(array $lines, array &$unread, ?int $total, ?int $expected): array
+    {
+        $read = array_values(array_filter($lines, fn ($l) => empty($l['unread'])));
+        $pending = array_values(array_filter($lines, fn ($l) => ! empty($l['unread'])));
+        $products = count(array_filter($read, fn ($l) => $l['kind'] === 'produit'));
+
+        if ($total !== null && count($pending) === 1 && $expected === $products + 1) {
+            $gap = $total - self::paidSum($read);
+            if ($gap > 0 && $gap <= 20000) {
+                $result = [];
+                foreach ($lines as $line) {
+                    if (! empty($line['unread'])) {
+                        $label = trim(preg_replace('/\s+\S*\d[\d,.]*.*$/u', '', $line['label'])) ?: $line['label'];
+                        $line = array_merge($line, [
+                            'label' => $label, 'quantity' => 1.0, 'quantity_unit' => 'piece',
+                            'unit_price_cents' => $gap, 'total_cents' => $gap, 'discount_cents' => 0,
+                            'note' => self::NOTE_DEDUCED, 'uncertain' => true,
+                        ]);
+                        unset($line['unread']);
+                    }
+                    $result[] = $line;
+                }
+                $unread = [];
+                $read = $result;
+            }
+        }
+
+        $exact = $total !== null && abs($total - self::paidSum($read)) <= 1;
+
+        return array_map(function ($line) use ($exact) {
+            if ($exact && $line['note'] === self::NOTE_CORRECTED) {
+                $line['note'] = null;
+                $line['uncertain'] = false;
+            }
+            unset($line['raw']);
+
+            return $line;
+        }, $read);
     }
 
     /** Clé de rapprochement d'un libellé : majuscules sans accents, ponctuation réduite. */
@@ -155,7 +259,7 @@ class ReceiptParser
         return trim(preg_replace('/\s+/', ' ', $value));
     }
 
-    private function item(string $kind, string $label, float $quantity, string $unit, ?int $unitPrice, ?int $total): array
+    public static function item(string $kind, string $label, float $quantity, string $unit, ?int $unitPrice, ?int $total): array
     {
         return [
             'kind' => $kind,
@@ -166,6 +270,9 @@ class ReceiptParser
             'total_cents' => $total,
             'discount_cents' => 0,
             'vat_rate' => null,
+            'non_food' => false,
+            'note' => null,
+            'uncertain' => false,
         ];
     }
 
@@ -229,19 +336,44 @@ class ReceiptParser
     }
 
     /**
-     * Colonnes prix unitaire + quantité juste avant le total, si elles sont cohérentes avec lui.
-     * @return array{0: float, 1: int, 2: int}|null [quantité, prix unitaire, position de début]
+     * Colonnes prix unitaire + quantité juste avant le total (Lidl…), y compris lues par OCR :
+     * quantité « 7 », « 71 » ou « | » pour 1, prix unitaire ou total mal lu d'un chiffre.
+     * @return array{0: float, 1: int, 2: int, 3: int, 4: bool}|null [quantité, prix unitaire, position de début, total retenu, lecture corrigée]
      */
     private function columns(string $line, array $price): ?array
     {
         $before = substr($line, 0, $price[1]);
 
-        if (preg_match('/(?<![\d,.])(\d{1,4}[,.]\d{2})\s+(\d{1,3})\s*$/', $before, $m, PREG_OFFSET_CAPTURE)) {
-            $unit = $this->cents($m[1][0]);
-            $count = (int) $m[2][0];
-            if ($count > 0 && abs($unit * $count - $price[0]) <= 2) {
-                return [(float) $count, $unit, $m[0][1]];
-            }
+        if (! preg_match('/(?<![\d,.])(\d{1,4}[,.]\d{2})\s+([\dIl]{1,3})\s*$/', $before, $m, PREG_OFFSET_CAPTURE)) {
+            return null;
+        }
+
+        $unit = $this->cents($m[1][0]);
+        $token = strtr($m[2][0], ['I' => '1', 'l' => '1']);
+        $count = (int) $token;
+        $total = $price[0];
+
+        if ($unit <= 0 || $total <= 0) {
+            return null;
+        }
+        if ($count > 0 && abs($unit * $count - $total) <= 2) {
+            return [(float) $count, $unit, $m[0][1], $total, false];
+        }
+
+        $n = (int) round($total / $unit);
+
+        // Prix unitaire aberrant (« 8,99 7 0,99 ») ou un seul article : le total fait foi
+        if ($n <= 1) {
+            return abs($unit - $total) <= max(20, (int) round($total * 0.15)) || $n === 0
+                ? [1.0, $total, $m[0][1], $total, $unit !== $total]
+                : null;
+        }
+
+        // Plusieurs articles : la quantité lue confirme le prix unitaire (« 0,55 4 2,28 » → 4 × 0,55)
+        if (abs($unit * $n - $total) <= max(10, (int) round($total * 0.1))) {
+            return str_contains($token, (string) $n)
+                ? [(float) $n, $unit, $m[0][1], $unit * $n, true]
+                : [(float) $n, (int) round($total / $n), $m[0][1], $total, true];
         }
 
         return null;
@@ -288,9 +420,20 @@ class ReceiptParser
 
     private function clean(string $line): string
     {
-        $line = str_replace(["\t", "\u{00A0}", '|'], ' ', $line);
-        // Erreurs d'OCR fréquentes dans les montants : O à la place de 0
+        $line = str_replace(["\t", "\u{00A0}"], ' ', $line);
+        // Barre verticale entre deux montants : quantité 1 mal lue (« 2,39 | 2,35 »), sinon cadre décoratif
+        $line = preg_replace('/(?<=\d[,.]\d\d)\s+\|\s+(?=\d)/', ' 1 ', $line);
+        $line = str_replace('|', ' ', $line);
+        // Erreurs d'OCR fréquentes dans les montants : O ou @ à la place de 0, / à la place de 7
         $line = preg_replace('/(?<=\d)[Oo](?=\d)|(?<=\d[,.])[Oo]|(?<=[,.]\d)[Oo]/', '0', $line);
+        $line = preg_replace('/(?<![\w,.])@(?=[,.]\d\d)/u', '0', $line);
+        $line = preg_replace('/(?<=\d[,.]\d)\/(?=\d(?!\d))/', '', $line);       // « 1,7/9 » → 1,79
+        $line = preg_replace('/(?<=\d[,.])\/(?=\d(?!\d))/', '7', $line);         // « 1,/9 » → 1,79
+        // Codes collés au montant : « 5,99BT », « 1,14AT », « 3,49B » → « 5,99 B T »
+        $line = preg_replace('/(\d[,.]\d\d)\s*([A-D])\s?T\s*$/', '$1 $2 T', $line);
+        $line = preg_replace('/(\d[,.]\d\d)([A-D])\s*$/', '$1 $2', $line);
+        // « EUR/Kkg »
+        $line = preg_replace('/\/\s*K+\s*kg\b/i', '/kg', $line);
 
         return trim(preg_replace('/\s+/', ' ', $line));
     }

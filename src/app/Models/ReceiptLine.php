@@ -23,7 +23,7 @@ class ReceiptLine extends Model
 
     protected $fillable = [
         'receipt_id', 'position', 'kind', 'raw_label', 'normalized_label', 'quantity', 'quantity_unit',
-        'unit_price_cents', 'total_cents', 'discount_cents', 'vat_rate', 'status', 'ingredient_id', 'ingredient_pack_id', 'pack_price_cents', 'price_id',
+        'unit_price_cents', 'total_cents', 'discount_cents', 'vat_rate', 'note', 'non_food', 'section', 'status', 'ingredient_id', 'ingredient_pack_id', 'pack_price_cents', 'price_id',
     ];
 
     /** Taux de TVA à partir duquel une ligne est présumée non alimentaire (produits d'entretien, alcool…). */
@@ -38,6 +38,7 @@ class ReceiptLine extends Model
             'discount_cents' => 'integer',
             'pack_price_cents' => 'integer',
             'vat_rate' => 'float',
+            'non_food' => 'boolean',
         ];
     }
 
@@ -60,6 +61,18 @@ class ReceiptLine extends Model
     public function isNonFoodVat(): bool
     {
         return $this->vat_rate !== null && $this->vat_rate >= self::NON_FOOD_VAT;
+    }
+
+    /** Non alimentaire présumé : TVA à 20 % (tickets) ou rubrique hygiène, entretien, alcool… (Leclerc Drive). */
+    public function isNonFood(): bool
+    {
+        return $this->non_food || $this->isNonFoodVat();
+    }
+
+    /** Pesée dont le poids n'a pas pu être lu : aucun prix ne peut en être déduit. */
+    public function hasUnknownWeight(): bool
+    {
+        return $this->isWeighted() && $this->quantity <= 0;
     }
 
     public function price(): BelongsTo

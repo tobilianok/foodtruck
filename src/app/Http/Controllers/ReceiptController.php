@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Aisle;
 use App\Models\Ingredient;
 use App\Models\IngredientPack;
 use App\Models\Receipt;
@@ -93,6 +94,7 @@ class ReceiptController extends Controller
             'receipt' => $receipt,
             'stores' => Store::active(),
             'choices' => self::packChoices(),
+            'aisles' => Aisle::ordered(),
             'linesTotal' => $receipt->linesTotalCents(),
         ]);
     }
@@ -107,7 +109,8 @@ class ReceiptController extends Controller
             'purchased_on' => ['required', 'date', 'before_or_equal:'.now('Europe/Paris')->toDateString(), 'after:2020-01-01'],
             'lines' => ['nullable', 'array'],
             'lines.*.choice' => ['nullable', 'string', 'max:200'],
-            'lines.*.action' => ['nullable', Rule::in(['associer', 'ignorer', 'ignorer_toujours'])],
+            'lines.*.action' => ['nullable', Rule::in(['associer', 'creer', 'ignorer', 'ignorer_toujours'])],
+            'lines.*.aisle_id' => ['nullable', 'integer', 'exists:aisles,id'],
             'remember' => ['nullable', 'boolean'],
         ], [], ['store_id' => 'magasin', 'purchased_on' => 'date d\'achat']);
 
@@ -122,6 +125,7 @@ class ReceiptController extends Controller
 
         $packs = self::packIndex();
         $unresolved = [];
+        $created = [];
         $remember = $request->boolean('remember', true);
 
         foreach ($receipt->lines->where('kind', 'produit') as $line) {
@@ -150,8 +154,22 @@ class ReceiptController extends Controller
                 continue;
             }
 
-            $pack = $this->resolveChoice($choice, $line, $packs, $request);
+            if ($action === 'creer') {
+                $ingredient = $this->createIngredient($choice, isset($input['aisle_id']) ? (int) $input['aisle_id'] : null, $line, $request);
+                $pack = $ingredient ? self::packFromTicket($ingredient, $line) : null;
+                if ($ingredient && $ingredient->wasRecentlyCreated) {
+                    $created[] = $ingredient->name;
+                    $packs = self::packIndex();
+                }
+            } else {
+                $pack = $this->resolveChoice($choice, $line, $packs, $request);
+            }
+
             if (! $pack) {
+                // La ligne reste à associer : le ticket ne passe pas en « traité »
+                if ($line->status !== ReceiptLine::STATUS_APPLIED) {
+                    $line->forceFill(['status' => ReceiptLine::STATUS_UNKNOWN, 'ingredient_pack_id' => null])->save();
+                }
                 $unresolved[] = "« {$line->raw_label} » → « {$choice} »";
 
                 continue;
@@ -170,24 +188,27 @@ class ReceiptController extends Controller
 
         $redirect = redirect()->route('receipts.show', $receipt);
         if ($unresolved !== []) {
-            $redirect->withErrors(['lines' => 'Association non comprise pour : '.implode(', ', $unresolved).'. Choisis un élément de la liste proposée.']);
+            $redirect->withErrors(['lines' => 'Ingrédient introuvable pour : '.implode(', ', $unresolved).'. Choisis un élément de la liste, ou « Créer l\'ingrédient » dans le menu de la ligne pour l\'ajouter au référentiel.']);
         }
 
         $receipt->refresh();
 
         return $redirect->with('status', $applied.' prix enregistré'.($applied > 1 ? 's' : '').' pour '.$store->name.' ('.$receipt->purchased_on->format('d/m/Y').').'
+            .($created !== [] ? ' Ingrédient'.(count($created) > 1 ? 's' : '').' ajouté'.(count($created) > 1 ? 's' : '').' au référentiel : '.implode(', ', $created).' (fiche à compléter dans Ingrédients).' : '')
             .($receipt->status === Receipt::STATUS_DONE ? ' Ticket traité.' : ' Il reste des lignes à associer ou à ignorer.'));
     }
 
     public function reparse(Request $request, Receipt $receipt, ReceiptProcessor $processor)
     {
         $this->authorizeReceipt($request, $receipt);
-        abort_if($receipt->status === Receipt::STATUS_DONE, 409);
+        abort_if($receipt->status === Receipt::STATUS_IGNORED, 409);
 
         $receipt->total_cents = null;
         $processor->ingest($receipt);
 
-        return back()->with('status', 'Ticket relu.');
+        return back()->with('status', $receipt->status === Receipt::STATUS_DONE
+            ? 'Ticket relu : tout est reconnu, prix mis à jour.'
+            : 'Ticket relu avec les règles de lecture à jour. Les libellés déjà validés sont reconnus.');
     }
 
     public function ignore(Request $request, Receipt $receipt)
@@ -225,6 +246,12 @@ class ReceiptController extends Controller
         }
         if (empty($data['paperless_token']) && ! $household->paperless_token) {
             throw ValidationException::withMessages(['paperless_token' => 'Indique le jeton d\'API du compte Paperless dédié.']);
+        }
+
+        // Jeton collé avec « Token » devant, des espaces ou un retour à la ligne
+        $data['paperless_token'] = PaperlessClient::cleanToken($data['paperless_token'] ?? null);
+        if ($data['paperless_token'] !== null && ! preg_match('/^[A-Za-z0-9]{20,128}$/', $data['paperless_token'])) {
+            throw ValidationException::withMessages(['paperless_token' => 'Ce jeton ne ressemble pas à un jeton d\'API Paperless (40 caractères, lettres et chiffres). Vérifie qu\'un gestionnaire de mots de passe ne l\'a pas rempli à ta place.']);
         }
 
         $tag = trim((string) ($data['paperless_tag'] ?? '')) ?: 'courses alimentaires';
@@ -266,31 +293,98 @@ class ReceiptController extends Controller
             return null;
         }
 
-        $ingredient = Ingredient::with('packs')->find($packs['ingredients'][$key]);
+        return self::packFromTicket(Ingredient::with('packs')->find($packs['ingredients'][$key]), $line);
+    }
+
+    /** Conditionnement correspondant à la ligne : existant si la quantité concorde, sinon créé d'après le ticket. */
+    private static function packFromTicket(Ingredient $ingredient, ReceiptLine $line): ?IngredientPack
+    {
+        $weighted = $line->isWeighted();
         $matcher = new ReceiptMatcher(collect([$ingredient]));
-        $quantity = ReceiptMatcher::labelQuantity($line->normalized_label, $ingredient);
+        $pack = $matcher->choosePack($ingredient, $line->normalized_label, $weighted);
+        $quantity = $weighted ? null : ReceiptMatcher::labelQuantity($line->normalized_label, $ingredient);
 
-        if ($line->isWeighted() || $quantity === null || $ingredient->packs->contains(fn ($p) => abs($p->quantity - $quantity) <= $p->quantity * 0.02)) {
-            $pack = $matcher->choosePack($ingredient, $line->normalized_label, $line->isWeighted());
-            if ($pack) {
-                return $pack->setRelation('ingredient', $ingredient);
-            }
+        if ($pack && ($weighted || $quantity === null || abs($pack->quantity - $quantity) <= $pack->quantity * 0.02)) {
+            return $pack->setRelation('ingredient', $ingredient);
         }
 
-        if ($line->isWeighted() && $ingredient->base_unit === 'g') {
-            return $ingredient->packs()->create(['label' => 'Vrac au kg', 'quantity' => 1000, 'is_bulk' => true, 'position' => 5])->setRelation('ingredient', $ingredient);
-        }
-
-        if ($quantity === null) {
+        $spec = ReceiptMatcher::ticketPack($ingredient, $line->normalized_label, $weighted);
+        if ($spec === null) {
             return null;
         }
 
+        $existing = $ingredient->packs->first(fn (IngredientPack $p) => $p->label === $spec['label'] || (! $weighted && abs($p->quantity - $spec['quantity']) <= $p->quantity * 0.02));
+        if ($existing) {
+            return $existing->setRelation('ingredient', $ingredient);
+        }
+
         return $ingredient->packs()->create([
-            'label' => Str::ucfirst(Units::format($quantity, $ingredient->base_unit)).' (ticket)',
-            'quantity' => $quantity,
-            'is_bulk' => false,
+            'label' => $spec['label'],
+            'quantity' => $spec['quantity'],
+            'is_bulk' => $spec['is_bulk'],
             'position' => ((int) $ingredient->packs()->max('position')) + 10,
         ])->setRelation('ingredient', $ingredient);
+    }
+
+    /**
+     * Nouvel ingrédient créé depuis une ligne de ticket : unité déduite du libellé (poids, volume, pièce),
+     * rayon choisi (ou déduit de la rubrique Leclerc Drive). Renvoie null si le nom est invalide.
+     */
+    private function createIngredient(string $name, ?int $aisleId, ReceiptLine $line, Request $request): ?Ingredient
+    {
+        $name = Str::limit(trim(preg_replace('/\s+/u', ' ', $name)), 80, '');
+        $slug = Str::slug($name);
+        if (mb_strlen($name) < 2 || $slug === '') {
+            return null;
+        }
+
+        if ($existing = Ingredient::with('packs')->where('slug', $slug)->first()) {
+            return $existing;
+        }
+
+        $aisle = ($aisleId ? Aisle::find($aisleId) : null) ?? Aisle::firstWhere('slug', self::guessAisle($line)) ?? Aisle::ordered()->first();
+        $measure = self::labelMeasure($line->normalized_label);
+        $baseUnit = $line->isWeighted() ? 'g' : ($measure ?? 'piece');
+
+        return Ingredient::create([
+            'name' => Str::ucfirst($name),
+            'slug' => $slug,
+            'aisle_id' => $aisle->id,
+            'base_unit' => $baseUnit,
+            'is_fresh' => in_array($aisle->slug, ['fruits-legumes', 'boucherie', 'poissonnerie', 'cremerie', 'fromages', 'charcuterie-traiteur', 'boulangerie'], true),
+            'is_staple' => false,
+            'created_by' => $request->user()->id,
+        ])->load('packs');
+    }
+
+    /** Unité suggérée par le libellé : « 500g » → g, « 1L », « 3x20cl » → ml. */
+    private static function labelMeasure(string $normalized): ?string
+    {
+        if (preg_match('/\d\s*(KG|G)\b/', $normalized)) {
+            return 'g';
+        }
+
+        return preg_match('/\d\s*(L|CL|ML)\b/', $normalized) ? 'ml' : null;
+    }
+
+    /** Rayon déduit de la rubrique Leclerc Drive (« LAITIER OEUFS VÉGÉTAL »), sinon épicerie salée. */
+    public static function guessAisle(ReceiptLine $line): string
+    {
+        $section = Str::upper(Str::ascii((string) $line->section));
+        $map = [
+            'FRUIT' => 'fruits-legumes', 'LEGUME' => 'fruits-legumes', 'POISSON' => 'poissonnerie', 'VIANDE' => 'boucherie',
+            'BOUCHER' => 'boucherie', 'VOLAILLE' => 'boucherie', 'FROMAGE' => 'fromages', 'LAITIER' => 'cremerie', 'CREMERIE' => 'cremerie',
+            'OEUF' => 'cremerie', 'CHARCUTERIE' => 'charcuterie-traiteur', 'TRAITEUR' => 'charcuterie-traiteur', 'PAIN' => 'boulangerie',
+            'BOULANGERIE' => 'boulangerie', 'SURGELE' => 'surgeles', 'SUCRE' => 'epicerie-sucree', 'SALE' => 'epicerie-salee',
+            'BOISSON' => 'boissons', 'BEBE' => 'bebe', 'HYGIENE' => 'maison', 'ENTRETIEN' => 'maison',
+        ];
+        foreach ($map as $word => $slug) {
+            if ($section !== '' && str_contains($section, $word)) {
+                return $slug;
+            }
+        }
+
+        return $line->isWeighted() ? 'fruits-legumes' : 'epicerie-salee';
     }
 
     /** Libellés proposés dans la liste de choix : « Ingrédient — Conditionnement » et « Ingrédient ». */

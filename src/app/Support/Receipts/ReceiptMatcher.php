@@ -41,6 +41,19 @@ class ReceiptMatcher
 
     private const STOPWORDS = ['de', 'du', 'des', 'la', 'le', 'les', 'en', 'au', 'aux', 'et', 'pour', 'a', 'd', 'l'];
 
+    /**
+     * Mots qui désignent un produit transformé : « Compote pomme poire » n'est ni une pomme ni une poire.
+     * Un ingrédient n'est proposé que si son nom contient aussi ce mot.
+     */
+    private const PRODUCT_WORDS = [
+        'compote', 'jus', 'confiture', 'biscuit', 'chips', 'soupe', 'veloute', 'sauce', 'crouton', 'boisson', 'sirop',
+        'gateau', 'tarte', 'pizza', 'quiche', 'dessert', 'menu', 'assaisonn', 'brisee', 'feuilletee', 'sablee', 'knack',
+        'nugget', 'cordon', 'lasagne', 'ravioli', 'capsule', 'bonbon', 'barre', 'cereale', 'petit-suisse', 'suisse',
+    ];
+
+    /** Préfixes trompeurs : « poire » n'est pas le début de « poireau ». */
+    private const NOT_PREFIX = ['poire' => 'poireau', 'pate' => 'patate', 'rose' => 'rosette'];
+
     /** Mots accentués à ne pas confondre une fois les accents retirés (pâté ≠ pâtes). */
     private const ACCENTED = ['pâtés' => 'terrine', 'pâté' => 'terrine'];
 
@@ -98,8 +111,20 @@ class ReceiptMatcher
             return null;
         }
 
+        $productWords = array_values(array_filter($labelTokens, fn ($t) => $this->isProductWord($t)));
+
         $best = null;
         foreach ($this->index as $row) {
+            foreach ($productWords as $word) {
+                foreach ($row['tokens'] as $token) {
+                    if ($this->tokensMatch($word, $token)) {
+                        continue 2;
+                    }
+                }
+
+                continue 2;
+            }
+
             $matched = 0;
             foreach ($row['tokens'] as $token) {
                 foreach ($labelTokens as $candidate) {
@@ -151,7 +176,52 @@ class ReceiptMatcher
             return $packs->sortBy(fn (IngredientPack $p) => abs($p->quantity - $quantity))->first();
         }
 
-        return $packs->first();
+        // Article à l'unité sans quantité écrite : jamais le vrac au kilo (le prix payé est celui d'une pièce)
+        return $packs->firstWhere('is_bulk', false);
+    }
+
+    /**
+     * Conditionnement à créer d'après le ticket quand le référentiel n'en a pas d'équivalent :
+     * vrac au kilo pour une pesée, quantité du libellé (« 2kg », « x20 », « 1p »), sinon une pièce.
+     * @return array{label: string, quantity: float, is_bulk: bool}|null
+     */
+    public static function ticketPack(Ingredient $ingredient, string $normalized, bool $weighted): ?array
+    {
+        if ($weighted) {
+            return $ingredient->base_unit === 'g' ? ['label' => 'Vrac au kg', 'quantity' => 1000.0, 'is_bulk' => true] : null;
+        }
+
+        // Nombre de pièces écrit (« x20 », « 1p ») sans poids ni volume : conditionnement en pièces
+        $count = preg_match('/\\d\\s*(KG|G|L|CL|ML)\\b/', $normalized) ? null : self::pieceCount($normalized);
+        $quantity = self::labelQuantity($normalized, $ingredient);
+
+        if ($quantity === null && $count === null) {
+            $count = 1;
+        }
+
+        if ($count !== null) {
+            try {
+                $quantity = $ingredient->base_unit === 'piece' ? (float) $count : Units::toBase($count, 'piece', $ingredient);
+            } catch (UnitConversionException) {
+                return null;
+            }
+
+            return ['label' => ($count === 1 ? 'Pièce' : $count.' pièces').' (ticket)', 'quantity' => $quantity, 'is_bulk' => false];
+        }
+
+        return ['label' => Str::ucfirst(Units::format($quantity, $ingredient->base_unit)).' (ticket)', 'quantity' => $quantity, 'is_bulk' => false];
+    }
+
+    /** Nombre de pièces écrit dans le libellé : « X20 », « 20X », « 1P ». */
+    private static function pieceCount(string $normalized): ?int
+    {
+        if (preg_match('/(?:\\bX\\s*(\\d{1,2})\\b|\\b(\\d{1,2})\\s*X\\b(?!\\s*\\d)|\\b(\\d{1,2})\\s*P\\b)/', $normalized, $m)) {
+            $value = (int) ($m[1] !== '' ? $m[1] : (($m[2] ?? '') !== '' ? $m[2] : $m[3]));
+
+            return $value > 0 ? $value : null;
+        }
+
+        return null;
     }
 
     /** Quantité écrite dans le libellé, exprimée dans l'unité de base de l'ingrédient (null si absente ou incompatible). */
@@ -167,8 +237,8 @@ class ReceiptMatcher
         } elseif (preg_match('/\b(\d+(?:[.,]\d+)?)\s*(KG|G|L|CL|ML)\b/', $normalized, $m)) {
             $value = (float) str_replace(',', '.', $m[1]) * $units[$m[2]][1];
             $unit = $units[$m[2]][0];
-        } elseif (preg_match('/(?:\bX\s*(\d{1,2})\b|\b(\d{1,2})\s*X\b(?!\s*\d))/', $normalized, $m)) {
-            $value = (float) ($m[1] !== '' ? $m[1] : $m[2]);
+        } elseif (preg_match('/(?:\bX\s*(\d{1,2})\b|\b(\d{1,2})\s*X\b(?!\s*\d)|\b(\d{1,2})\s*P\b)/', $normalized, $m)) {
+            $value = (float) ($m[1] !== '' ? $m[1] : (($m[2] ?? '') !== '' ? $m[2] : $m[3]));
             $unit = 'piece';
         }
 
@@ -246,8 +316,25 @@ class ReceiptMatcher
         return array_values(array_unique($tokens));
     }
 
+    private function isProductWord(string $token): bool
+    {
+        foreach (self::PRODUCT_WORDS as $word) {
+            if (str_starts_with($token, $word)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function tokensMatch(string $candidate, string $token): bool
     {
+        foreach (self::NOT_PREFIX as $short => $long) {
+            if (($candidate === $short && str_starts_with($token, $long)) || ($token === $short && str_starts_with($candidate, $long))) {
+                return false;
+            }
+        }
+
         return $candidate === $token
             || (strlen($candidate) >= 4 && str_starts_with($token, $candidate))
             || (strlen($token) >= 4 && str_starts_with($candidate, $token));

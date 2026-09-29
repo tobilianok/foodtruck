@@ -214,8 +214,14 @@ class ReceiptTest extends TestCase
         Http::fake([self::PAPERLESS.'/*' => Http::response(['detail' => 'Invalid token'], 401)]);
 
         $counts = (new ReceiptSync)->run($household);
-        $this->assertStringContainsString('jeton invalide', $counts['error']);
-        $this->assertStringContainsString('jeton invalide', $household->fresh()->paperless_last_error);
+        $this->assertStringContainsString('refuse le jeton', $counts['error']);
+        $this->assertStringContainsString('refuse le jeton', $household->fresh()->paperless_last_error);
+
+        // Droit manquant : le message dit lequel
+        Http::swap(new \Illuminate\Http\Client\Factory);
+        Http::fake([self::PAPERLESS.'/api/tags/*' => Http::response(['detail' => 'Forbidden'], 403)]);
+        $counts = (new ReceiptSync)->run($household->fresh());
+        $this->assertStringContainsString('afficher les étiquettes', $counts['error']);
     }
 
     public function test_reglages_paperless_reserves_aux_admins(): void
@@ -228,20 +234,30 @@ class ReceiptTest extends TestCase
         $member = $this->householdUser(User::HOUSEHOLD_MEMBER, $this->louis->household);
         $this->actingAs($member)->put('/foyer/paperless', ['paperless_url' => self::PAPERLESS, 'paperless_token' => 'x'])->assertForbidden();
 
+        $token = 'deda9b44c51e72feccfb990422957a7485373625';
+
+        // Mot de passe rempli par un gestionnaire de mots de passe : refusé avant tout appel
         $this->actingAs($this->louis)->put('/foyer/paperless', [
-            'paperless_url' => self::PAPERLESS.'/', 'paperless_token' => 'jeton', 'paperless_tag' => '',
+            'paperless_url' => self::PAPERLESS, 'paperless_token' => 'MonMotDePasse!2026', 'paperless_tag' => '',
+        ])->assertSessionHasErrors('paperless_token');
+        $this->assertNull($this->louis->household->fresh()->paperless_token);
+
+        // Jeton collé avec « Token » devant et un retour à la ligne : nettoyé
+        $this->put('/foyer/paperless', [
+            'paperless_url' => self::PAPERLESS.'/', 'paperless_token' => "Token {$token}\n", 'paperless_tag' => '',
         ])->assertRedirect()->assertSessionHas('status');
 
         $household = $this->louis->household->fresh();
         $this->assertSame(self::PAPERLESS, $household->paperless_url);
-        $this->assertSame('jeton', $household->paperless_token);
+        $this->assertSame($token, $household->paperless_token);
         $this->assertSame('courses alimentaires', $household->paperlessTag());
 
         // Jeton laissé vide : l'ancien est conservé
         $this->put('/foyer/paperless', ['paperless_url' => self::PAPERLESS, 'paperless_token' => '', 'paperless_tag' => 'courses alimentaires'])->assertSessionHasNoErrors();
-        $this->assertSame('jeton', $household->fresh()->paperless_token);
+        $this->assertSame($token, $household->fresh()->paperless_token);
 
-        $this->get('/foyer')->assertOk()->assertDontSee('jeton"', false);
+        // Le jeton n'est jamais réaffiché : seule sa fin l'est, et le champ n'est pas un mot de passe
+        $this->get('/foyer')->assertOk()->assertDontSee($token)->assertSee('…373625', false)->assertDontSee('type="password"', false);
     }
 
     public function test_tickets_d_un_autre_foyer_invisibles(): void

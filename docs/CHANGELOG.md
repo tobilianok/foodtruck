@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.5.2 - 2026-09-29 - Tickets réels de Paperless : Lidl (OCR) et Leclerc Drive
+
+- Lidl lu par OCR dans Paperless : montants « 1,/9 », « 1,7/9 », « @,71 », codes collés « 5,99BT », quantité « 7 », « 71 » ou « | » pour 1, prix unitaire ou total faux d'un chiffre, remises impossibles (« -60,36 »), « EUR/Kkg ». Sur le ticket du 02/10/2025 : 32 articles lus sur 32 (6 en v0.5.1), somme exacte.
+- Ligne illisible : montant déduit du total quand c'est la seule (« Pâté de campagne ») ; sinon lignes listées sur la page du ticket. Pesée illisible : aucun prix enregistré. « 31 articles lus sur 32 annoncés ».
+- Bon de commande Leclerc Drive : lecteur dédié (quantité, prix unitaire, total), rubriques non alimentaires ignorées d'office, économies de lot réparties, anti-gaspi marqué promo, total payé hors avoir, date de commande.
+- Rapprochement : produits transformés non confondus avec leur ingrédient (compote ≠ pomme, croûtons ≠ ail…), poire ≠ poireau, article à la pièce jamais au prix du vrac au kilo (conditionnement « Pièce (ticket) »).
+- Nouveau : « Créer l'ingrédient (nom saisi) » sur une ligne de ticket, avec choix du rayon ; conditionnement et prix créés d'après le ticket.
+- Correctif : un ticket ne passe plus en « traité » quand un nom tapé n'existe pas dans le référentiel.
+- « Relire le ticket » aussi sur un ticket traité, sans doubler les prix ; foodtruck:reparse --tout.
+- Paperless : champ jeton non rempli par les gestionnaires de mots de passe, « Token » et espaces retirés, fin du jeton affichée ; messages d'erreur précis (jeton refusé, droit manquant sur les étiquettes/documents/correspondants).
+- 79 tests automatisés, dont les textes Paperless réels (tests/Fixtures/paperless).
+
 ## v0.5.1 - 2026-09-29 - Lecteur ajusté aux tickets Lidl
 
 - Format Lidl Plus : colonnes prix unitaire / quantité / total, codes « A T » et « B », pesées, remises Lidl Plus, « Prix en baisse », « Rabais », « Rem LPM », tableau de TVA, date du ticket (codes numériques écartés). Validé sur 5 vrais tickets : la somme des lignes retombe exactement sur « A payer ».
