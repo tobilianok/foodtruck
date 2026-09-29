@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.4.0 (étape 5 - recettes livrées, en attente de validation)
+Version du document : v0.5.0 (étape 6 - tickets de caisse / Paperless livrés, en attente de validation)
 Dernière mise à jour : 2026-09-28
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -106,13 +106,14 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 2. Socle : stack Docker, accès navigateur, dépôt Git, SSO Authentik (v0.1.0, correctif v0.1.1) - VALIDÉ le 2026-09-28
 3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles, invitations (v0.2.0) - VALIDÉ le 2026-09-28
 4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0) - VALIDÉ le 2026-09-28
-5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0) - LIVRÉ, en attente de validation
-6. Affichage d'une recette proratisée (v0.5.0)
-7. Planning libre et repas cumulables (v0.6.0)
-8. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.7.0)
-9. Économies : coûts, rapprochement des tickets, saisonnalité, stock, anti-gaspi, maison vs industriel (v0.8.0)
-10. Menu de la semaine proposé automatiquement dans le budget (v0.9.0)
-11. Bonus : import de recette par URL, OCR des tickets, sauvegardes automatiques, équilibre nutritionnel hebdomadaire
+5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0) - VALIDÉ le 2026-09-29
+6. Tickets de caisse : connexion Paperless, lecture, rapprochement, prix réels (v0.5.0) - LIVRÉ, en attente de validation ; ajustement aux vrais tickets en v0.5.x
+7. Affichage d'une recette proratisée (v0.6.0)
+8. Planning libre et repas cumulables (v0.7.0)
+9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0)
+10. Économies : budget, stock, anti-gaspi, rapprochement ticket ↔ liste de courses (v0.9.0)
+11. Menu de la semaine proposé automatiquement dans le budget (v0.10.0)
+12. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
 
 Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé en v0.2.0 pour que la première mise en ligne ne teste que l'infrastructure et la connexion.
 
@@ -130,6 +131,23 @@ Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé 
 - v0.3.0 validée par Louis le 2026-09-28.
 - v0.4.0 : recettes livrées - liste en cartes (recherche, catégorie, étiquette, de saison, 30 min max, faisable avec mes appareils, favoris, brouillons), fiche (ingrédients groupés, équivalences, étapes avec minuteur et appareil, coût, économie vs industriel, appareils manquants), formulaire (lignes dynamiques, autocomplétion), photo, brouillon, duplication, favoris, 24 recettes de départ, 50 tests. Choix de saisie et photos pris par défaut (voir décisions), à confirmer par Louis.
 
+## Intégration Paperless (v0.5.0, décidée le 2026-09-29)
+
+Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiquette « courses alimentaires », correspondant = magasin) et en tire les prix réellement payés ; avec le temps, les prix deviennent de plus en plus fiables.
+- Tickets : scannés au scanner (propres) ou dématérialisés (PDF texte) quand l'enseigne le propose (la plupart des enseignes du foyer le font).
+- Réglages par foyer, dans Mon foyer (admins) : adresse de Paperless (http://192.168.1.14:8010), jeton d'API d'un compte Paperless dédié en lecture seule (stocké chiffré), étiquette. Un workflow Paperless donne à ce compte la lecture des documents de l'étiquette.
+- Synchronisation : toutes les heures (conteneur foodtruck-scheduler, schedule:work) et à la demande (bouton). Nouveaux documents importés ; documents modifiés relus tant que le ticket n'est pas traité.
+- Lecture (App\Support\Receipts\ReceiptParser) : règles génériques des tickets français (prix en fin de ligne + code TVA, « 2 x 1,05 », « 0,856 kg x 2,49 €/kg », remises rattachées à l'article précédent, TOTAL / NET A PAYER, date, erreurs O/0). Contrôle : somme des lignes lues comparée au total du ticket. Règles par enseigne à ajuster avec de vrais tickets (v0.5.x).
+- Rapprochement (ReceiptMatcher) : libellé mémorisé pour ce magasin → reconnu ; mémorisé ailleurs ou ressemblance avec un ingrédient (abréviations des tickets) → proposé ; sinon à associer. Choix du conditionnement d'après le libellé (« 1L », « 6X1L », « X12 », vrac pour une pesée).
+- Application (ReceiptProcessor) : prix du conditionnement déduit (pesée → prix au kilo ramené au conditionnement ; « 6X1L » associé à la bouteille → prix d'une bouteille ; remise → promo), origine « ticket », daté du jour d'achat, pour le magasin du ticket. Libellés mémorisés (receipt_aliases, par magasin), y compris « toujours ignorer » (sac, non alimentaire). Un ticket dont toutes les lignes sont connues est traité automatiquement. Un ingrédient choisi sans conditionnement : conditionnement déduit du ticket, créé si la quantité lue n'existe pas (« 50 cl (ticket) »).
+- Saisie manuelle : coller le texte d'un ticket (hors Paperless).
+- Pas d'IA locale (VM docker trop juste en RAM, CPU du ML150 sur-souscrit, Quadro P620 trop petite) ; à réévaluer plus tard pour suggérer les libellés inconnus.
+- Plus tard : rapprochement avec la liste de courses (v0.8.0).
+
+- v0.4.0 validée par Louis le 2026-09-29.
+- v0.5.0 : tickets de caisse livrés - réglages Paperless (Mon foyer), page Tickets (synchronisation, filtres, saisie manuelle), écran de rapprochement, prix « ticket », libellés mémorisés, traitement automatique, conteneur foodtruck-scheduler, 63 tests. Lecteur générique, en attente de vrais tickets pour l'ajuster.
+
 ## Questions ouvertes
 
-Aucune bloquante. Pour la v0.5.0 (recette proratisée) : choix du nombre de personnes (membres du foyer présents + invités, avec coefficients), arrondis d'affichage (« 1,3 œuf » → 1 ou 2 ?).
+- Textes de vrais tickets (dématérialisés et scannés) de Leclerc Drive, Lidl, Morin… pour ajuster le lecteur (v0.5.1).
+- Pour la v0.6.0 (recette proratisée) : choix du nombre de personnes (membres présents + invités), arrondis (« 1,3 œuf » → 1 ou 2 ?).

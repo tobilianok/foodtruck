@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.5.0 - 2026-09-29 - Tickets de caisse et Paperless
+
+- Connexion à Paperless-ngx par foyer (Mon foyer, admins) : adresse, jeton d'API chiffré, étiquette ; test de connexion à l'enregistrement.
+- Synchronisation des documents étiquetés « courses alimentaires » : toutes les heures (nouveau conteneur foodtruck-scheduler) et à la demande.
+- Lecture des tickets : articles, quantités, pesées au kilo, remises, total, date ; contrôle de l'écart avec le total du ticket.
+- Rapprochement avec le référentiel : libellés mémorisés par magasin (reconnu), propositions par ressemblance (proposé), choix manuel avec autocomplétion ; « toujours ignorer » pour le non alimentaire.
+- Prix réels : origine « ticket », datés du jour d'achat, promo si remise ; conditionnement créé depuis le ticket si besoin. Tickets entièrement reconnus traités automatiquement.
+- Saisie manuelle d'un ticket (copier-coller), relecture, ignorer un ticket.
+- Navigation : entrée « Tickets » ; accueil : prix réels relevés et tickets à valider.
+- Feuille de route décalée : recette proratisée en v0.6.0.
+- 63 tests automatisés.
+
 ## v0.4.0 - 2026-09-29 - Recettes
 
 - Recettes publiques : liste en cartes avec filtres (recherche, catégorie, étiquette, de saison, 30 min max, faisable avec mes appareils, favoris, brouillons).

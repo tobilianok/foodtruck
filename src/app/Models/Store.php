@@ -15,11 +15,11 @@ class Store extends Model
         'frais' => 'Produits frais',
     ];
 
-    protected $fillable = ['name', 'slug', 'kind', 'position', 'is_active'];
+    protected $fillable = ['name', 'slug', 'kind', 'receipt_names', 'position', 'is_active'];
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'receipt_names' => 'array'];
     }
 
     public function prices(): HasMany

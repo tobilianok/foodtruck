@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.4.0)
+Dernière mise à jour : 2026-09-29 (v0.5.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -23,6 +23,7 @@ Dernière mise à jour : 2026-09-29 (v0.4.0)
 ## Architecture
 
 - foodtruck-app : PHP 8.4 FPM Alpine (image locale foodtruck-app:local), workers avec l'UID/GID de tobilianok, code monté depuis ./src.
+- foodtruck-scheduler (v0.5.0) : même image que foodtruck-app, lance « php artisan schedule:work » (synchronisation Paperless toutes les heures).
 - foodtruck-web : nginx:stable-alpine, sert ./src/public, relaie le PHP vers foodtruck-app:9000.
 - foodtruck-db : mariadb:11.4, données dans ./data/mariadb (hors Git), buffer InnoDB limité à 128 Mo.
 
@@ -71,6 +72,8 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan test                   tests automatisés (base SQLite en mémoire, sans toucher aux données)
     ./ft php artisan foodtruck:reference    importe les ingrédients de départ manquants (n'écrase rien)
     ./ft php artisan foodtruck:recipes      importe les recettes de départ manquantes (n'écrase rien)
+    ./ft php artisan foodtruck:tickets      synchronise les tickets Paperless maintenant
+    docker compose logs -f scheduler        journal des tâches planifiées
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
     docker compose restart                  redémarrage
@@ -84,6 +87,13 @@ Les comptes Foodtruck sont créés à la première connexion ; ils sont identifi
 Chaque script de mise à jour : vérifie la version en place, les conteneurs et un dépôt Git propre ; sauvegarde la base dans backups/ ; écrit les fichiers ; lance les tests (en cas d'échec, restaure les fichiers via Git et s'arrête sans migrer) ; puis migre et contrôle.
 
 Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (ou ~/foodtruck-update-vX.Y.Z.sh), à coller puis exécuter sur la VM, suivi des commandes Git (commit, tag vX.Y.Z, push vers git@github.com:tobilianok/foodtruck.git).
+
+## Paperless (tickets de caisse)
+
+- Paperless-ngx tourne sur la même VM (stack paperless, port 8010, LAN/Tailscale uniquement). Foodtruck l'appelle en http://192.168.1.14:8010 depuis ses conteneurs ; rien n'est modifié côté Paperless hormis le compte dédié.
+- Compte Paperless « foodtruck » : non administrateur, permissions « Afficher » sur Documents, Étiquettes et Correspondants ; jeton d'API créé pour lui. Un workflow Paperless (déclencheur : document ajouté ou mis à jour avec l'étiquette « courses alimentaires ») lui donne la permission de lecture sur ces documents.
+- Réglage dans Foodtruck : Mon foyer → « Tickets de caisse : Paperless » (adresse, jeton, étiquette). Le jeton est chiffré en base avec APP_KEY.
+- Point d'attention (rapport d'infra) : le mot de passe admin de Paperless est à renforcer.
 
 ## Données de référence
 

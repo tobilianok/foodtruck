@@ -156,6 +156,38 @@
         @endif
     </section>
 
+    {{-- Paperless --}}
+    @if ($canManage)
+        <section class="panel" id="paperless">
+            <h2>Tickets de caisse : Paperless</h2>
+            <p class="hint">
+                Foodtruck lit les documents Paperless portant l'étiquette choisie et en tire les prix réellement payés.
+                Utilise un compte Paperless dédié, en lecture seule, qui ne voit que ces documents.
+            </p>
+            <form method="post" action="{{ route('household.paperless') }}" class="grid-2 align-end">
+                @csrf @method('put')
+                <label class="field">
+                    <span>Adresse de Paperless</span>
+                    <input type="url" name="paperless_url" value="{{ old('paperless_url', $household->paperless_url) }}" placeholder="http://192.168.1.14:8010">
+                </label>
+                <label class="field">
+                    <span>Étiquette des tickets</span>
+                    <input type="text" name="paperless_tag" value="{{ old('paperless_tag', $household->paperlessTag()) }}" maxlength="80">
+                </label>
+                <label class="field span-2">
+                    <span>Jeton d'API {{ $household->paperless_token ? '(enregistré, laisser vide pour le conserver)' : '' }}</span>
+                    <input type="password" name="paperless_token" value="" autocomplete="new-password" placeholder="{{ $household->paperless_token ? '••••••••••••' : 'jeton du compte Paperless dédié' }}">
+                </label>
+                <div class="actions span-2">
+                    @if ($household->hasPaperless())
+                        <button type="submit" name="disconnect" value="1" class="btn btn-ghost" data-confirm="Déconnecter Paperless ?">Déconnecter</button>
+                    @endif
+                    <button type="submit" class="btn">Tester et enregistrer</button>
+                </div>
+            </form>
+        </section>
+    @endif
+
     {{-- Comptes --}}
     <section class="panel">
         <h2>Comptes du foyer</h2>

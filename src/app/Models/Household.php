@@ -9,12 +9,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Household extends Model
 {
-    protected $fillable = ['name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'created_by'];
+    protected $fillable = [
+        'name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'created_by',
+        'paperless_url', 'paperless_token', 'paperless_tag', 'paperless_synced_at', 'paperless_last_error',
+    ];
+
+    protected $hidden = ['paperless_token'];
 
     protected function casts(): array
     {
         return [
             'weekly_budget_cents' => 'integer',
+            'paperless_token' => 'encrypted',
+            'paperless_synced_at' => 'datetime',
         ];
     }
 
@@ -42,6 +49,21 @@ class Household extends Model
     public function produceStore(): BelongsTo
     {
         return $this->belongsTo(Store::class, 'produce_store_id');
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(Receipt::class);
+    }
+
+    public function hasPaperless(): bool
+    {
+        return filled($this->paperless_url) && filled($this->paperless_token);
+    }
+
+    public function paperlessTag(): string
+    {
+        return $this->paperless_tag ?: 'courses alimentaires';
     }
 
     public function invitations(): HasMany

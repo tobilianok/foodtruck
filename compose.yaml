@@ -28,6 +28,24 @@ services:
     networks:
       - internal
 
+  # Tâches planifiées (synchronisation Paperless toutes les heures)
+  scheduler:
+    image: foodtruck-app:local
+    container_name: foodtruck-scheduler
+    restart: unless-stopped
+    init: true
+    user: www-data
+    command: ["php", "artisan", "schedule:work"]
+    environment:
+      TZ: Europe/Paris
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
   web:
     image: nginx:stable-alpine
     container_name: foodtruck-web

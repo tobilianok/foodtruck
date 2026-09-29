@@ -14,10 +14,10 @@
 
     @php
         $modules = [
-            ['Recette proratisée', 'Quantités ajustées au nombre de personnes', 'v0.5.0'],
-            ['Planning', 'Repas choisis librement, cumulables', 'v0.6.0'],
-            ['Liste de courses', 'Mutualisée, par magasin et par rayon', 'v0.7.0'],
-            ['Économies', 'Budget, tickets de caisse, anti-gaspi', 'v0.8.0'],
+            ['Recette proratisée', 'Quantités ajustées au nombre de personnes', 'v0.6.0'],
+            ['Planning', 'Repas choisis librement, cumulables', 'v0.7.0'],
+            ['Liste de courses', 'Mutualisée, par magasin et par rayon', 'v0.8.0'],
+            ['Économies', 'Budget, stock, anti-gaspi', 'v0.9.0'],
         ];
         $portions = rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',');
     @endphp
@@ -47,6 +47,20 @@
                 {{ \App\Models\Ingredient::count() }} ingrédients, prix par magasin<br>
                 @if ($household->mainStore) Magasin principal : {{ $household->mainStore->name }} @endif
                 @if ($household->produceStore) · fruits et légumes : {{ $household->produceStore->name }} @endif
+            </p>
+            <span class="tag tag-accent">Disponible</span>
+        </a>
+        @php
+            $toReview = $household->receipts()->where('status', 'a_valider')->count();
+            $ticketPrices = \App\Models\Price::where('source', 'ticket')->count();
+        @endphp
+        <a class="card card-link" href="{{ route('receipts.index') }}">
+            <h2>Tickets de caisse</h2>
+            <p>
+                {{ $ticketPrices }} prix réels relevés<br>
+                @if ($toReview) <strong>{{ $toReview }} ticket{{ $toReview > 1 ? 's' : '' }} à valider</strong>
+                @elseif ($household->hasPaperless()) Relié à Paperless
+                @else Paperless non relié @endif
             </p>
             <span class="tag tag-accent">Disponible</span>
         </a>

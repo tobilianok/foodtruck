@@ -1,12 +1,16 @@
 <?php
 
+use App\Models\Household;
 use App\Models\User;
 use App\Services\OidcClient;
+use App\Support\Receipts\PaperlessClient;
+use App\Support\Receipts\ReceiptSync;
 use App\Support\RecipeImporter;
 use App\Support\ReferenceImporter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 
 /*
  * ./ft php artisan foodtruck:check
@@ -48,6 +52,23 @@ Artisan::command('foodtruck:check', function (OidcClient $oidc) {
     } catch (Throwable $e) {
         $ko('Authentik : '.$e->getMessage());
         $errors++;
+    }
+
+    try {
+        foreach (Household::whereNotNull('paperless_url')->get() as $household) {
+            if (! $household->hasPaperless()) {
+                continue;
+            }
+            try {
+                $check = PaperlessClient::for($household)->check($household->paperlessTag());
+                $ok("Paperless ({$household->name}) : {$check['documents']} document(s) avec l'étiquette « {$household->paperlessTag()} »");
+            } catch (Throwable $e) {
+                $ko("Paperless ({$household->name}) : ".$e->getMessage());
+                $errors++;
+            }
+        }
+    } catch (Throwable) {
+        // Table pas encore migrée : rien à vérifier
     }
 
     $this->newLine();
@@ -151,3 +172,28 @@ Artisan::command('foodtruck:recipes', function () {
         $this->line("Déjà présentes, laissées telles quelles : {$counts['skipped']}.");
     }
 })->purpose('Importe le premier lot de recettes');
+
+/*
+ * ./ft php artisan foodtruck:tickets
+ * Synchronise les tickets Paperless de tous les foyers configurés (lancé toutes les heures).
+ */
+Artisan::command('foodtruck:tickets', function (ReceiptSync $sync) {
+    $households = Household::whereNotNull('paperless_url')->get()->filter->hasPaperless();
+
+    if ($households->isEmpty()) {
+        $this->line('Aucun foyer relié à Paperless.');
+
+        return 0;
+    }
+
+    $failed = 0;
+    foreach ($households as $household) {
+        $counts = $sync->run($household);
+        $this->line("{$household->name} : ".ReceiptSync::summary($counts));
+        $failed += $counts['error'] ? 1 : 0;
+    }
+
+    return $failed ? 1 : 0;
+})->purpose('Synchronise les tickets de caisse depuis Paperless');
+
+Schedule::command('foodtruck:tickets')->hourly()->withoutOverlapping(30);

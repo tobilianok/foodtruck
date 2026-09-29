@@ -371,3 +371,36 @@ input[type=file] { font: inherit; color: var(--muted); }
     .filters-recipes { grid-template-columns: 1fr 1fr; }
     .filters-recipes .field:first-child { grid-column: 1 / -1; }
 }
+
+/* ---- v0.5.0 : tickets de caisse ---- */
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88rem; }
+.raw-text { white-space: pre-wrap; max-height: 480px; overflow: auto; background: var(--bg); padding: 12px; border-radius: 10px; }
+.receipt-list { list-style: none; margin: 0; padding: 0; }
+.receipt-list li + li { border-top: 1px dashed var(--line); }
+.receipt-link { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 12px 4px; color: inherit; text-decoration: none; border-radius: 8px; }
+.receipt-link:hover { background: var(--accent-soft); }
+.receipt-main { display: flex; flex-direction: column; }
+.receipt-side { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pagination { display: flex; gap: 16px; justify-content: center; padding-top: 12px; }
+.receipt-lines { display: grid; }
+.receipt-line {
+    display: grid; grid-template-columns: minmax(180px, 1.3fr) 110px minmax(220px, 2fr) 190px; gap: 10px;
+    align-items: start; padding: 10px 0; border-bottom: 1px dashed var(--line);
+}
+.receipt-line.is-muted { opacity: .6; }
+.rl-label { display: flex; flex-direction: column; gap: 2px; word-break: break-word; }
+.rl-price { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.rl-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+.ticket-actions { margin: 4px 0 16px; }
+@media (max-width: 860px) {
+    .receipt-line { grid-template-columns: 1fr auto; }
+    .rl-assoc, .rl-action { grid-column: 1 / -1; }
+}
+/* Navigation : 6 entrées tiennent sur une ligne */
+.mainnav a { white-space: nowrap; padding: .4em .6em; }
+@media (max-width: 1180px) { .topbar .account-name { display: none; } }
+@media (max-width: 980px) {
+    .topbar-inner { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+    .mainnav { order: 3; width: 100%; margin: 0 0 4px; overflow-x: auto; }
+    .account { margin-left: auto; }
+}

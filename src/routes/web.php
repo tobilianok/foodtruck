@@ -6,6 +6,7 @@ use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PriceController;
+use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RecipeController;
 use Illuminate\Support\Facades\Route;
 
@@ -58,6 +59,15 @@ Route::middleware('auth')->group(function () {
         Route::delete('/ingredients/{ingredient:slug}/conditionnements/{pack}', [IngredientController::class, 'destroyPack'])->name('ingredients.packs.destroy');
         Route::post('/ingredients/{ingredient:slug}/prix', [IngredientController::class, 'storePrice'])->name('ingredients.prices.store');
 
+        // Tickets de caisse (Paperless ou saisie manuelle) : prix réellement payés
+        Route::get('/tickets', [ReceiptController::class, 'index'])->name('receipts.index');
+        Route::post('/tickets', [ReceiptController::class, 'store'])->name('receipts.store');
+        Route::post('/tickets/synchroniser', [ReceiptController::class, 'sync'])->middleware('throttle:6,1')->name('receipts.sync');
+        Route::get('/tickets/{receipt}', [ReceiptController::class, 'show'])->name('receipts.show');
+        Route::put('/tickets/{receipt}', [ReceiptController::class, 'update'])->name('receipts.update');
+        Route::post('/tickets/{receipt}/relire', [ReceiptController::class, 'reparse'])->name('receipts.reparse');
+        Route::post('/tickets/{receipt}/ignorer', [ReceiptController::class, 'ignore'])->name('receipts.ignore');
+
         Route::get('/prix', [PriceController::class, 'index'])->name('prices.index');
         Route::get('/prix/{store:slug}', [PriceController::class, 'edit'])->name('prices.edit');
         Route::post('/prix/{store:slug}', [PriceController::class, 'update'])->name('prices.update');
@@ -68,6 +78,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/membres/{member}', [HouseholdController::class, 'updateMember'])->name('household.members.update');
             Route::delete('/membres/{member}', [HouseholdController::class, 'destroyMember'])->name('household.members.destroy');
             Route::put('/appareils', [HouseholdController::class, 'updateEquipment'])->name('household.equipment');
+            Route::put('/paperless', [ReceiptController::class, 'settings'])->name('household.paperless');
             Route::put('/comptes/{account}', [HouseholdController::class, 'updateAccount'])->name('household.accounts.update');
             Route::delete('/comptes/{account}', [HouseholdController::class, 'removeAccount'])->name('household.accounts.remove');
             Route::post('/invitations', [InvitationController::class, 'store'])->name('household.invitations.store');

@@ -20,6 +20,7 @@
                     <a href="{{ route('home') }}" @class(['is-active' => request()->routeIs('home')])>Accueil</a>
                     <a href="{{ route('recipes.index') }}" @class(['is-active' => request()->routeIs('recipes.*')])>Recettes</a>
                     <a href="{{ route('ingredients.index') }}" @class(['is-active' => request()->routeIs('ingredients.*')])>Ingrédients</a>
+                    <a href="{{ route('receipts.index') }}" @class(['is-active' => request()->routeIs('receipts.*')])>Tickets</a>
                     <a href="{{ route('prices.index') }}" @class(['is-active' => request()->routeIs('prices.*')])>Prix</a>
                     <a href="{{ route('household.show') }}" @class(['is-active' => request()->routeIs('household.*')])>Mon foyer</a>
                 </nav>
