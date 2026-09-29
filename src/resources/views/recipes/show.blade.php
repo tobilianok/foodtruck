@@ -3,6 +3,10 @@
 @section('title', $recipe->title)
 
 @section('content')
+    @php
+        $f = $serving->factor;
+        $U = \App\Support\Units::class;
+    @endphp
     <article class="recipe">
         <p class="back"><a href="{{ route('recipes.index') }}">← Recettes</a></p>
 
@@ -22,7 +26,7 @@
                 @endif
 
                 <dl class="facts">
-                    <div><dt>Pour</dt><dd>{{ $recipe->yieldLabel() }}</dd></div>
+                    <div><dt>Pour</dt><dd><a href="#pour-combien">{{ $serving->totalLabel() }}</a></dd></div>
                     @if ($recipe->prep_minutes) <div><dt>Préparation</dt><dd>{{ $recipe->durationLabel($recipe->prep_minutes) }}</dd></div> @endif
                     @if ($recipe->cook_minutes) <div><dt>Cuisson</dt><dd>{{ $recipe->durationLabel($recipe->cook_minutes) }}</dd></div> @endif
                     @if ($recipe->rest_minutes) <div><dt>Repos</dt><dd>{{ $recipe->durationLabel($recipe->rest_minutes) }}</dd></div> @endif
@@ -32,7 +36,7 @@
                             <dt>Coût estimé</dt>
                             <dd>
                                 {{ \App\Models\Price::formatCents($cost['total_cents']) }}
-                                @if ($perYield !== null) <span class="muted small">soit {{ \App\Models\Price::formatCents($perYield) }} / {{ $recipe->perYieldLabel() }}</span> @endif
+                                @if ($perYield !== null) <span class="muted small">soit {{ \App\Models\Price::formatCents($perYield) }} / {{ $serving->isPortions() ? 'part' : $recipe->perYieldLabel() }}</span> @endif
                             </dd>
                         </div>
                     @endif
@@ -74,22 +78,100 @@
         @endif
 
         @if ($recipe->industrial_price_cents && $cost['complete'])
-            @php $saving = $recipe->industrial_price_cents - $cost['total_cents']; @endphp
+            @php
+                $industrial = $recipe->industrial_price_cents * $f;
+                $saving = $industrial - $cost['total_cents'];
+            @endphp
             <div @class(['alert', 'alert-ok' => $saving > 0, 'alert-info' => $saving <= 0])>
                 @if ($saving > 0)
                     <strong>Fait maison rentable :</strong> {{ \App\Models\Price::formatCents($cost['total_cents']) }} au lieu d'environ
-                    {{ \App\Models\Price::formatCents($recipe->industrial_price_cents) }} pour l'équivalent industriel,
-                    soit {{ \App\Models\Price::formatCents($saving) }} d'économie ({{ round($saving / $recipe->industrial_price_cents * 100) }} %).
+                    {{ \App\Models\Price::formatCents($industrial) }} pour l'équivalent industriel,
+                    soit {{ \App\Models\Price::formatCents($saving) }} d'économie ({{ round($saving / $industrial * 100) }} %).
                 @else
                     <strong>Fait maison :</strong> {{ \App\Models\Price::formatCents($cost['total_cents']) }}, un peu plus que l'équivalent industriel
-                    (≈ {{ \App\Models\Price::formatCents($recipe->industrial_price_cents) }}), mais sans additifs et avec des ingrédients choisis.
+                    (≈ {{ \App\Models\Price::formatCents($industrial) }}), mais sans additifs et avec des ingrédients choisis.
                 @endif
             </div>
         @endif
 
+        {{-- Pour combien cuisiner --}}
+        <section class="panel serving" id="pour-combien">
+            <form method="get" action="{{ route('recipes.show', $recipe) }}#pour-combien" class="serving-form" data-autosubmit>
+                <h2>Pour combien ?</h2>
+                @if ($serving->isPortions())
+                    <input type="hidden" name="ajuste" value="1">
+                    @if ($serving->members->isNotEmpty())
+                        <fieldset class="serving-row">
+                            <legend>Qui mange</legend>
+                            @foreach ($serving->members as $member)
+                                <label class="chip-check">
+                                    <input type="checkbox" name="qui[]" value="{{ $member->id }}" @checked(in_array($member->id, $serving->eaters, true))>
+                                    <span>{{ $member->name }} <small>{{ $U::number($member->portion_coefficient) }}</small></span>
+                                </label>
+                            @endforeach
+                        </fieldset>
+                    @endif
+                    <div class="serving-row">
+                        <label class="field-inline">
+                            <span>Invités adultes</span>
+                            <input type="number" name="adultes" min="0" max="{{ \App\Support\RecipeServing::MAX_GUESTS }}" value="{{ $serving->adults }}" inputmode="numeric">
+                        </label>
+                        <label class="field-inline">
+                            <span>enfants</span>
+                            <input type="number" name="enfants" min="0" max="{{ \App\Support\RecipeServing::MAX_GUESTS }}" value="{{ $serving->children }}" inputmode="numeric">
+                        </label>
+                    </div>
+                    <fieldset class="serving-row">
+                        <legend>Nombre de repas</legend>
+                        @foreach ([1 => '1 repas', 2 => '2 repas', 3 => '3 repas', 4 => '4 repas'] as $value => $label)
+                            <label class="chip-check">
+                                <input type="radio" name="repas" value="{{ $value }}" @checked($serving->meals === $value)>
+                                <span>{{ $label }}</span>
+                            </label>
+                        @endforeach
+                        <small class="muted">ce soir + demain midi, ou une part à congeler</small>
+                    </fieldset>
+                    <div class="serving-row">
+                        <label class="field-inline">
+                            <span>Parts par repas <small class="muted">(réglage libre)</small></span>
+                            <input type="number" name="parts" min="0.5" max="50" step="0.5" value="{{ $serving->manual !== null ? $serving->manual : '' }}" placeholder="{{ $U::number($serving->perMeal) }}" inputmode="decimal">
+                        </label>
+                        <button type="submit" class="btn btn-small">Recalculer</button>
+                        @if (request()->query())
+                            <a class="btn btn-small btn-ghost" href="{{ route('recipes.show', $recipe) }}#pour-combien">Revenir au foyer</a>
+                        @endif
+                    </div>
+                @else
+                    <div class="serving-row">
+                        <label class="field-inline">
+                            <span>Quantité à préparer</span>
+                            <input type="number" name="quantite" min="{{ $recipe->yield_unit === 'grammes' ? 50 : 1 }}" step="{{ $recipe->yield_unit === 'grammes' ? 50 : 1 }}"
+                                   max="{{ $recipe->yield_quantity * 20 }}" value="{{ $U::number($serving->total) }}" inputmode="numeric">
+                            <small class="muted">{{ \App\Models\Recipe::YIELD_UNITS[$recipe->yield_unit][1] ?? $recipe->yield_unit }}</small>
+                        </label>
+                        <span class="serving-batches">
+                            @foreach ($serving->batchChoices() as $label => $quantity)
+                                <a @class(['chip', 'is-active' => abs($quantity - $serving->total) < 0.001]) href="{{ route('recipes.show', [$recipe, 'quantite' => $U::number($quantity)]) }}#pour-combien">×{{ $label }}</a>
+                            @endforeach
+                        </span>
+                        <button type="submit" class="btn btn-small">Recalculer</button>
+                    </div>
+                @endif
+
+                <p class="serving-result">
+                    <strong>Pour {{ $serving->totalLabel() }}</strong>
+                    @if ($serving->detailLabel() !== '') <span class="muted">· {{ $serving->detailLabel() }}</span> @endif
+                    @if ($serving->isScaled() && $serving->isPortions()) <span class="muted small">(recette d'origine : {{ $recipe->yieldLabel() }})</span> @endif
+                </p>
+                @foreach ($serving->warnings as $warning)
+                    <p class="hint small">{{ $warning }}</p>
+                @endforeach
+            </form>
+        </section>
+
         <div class="recipe-body">
             <section class="panel recipe-ingredients">
-                <h2>Ingrédients <span class="muted small">pour {{ $recipe->yieldLabel() }}</span></h2>
+                <h2>Ingrédients <span class="muted small">pour {{ $serving->totalLabel() }}</span></h2>
                 @php $currentGroup = false; @endphp
                 <ul>
                     @foreach ($recipe->ingredients as $line)
@@ -100,10 +182,10 @@
                             @endif
                         @endif
                         <li @class(['is-optional' => $line->is_optional])>
-                            <span class="qty">{{ $line->quantityLabel() }}</span>
+                            <span class="qty" @if ($line->exactLabel($f)) title="{{ $line->exactLabel($f) }}" @endif>{{ $line->quantityLabel($f) }}</span>
                             <a href="{{ route('ingredients.show', $line->ingredient) }}">{{ $line->ingredient->name }}</a>
                             @if ($line->note) <span class="muted">{{ $line->note }}</span> @endif
-                            @if ($line->equivalentLabel()) <span class="muted small">{{ $line->equivalentLabel() }}</span> @endif
+                            @if ($line->equivalentLabel($f)) <span class="muted small">{{ $line->equivalentLabel($f) }}</span> @endif
                             @if ($line->is_optional) <span class="muted small">(facultatif)</span> @endif
                         </li>
                     @endforeach
@@ -119,6 +201,9 @@
 
             <section class="panel recipe-steps">
                 <h2>Étapes</h2>
+                @if ($serving->isScaled())
+                    <p class="hint small">Les quantités citées dans les étapes sont celles de la recette d'origine ({{ $recipe->yieldLabel() }}) : suis la liste d'ingrédients recalculée.</p>
+                @endif
                 <ol>
                     @foreach ($recipe->steps as $step)
                         <li>
@@ -149,4 +234,15 @@
             @endif
         </footer>
     </article>
+
+    <script>
+        // Recalcul immédiat quand on coche, choisit le nombre de repas ou valide un nombre
+        document.querySelectorAll('form[data-autosubmit]').forEach(function (form) {
+            form.addEventListener('change', function (event) {
+                if (event.target.matches('input')) {
+                    form.submit();
+                }
+            });
+        });
+    </script>
 @endsection

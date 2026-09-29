@@ -7,6 +7,7 @@ use App\Models\Ingredient;
 use App\Models\Recipe;
 use App\Models\Tag;
 use App\Support\RecipeCost;
+use App\Support\RecipeServing;
 use App\Support\RecipePhoto;
 use App\Support\RecipeWriter;
 use App\Support\Units;
@@ -77,14 +78,19 @@ class RecipeController extends Controller
         Gate::authorize('view', $recipe);
 
         $recipe->load([...self::RELATIONS, 'steps.equipment', 'parent']);
-        $household = $request->user()->household->loadMissing('equipment');
-        $cost = RecipeCost::compute($recipe);
+        $household = $request->user()->household->loadMissing(['equipment', 'members']);
+
+        // Pour combien cuisiner : parts du foyer (qui mange, invités, repas) ou fournée
+        $serving = RecipeServing::for($recipe, $household, $request->query());
+        $baseCost = RecipeCost::compute($recipe);
+        $cost = $serving->isScaled() ? RecipeCost::compute($recipe, $serving->factor) : $baseCost;
 
         return view('recipes.show', [
             'recipe' => $recipe,
+            'serving' => $serving,
             'cost' => $cost,
-            'perYield' => RecipeCost::perYield($recipe, $cost),
-            'cheap' => RecipeCost::isCheap($recipe, $cost),
+            'perYield' => RecipeCost::perYield($recipe, $baseCost),
+            'cheap' => RecipeCost::isCheap($recipe, $baseCost),
             'season' => $recipe->isInSeason((int) now('Europe/Paris')->month),
             'missingEquipment' => $recipe->missingEquipment($household),
             'isFavorite' => $request->user()->favoriteRecipes()->whereKey($recipe->id)->exists(),

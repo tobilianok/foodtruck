@@ -106,6 +106,66 @@ class Units
         return self::number($quantity).' '.$label;
     }
 
+    /**
+     * Arrondi « pratique » d'une quantité recalculée (proratisation) : ce qu'on mesure vraiment en cuisine.
+     * Pièces à l'entier (½ en dessous de 1), grammes et millilitres à 1, 5, 10 ou 50 près selon la quantité,
+     * cuillères et verres au ½, pincées à l'unité. Jamais zéro.
+     */
+    public static function practical(float $quantity, string $unit): float
+    {
+        if ($quantity <= 0) {
+            return 0.0;
+        }
+
+        $step = match ($unit) {
+            'piece' => $quantity < 1 ? 0.5 : 1.0,
+            'g', 'ml' => match (true) {
+                $quantity < 20 => 1.0,
+                $quantity < 500 => 5.0,
+                $quantity < 1000 => 10.0,
+                default => 50.0,
+            },
+            'kg', 'l' => $quantity < 1 ? 0.05 : 0.1,
+            'cl' => $quantity < 10 ? 0.5 : 1.0,
+            'dl', 'cac', 'cas', 'verre' => 0.5,
+            'pincee' => 1.0,
+            default => 0.01,
+        };
+
+        return max(round(round($quantity / $step) * $step, 2), $step);
+    }
+
+    /**
+     * Libellé d'une quantité recalculée : unité plus lisible au-delà d'un seuil (1 250 g → « 1,25 kg »)
+     * et fractions pour ce qui se compte (« 1 ½ c. à soupe », « ½ pièce »).
+     */
+    public static function scaledLabel(float $quantity, string $unit): string
+    {
+        if ($unit === 'g' && $quantity >= 1000) {
+            return self::number($quantity / 1000).' kg';
+        }
+        if ($unit === 'ml' && $quantity >= 1000) {
+            return self::number($quantity / 1000).' L';
+        }
+        if ($unit === 'cl' && $quantity >= 100) {
+            return self::number($quantity / 100).' L';
+        }
+
+        if (in_array($unit, ['piece', 'cac', 'cas', 'verre', 'dl'], true)) {
+            $whole = (int) floor($quantity);
+            $half = abs($quantity - $whole - 0.5) < 0.01;
+            if ($half || abs($quantity - $whole) < 0.01) {
+                $text = $half ? ($whole > 0 ? $whole.' ½' : '½') : (string) $whole;
+                $plurals = ['piece' => 'pièces', 'verre' => 'verres'];
+                $label = $quantity > 1 && isset($plurals[$unit]) ? $plurals[$unit] : self::label($unit);
+
+                return $text.' '.$label;
+            }
+        }
+
+        return self::quantityLabel($quantity, $unit);
+    }
+
     /** Affichage lisible d'une quantité exprimée dans l'unité de base : 1500 g → « 1,5 kg ». */
     public static function format(float $quantity, string $baseUnit): string
     {

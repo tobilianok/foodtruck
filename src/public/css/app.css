@@ -411,3 +411,30 @@ input[type=file] { font: inherit; color: var(--muted); }
 .rl-aisle { display: flex; flex-direction: column; gap: 2px; }
 .rl-aisle[hidden] { display: none; }
 .rl-meta .small { font-size: .78rem; }
+
+/* ---- v0.6.0 : recette proratisée ---- */
+.serving { margin-bottom: 16px; }
+.serving h2 { margin-bottom: 8px; }
+.serving-form { display: grid; gap: 10px; }
+.serving-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border: 0; padding: 0; margin: 0; }
+.serving-row legend { float: left; font-weight: 600; margin-right: 8px; padding: 0; }
+.chip-check { display: inline-flex; }
+.chip-check input { position: absolute; opacity: 0; pointer-events: none; }
+.chip-check span {
+    display: inline-flex; gap: 6px; align-items: baseline; padding: .35em .8em; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg); cursor: pointer; user-select: none;
+}
+.chip-check small { color: var(--muted); }
+.chip-check input:checked + span { background: var(--accent-soft); border-color: var(--accent); color: var(--text); font-weight: 600; }
+.chip-check input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field-inline { display: inline-flex; align-items: center; gap: 8px; }
+.field-inline input[type=number] { width: 5.5em; min-height: 38px; }
+.serving-batches { display: inline-flex; gap: 6px; }
+.serving-batches .chip { padding: .3em .7em; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; color: inherit; }
+.serving-batches .chip.is-active { background: var(--accent-soft); border-color: var(--accent); font-weight: 600; }
+.serving-result { margin: 4px 0 0; font-size: 1.05rem; }
+.recipe-ingredients .qty[title] { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+@media (max-width: 640px) {
+    .serving-row legend { float: none; width: 100%; margin-bottom: 2px; }
+    .field-inline input[type=number] { width: 4.5em; }
+}

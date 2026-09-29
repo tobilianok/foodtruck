@@ -1,7 +1,7 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.5.2 (étape 6 - tickets de caisse / Paperless : textes Paperless réels Lidl et Leclerc Drive, en attente de validation)
-Dernière mise à jour : 2026-09-28
+Version du document : v0.6.0 (étape 7 - recette proratisée, en attente de validation)
+Dernière mise à jour : 2026-09-29
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
 ## Décisions actées
@@ -19,6 +19,7 @@ Fonctionnel
 - Code : repartir de zéro (pas de reprise de MenuSemaine).
 - Recettes publiques, visibles par tous les comptes ; n'importe quel compte peut en saisir. Modification par l'auteur ou un admin, les autres dupliquent.
 - Recette saisie pour un rendement donné, puis proratisée à la sélection.
+- Proratisation (décidée le 2026-09-29, v0.6.0) : recette « pour N personnes » affichée par défaut pour les parts du foyer (somme des coefficients, 2,5 parts chez Louis) ; réglage sur la fiche : qui mange (membres cochés), invités adultes (1 part) et enfants (0,6 part), nombre de repas (1 à 4 : ce soir + demain midi, une part à congeler), ou parts par repas en réglage libre (au ½). Recettes en pots, pièces, parts de gâteau ou grammes : par fournée (×½, ×1, ×2, ×3 ou quantité saisie), indépendamment du foyer. Arrondi pratique : pièces à l'entier (½ sous 1, jamais 0), g/ml à 1, 5, 10 ou 50 près, cl à 1 (½ sous 10), cuillères et verres au ½, pincées à l'unité ; valeur exacte au survol ; quantités d'origine affichées telles quelles au facteur 1.
 - Mutualisation des ingrédients dans la liste de courses (ex. 20 cl + 40 cl de lait = 1 bouteille de 1 L, une seule ligne).
 - Planning libre : on choisit les repas voulus, pas de grille obligatoire (imprévus, restaurant, invités).
 - Multi-foyers ; un seul foyer créé au départ.
@@ -107,8 +108,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 3. Mon foyer : assistant de première connexion (membres, coefficients, appareils), multi-foyers, rôles, invitations (v0.2.0) - VALIDÉ le 2026-09-28
 4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0) - VALIDÉ le 2026-09-28
 5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0) - VALIDÉ le 2026-09-29
-6. Tickets de caisse : connexion Paperless, lecture, rapprochement, prix réels (v0.5.0, lecteur Lidl v0.5.1, textes Paperless réels Lidl et Leclerc Drive v0.5.2) - LIVRÉ, en attente de validation
-7. Affichage d'une recette proratisée (v0.6.0)
+6. Tickets de caisse : connexion Paperless, lecture, rapprochement, prix réels (v0.5.0, lecteur Lidl v0.5.1, textes Paperless réels Lidl et Leclerc Drive v0.5.2) - VALIDÉ le 2026-09-29
+7. Affichage d'une recette proratisée (v0.6.0) - LIVRÉ, en attente de validation
 8. Planning libre et repas cumulables (v0.7.0)
 9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0)
 10. Économies : budget, stock, anti-gaspi, rapprochement ticket ↔ liste de courses (v0.9.0)
@@ -160,8 +161,10 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.5.1 : lecteur ajusté sur 5 vrais tickets Lidl Plus (les sommes des lignes retombent exactement sur « A payer »), TVA 20 % ignorée d'office, rapprochement amélioré, commande foodtruck:reparse, 69 tests.
 - v0.5.0 et v0.5.1 installées et poussées sur GitHub le 2026-09-29. Paperless relié (compte foodtruck, workflow, étiquette « courses alimentaires » n° 32) : 7 tickets synchronisés (5 Lidl, 1 E.Leclerc). Constat : texte Paperless des tickets Lidl = OCR bruité (ticket du 02/10/2025 : 6 articles lus sur 32).
 - v0.5.2 : lecteur tolérant à l'OCR Lidl et lecteur Leclerc Drive, validés sur les textes Paperless réels (tests/Fixtures/paperless) ; création d'ingrédient depuis un ticket ; ticket à valider tant qu'une ligne reste à associer ; relecture des tickets traités sans doublon de prix ; champ jeton corrigé et erreurs Paperless précises ; 79 tests.
+- v0.5.2 installée et validée par Louis le 2026-09-29 : étape tickets de caisse validée.
+- v0.6.0 : recette proratisée - bloc « Pour combien ? » sur la fiche (qui mange, invités, nombre de repas, réglage libre ; fournée pour pots/pièces/grammes), quantités et équivalences recalculées avec arrondi pratique, coût du repas et par part, économie « fait maison » proratisée, rappel que les quantités des étapes sont celles d'origine, conseil de cuisson au-delà de ×2, lien partageable (réglages dans l'adresse) ; calcul réutilisable par le planning (App\Support\RecipeServing) ; 87 tests.
 
 ## Questions ouvertes
 
 - Autres enseignes (Morin, Carrefour, Hyper U, Grand Frais) : lecteur à ajuster dès réception de tickets réels (texte Paperless).
-- Pour la v0.6.0 (recette proratisée) : choix du nombre de personnes (membres présents + invités), arrondis (« 1,3 œuf » → 1 ou 2 ?).
+- Pour la v0.7.0 (planning) : période (semaine du lundi au dimanche ?), repas par jour (midi / soir, petit-déjeuner et goûters ?), repas pris hors maison, restes planifiés automatiquement (un plat « 2 repas » occupe le créneau suivant).

@@ -1,5 +1,16 @@
 # Journal des versions - Foodtruck
 
+## v0.6.0 - 2026-09-29 - Recette proratisée
+
+- Fiche recette : bloc « Pour combien ? ». Par défaut, les parts du foyer (somme des coefficients : 2,5 parts pour Tobilianok 1,5 + Marina 1).
+- Qui mange (membres à cocher), invités adultes (1 part) et enfants (0,6 part), nombre de repas (1 à 4 : ce soir + demain midi, une part à congeler), parts par repas en réglage libre.
+- Recettes en pots, pièces, parts ou grammes : par fournée (×½, ×1, ×2, ×3 ou quantité saisie, jusqu'à 20 fournées), sans tenir compte du foyer.
+- Quantités recalculées avec arrondi pratique (1,875 œuf → 2 pièces, 156 g → 155 g, 0,6 c. à soupe → ½ c. à soupe, 1 250 g → 1,25 kg) ; valeur exacte au survol ; équivalences (« ≈ 125 g ») sur la quantité arrondie.
+- Coût estimé du repas et par part, économie « fait maison » ramenée à la quantité préparée.
+- Rappel que les quantités écrites dans les étapes sont celles de la recette d'origine ; conseil de cuisson au-delà de ×2.
+- Réglages dans l'adresse de la page : lien partageable, bouton « Revenir au foyer ».
+- 87 tests automatisés.
+
 ## v0.5.2 - 2026-09-29 - Tickets réels de Paperless : Lidl (OCR) et Leclerc Drive
 
 - Lidl lu par OCR dans Paperless : montants « 1,/9 », « 1,7/9 », « @,71 », codes collés « 5,99BT », quantité « 7 », « 71 » ou « | » pour 1, prix unitaire ou total faux d'un chiffre, remises impossibles (« -60,36 »), « EUR/Kkg ». Sur le ticket du 02/10/2025 : 32 articles lus sur 32 (6 en v0.5.1), somme exacte.
