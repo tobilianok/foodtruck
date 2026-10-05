@@ -1,5 +1,16 @@
 # Journal des versions - Foodtruck
 
+## v0.15.1 - 2026-10-05 - Lecture des scans : colonnes étroites (carte HelloFresh du curry thaï)
+
+- Signalé par Louis : sur la carte HelloFresh « Curry thaï léger aux crevettes & coco » (document n° 481), toutes les étapes sortaient en une seule grande étape mélangée.
+- Cause : les gouttières entre les colonnes d'étapes de cette carte ne font que 30 à 40 pixels, et quelques mots (titres, paragraphe des allergènes) mordent dessus ; le découpage exigeait un blanc parfait de 42 pixels et ne coupait donc rien.
+- Nouveau découpage des colonnes dans foodtruck-ocr : pour chaque position, on compte les lignes de texte qui la traversent ; une gouttière peut être étroite et traversée par quelques mots si la bande a beaucoup de lignes (un vrai blanc reste exigé pour un petit paragraphe ou une ligne seule). Deux garde-fous : un tableau « nom … quantité » (ingrédients, valeurs nutritionnelles) n'est jamais coupé, même quand des quantités ont perdu leur chiffre (« sachet(s) ») ; quelques bouts de lignes (« péremption », « casserole, ou ») restent avec la ligne commencée à leur gauche.
+- Remise en forme (LayoutComposer) : la liste d'ingrédients ne déborde plus sur la colonne voisine et reprend plus bas dans sa colonne (« Huile de tournesol », « Poivre et sel ») ; encadrés « ZOOM NUTRITION » et « L'ASTUCE DU CHEF » rangés en conseil sans avaler les étapes suivantes ; titres d'étape plus gros que le texte reconnus même mal lus (« revettes au chaud ») ou terminés par « ? » ; puces lues « e » retirées ; blocs illisibles (confiance très faible : photos, pictogrammes) écartés ; « À table dans » reconnu derrière un pictogramme mal lu.
+- Quantités de cartes : « 1% cs » lu pour 1½ cs, quantité absente (« Citron* pièce(s) ») = ½ supposé, « 1cm » de gingembre = 1 pièce avec précision « 1 cm », toujours signalées en rouge ; « paquet » compte des pièces (« 1 paquet de crevettes »).
+- Résultat sur le curry : 6 étapes titrées dans l'ordre (Chop, chop, chop ; Tout baigne ; Crevettes au chaud ; La cuisson, la suite ; Dernier coup de poêle ; Comment est votre curry ?), 14 ingrédients, conseil, 2 personnes, 45 min. Croziflette, Orzo et la page générique : lecture inchangée.
+- Le script reconstruit l'image foodtruck-ocr, la redémarre et relit d'après le scan les fiches encore à relire (dont le curry).
+- Aucune migration. 244 tests automatisés attendus (2 nouveaux dans LayoutComposerTest, fixture hellofresh-curry-thai.json).
+
 ## v0.15.0 - 2026-10-05 - Lecture fiable des fiches : le scan est lu par Foodtruck, avec la position des mots
 
 - Demande de Louis : une lecture des fiches fiable, quitte à ajouter des outils à la stack (tout reste local : ni cloud, ni PC de jeu). Constat : les fiches arrivent de la photocopieuse en image sans texte, et le texte « à plat » de Paperless mélange les colonnes (Croziflette, Orzo HelloFresh) ; le lecteur à règles ne pouvait pas rattraper toutes les mises en page.

@@ -27,8 +27,8 @@ class LayoutComposer
 {
     /** Lignes parasites (cartes de kits repas, fiches imprimées). */
     private const NOISE_LINE = '/valeurs nutritionnelles|^[\W_]*(?:[ée]nergie|lipides\s*total|lipides|glucides|fibres|prot[ée]ines|sel)\s*\((?:g|kj|£)|^[\W_]*dont\s*(?:satur|sucres)|^par portion|pour 100 ?g$|\bkcal\b|batch cooking'
-        .'|veillez [àa] bien respecter les quantit|^pr[ée]parer votre recette\W*$|planifiez l\'ordre des recettes|date de p[ée]remption|inscrite sur l\'[ée]tiquette|rincez les fruits et|^l[ée]gumes\.?$|^c[’\']est parti'
-        .'|^[àa] vos fourchettes|montrez-nous vos plats|partagez vos photos|#\s*hello\s*fresh|^semaine \d+\s*\|\s*\d{4}|^\d+\/\d+-\d+\/\d+$|^[\W\d_]*h[eé]l+\p{L}{0,3}o[\W\d_]*$|^[\W\d_]*(?:hello\s*)?fresh[\W\d_]*$'
+        .'|veillez [àa] bien respecter les quantit|^(?:gauche pour )?pr[ée]parer votre recette\W*$|planifiez l\'ordre des recettes|date de p[ée]remption|inscrite sur l\'[ée]tiquette|rincez les fruits et|^l[ée]gumes\.?$|^c[’\']est parti'
+        .'|^[àa] vos fourchettes|montrez-nous vos plats|partagez vos photos|#\s*hello\s*fresh|^semaine \d+\s*\|?\s*\d{4}|^\d+\/\d+-\d+\/\d+$|^[\W\d_]*h[eé]l+\p{L}{0,3}o[\W\d_]*$|^[\W\d_]*(?:hello\s*)?fresh[\W\d_]*$'
         .'|^mes ustensiles/iu';
 
     /** Blocs parasites entiers : pied de carte, allergènes. */
@@ -44,10 +44,10 @@ class LayoutComposer
     /** Repère interne : fin du tableau d'ingrédients (la ligne elle-même est retirée). */
     private const END = '§fin-ingredients§';
 
-    private const TIP = '/^\W*(conseils?|astuces?|l\'astuce du chef|bon [àa] savoir|le saviez-vous)\s*:\s*(.*)$/iu';
+    private const TIP = '/^\W*(conseils?|astuces?|l\'astuce du chef|bon [àa] savoir|le saviez-vous|zoom nutrition)\s*:\s*(.*)$/iu';
 
     /** Temps imprimés sous forme d'étiquette : « À table dans : 25-35 min » (temps total). */
-    private const TOTAL_TIME = '/^\W*(?:en cuisine|[àa] table dans|temps total|total|pr[êe]t en)\s*:?\s*(\d+)(?:\s*-\s*(\d+))?\s*(?:min|mn)/iu';
+    private const TOTAL_TIME = '/(?:^|\s)(?:en cuisine|[àa] table dans|temps total|pr[êe]t en)\s*:?\s*(\d+)(?:\s*-\s*(\d+))?\s*(?:min|mn)/iu';
 
     /** @param  array{pages?: array<int, array{width?: int, height?: int, blocks?: array}>}  $layout */
     public static function compose(array $layout): string
@@ -56,6 +56,15 @@ class LayoutComposer
         if ($blocks === []) {
             return '';
         }
+
+        // Taille habituelle du texte : un bloc d'une ligne écrit nettement plus gros est un titre
+        $sizes = array_column($blocks, 'size');
+        sort($sizes);
+        $body = $sizes[intdiv(count($sizes), 2)] ?: 1;
+        foreach ($blocks as &$b) {
+            $b['big'] = count($b['lines']) === 1 && $b['size'] >= 1.15 * $body;
+        }
+        unset($b);
 
         $all = '';
         foreach ($layout['pages'] ?? [] as $page) {
@@ -74,12 +83,27 @@ class LayoutComposer
         $tip = [];
         $section = 'head';
         $seenIngredients = false;
+        $ingredientsClosed = false;
+        $ingredientsAt = null;
 
         foreach ($blocks as $i => $block) {
             if ($i === $title['index']) {
                 continue;
             }
             $lines = $block['lines'];
+            $sameColumn = $ingredientsAt !== null && $block['page'] === $ingredientsAt['page'] && abs($block['x'] - $ingredientsAt['x']) < 0.05;
+
+            // Un encadré (conseil, astuce) ne s'étend pas au bloc suivant
+            if ($section === 'tip') {
+                $section = $seenIngredients ? 'steps' : 'head';
+            }
+
+            // Liste d'ingrédients : seulement dans sa colonne ; la suite du tableau peut reprendre plus bas dans la même colonne
+            if ($section === 'ingredients' && ! $sameColumn) {
+                $section = 'steps';
+            } elseif ($section !== 'ingredients' && $seenIngredients && ! $ingredientsClosed && $sameColumn && self::looksLikeIngredient($lines[0])) {
+                $section = 'ingredients';
+            }
 
             // Un bloc d'ingrédients se termine dès qu'arrive un paragraphe de texte
             if ($section === 'ingredients' && ! self::hasIngredientHeading($lines)
@@ -95,6 +119,7 @@ class LayoutComposer
                 if (preg_match(self::INGREDIENTS_HEADING, $line, $m)) {
                     $section = 'ingredients';
                     $seenIngredients = true;
+                    $ingredientsAt ??= ['page' => $block['page'], 'x' => $block['x']];
                     if (! empty($m[1])) {
                         $meta[] = 'Pour '.$m[1].' personnes';
                     }
@@ -126,6 +151,7 @@ class LayoutComposer
                     if ($section === 'ingredients') {
                         $section = 'after-ingredients';
                     }
+                    $ingredientsClosed = $ingredientsClosed || $seenIngredients;
 
                     continue;
                 }
@@ -172,7 +198,8 @@ class LayoutComposer
             $height = max(1, (int) ($page['height'] ?? 1));
             foreach ($page['blocks'] ?? [] as $block) {
                 $text = implode("\n", $block['lines'] ?? []);
-                if (preg_match(self::NOISE_BLOCK, $text)) {
+                // Bloc lu avec une très faible confiance : tache, photo, pictogramme
+                if (preg_match(self::NOISE_BLOCK, $text) || (isset($block['conf']) && (int) $block['conf'] < 40)) {
                     continue;
                 }
 
@@ -184,7 +211,7 @@ class LayoutComposer
 
                         continue;
                     }
-                    if ($line === '' || preg_match('/\p{L}.*\p{L}|\d/u', $line) !== 1 || preg_match(self::NOISE_LINE, $line)) {
+                    if ($line === '' || preg_match('/\p{L}.*\p{L}/u', $line) !== 1 || preg_match(self::NOISE_LINE, $line)) {
                         continue;
                     }
                     $lines[] = $line;
@@ -216,6 +243,9 @@ class LayoutComposer
         $line = trim(preg_replace('/\s+/u', ' ', $line));
         // Puces de la colonne d'étapes lues « + », « _ », « __ », « • »
         $line = preg_replace('/^(?:[+_•·»>]+|_{2,})\s+/u', '', $line);
+        // Puce ronde lue « e » ou « e_ » devant une phrase, ou recopiée en fin de ligne depuis la colonne voisine
+        $line = preg_replace('/^e_?\s+(?=\p{Lu})/u', '', $line);
+        $line = preg_replace('/(?:\s+e)+$/u', '', $line);
 
         return trim($line);
     }
@@ -295,6 +325,14 @@ class LayoutComposer
         return $long >= 1 && $long >= count($lines) / 2;
     }
 
+    /** Ligne de tableau d'ingrédients (« Huile de tournesol 1% cs », « Poivre et sel selon votre goût »). */
+    private static function looksLikeIngredient(string $line): bool
+    {
+        return preg_match(MealKitSheetParser::ROW, $line) === 1
+            || preg_match('/\s(?:\d+(?:[.,]\d+)?|\d%|[½¼¾])\s*(?:g|kg|ml|cl|cs|cc|sachets?|paquets?|pi[eè]ces?)(?:\(s\))?$/iu', $line) === 1
+            || preg_match('/selon (?:votre|le) go[uû]t$/iu', $line) === 1;
+    }
+
     private static function hadBullet(string $line): bool
     {
         return preg_match('/^(?:[°©‘•·*\-–]|e(?=\s))\s+/u', $line) === 1;
@@ -311,12 +349,32 @@ class LayoutComposer
             return rtrim($line, ' :').' :';
         }
 
+        // « 1% cs » : « 1½ » dont la fraction a été lue « % »
+        $fraction = null;
+        if (preg_match('/(?<=\s)(\d)%(?=\s*(?:cs|cc|sachet|paquet|pi[eè]ce|pot))/u', $line, $f) === 1) {
+            $line = preg_replace('/(?<=\s)(\d)%(?=\s*(?:cs|cc|sachet|paquet|pi[eè]ce|pot))/u', '$1½', $line, 1);
+            $fraction = "« {$f[1]}% » lu pour « {$f[1]}½ » (fraction perdue) : à vérifier avec la fiche.";
+        }
+
+        if (preg_match(MealKitSheetParser::ROW, $line, $m) === 1 && trim($m['rest']) === '' && mb_strtolower($m['unit']) === 'cm') {
+            return trim($m['qty']).' '.trim($m['name']).' ('.trim($m['qty']).' cm) ⚠ Quantité en centimètres : 1 pièce mise par défaut, à convertir.';
+        }
+
         if (preg_match(MealKitSheetParser::ROW, $line, $m) === 1 && trim($m['rest']) === '') {
             $unit = mb_strtolower(preg_replace('/\(s\)/u', '', $m['unit']));
             [$qty, $warning] = self::kitQuantity(trim($m['qty']), $unit);
             $unit = preg_match('/^pi[eè]ce/u', $unit) ? '' : $unit;
 
+            $warning ??= $fraction;
+
             return trim(preg_replace('/\s+/u', ' ', $qty.' '.$unit.' '.trim($m['name']))).($warning ? ' ⚠ '.$warning : '');
+        }
+
+        // « Coriandre et basilic thaï* sachet(s) » : la quantité (souvent ½) n'a pas été lue
+        if (preg_match('/^(\p{L}[\p{L}\'’ \-]*?)\*?\s+(sachets?|paquets?|pi[eè]ces?|pots?)(?:\(s\))?$/u', $line, $m) === 1) {
+            $unit = preg_match('/^pi[eè]ce/u', $m[2]) ? '' : rtrim($m[2], 's');
+
+            return trim('½ '.$unit.' '.trim($m[1])).' ⚠ Quantité illisible sur la carte : ½ supposé, à vérifier avec la fiche.';
         }
 
         // « Crevettes* 3208 » : le « g » de « 320g » lu comme un « 8 »
@@ -379,8 +437,8 @@ class LayoutComposer
         if ($n === 0) {
             $sameColumn = $current !== null && $current['page'] === $block['page'] && abs($current['x'] - $block['x']) < 0.05;
 
-            if (self::isStepTitle($line)) {
-                $steps[] = ['x' => $block['x'], 'page' => $block['page'], 'title' => $line, 'lines' => []];
+            if (self::isStepTitle($line) || (! empty($block['big']) && count(preg_split('/\s+/u', $line)) <= 6 && preg_match('/[.:,;]$/u', $line) !== 1)) {
+                $steps[] = ['x' => $block['x'], 'page' => $block['page'], 'title' => self::ucfirst($line), 'lines' => []];
 
                 return;
             }
@@ -399,12 +457,17 @@ class LayoutComposer
         $steps[array_key_last($steps)]['lines'][] = $line;
     }
 
+    private static function ucfirst(string $text): string
+    {
+        return mb_strtoupper(mb_substr($text, 0, 1)).mb_substr($text, 1);
+    }
+
     /** Titre d'étape de carte de kit (« Préparer », « Faire mijoter », « Cuire les crevettes »). */
     private static function isStepTitle(string $line): bool
     {
         return preg_match('/^\p{Lu}/u', $line) === 1
             && count(preg_split('/\s+/u', $line)) <= 5
-            && preg_match('/[.!?:,;]$/u', $line) !== 1
+            && preg_match('/[.:,;]$/u', $line) !== 1
             && preg_match('/\d/u', $line) !== 1;
     }
 

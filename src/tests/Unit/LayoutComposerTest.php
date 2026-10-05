@@ -9,7 +9,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * v0.15.0 : fiches lues par foodtruck-ocr (blocs avec leur position) puis remises en forme par LayoutComposer.
  * Les fichiers tests/Fixtures/layout/*.json sont les vraies réponses du service sur les scans de Louis
- * (Croziflette n° 487, Orzo HelloFresh n° 483) et sur une page générique (une colonne, étapes numérotées).
+ * (Croziflette n° 487, Orzo HelloFresh n° 483, Curry thaï HelloFresh n° 481) et sur une page générique
+ * (une colonne, étapes numérotées).
  * Test sans base de données.
  */
 class LayoutComposerTest extends TestCase
@@ -85,6 +86,39 @@ class LayoutComposerTest extends TestCase
         $this->assertStringStartsWith('Servir : Servez la salade', $steps[3]);
         $this->assertStringContainsString('servir la salade séparément', $r['tip']);
         $this->assertSame([], $r['issues']);
+    }
+
+    public function test_curry_hellofresh_trois_colonnes_d_etapes_a_gouttieres_etroites(): void
+    {
+        // v0.15.1 : gouttières de 30 px traversées par quelques mots ; tableau d'ingrédients poursuivi plus bas dans sa colonne
+        $r = $this->read('hellofresh-curry-thai', 'Curry thaï léger aux crevettes & coco');
+
+        $this->assertSame([2.0, 45], [$r['yield_quantity'], $r['prep_minutes']]);
+        $this->assertSame([], $r['issues']);
+
+        $steps = array_column($r['steps'], 'body');
+        $this->assertCount(6, $steps, 'Six étapes, plus une seule grande étape mélangée');
+        $titles = array_map(fn ($s) => explode(' : ', $s, 2)[0], $steps);
+        $this->assertSame(['Chop, chop, chop', 'Tout baigne', 'Revettes au chaud', 'La cuisson, la suite', 'Dernier coup de poêle', 'Comment est votre curry ?'], $titles);
+        $this->assertStringContainsString('Faites cuire le riz 12-14 min', $steps[1]);
+        $this->assertStringContainsString('jusqu\'au service.', $steps[1], 'Le bout de ligne « jusqu\'au » reste dans sa colonne');
+        $this->assertStringNotContainsString('Veillez', $steps[0], 'Consigne générale de la carte écartée');
+        $this->assertStringContainsString('vitamine B12', $r['tip'], 'Encadré « ZOOM NUTRITION » en conseil');
+        $this->assertStringContainsString('Si cela accroche', $r['tip'], 'Encadré « L\'ASTUCE DU CHEF » en conseil');
+    }
+
+    public function test_curry_ingredients_dont_la_suite_du_tableau_et_quantites_illisibles(): void
+    {
+        $byName = collect($this->read('hellofresh-curry-thai', 'Curry')['ingredients'])->keyBy('name');
+
+        $this->assertSame(['Riz', 'Échalote', 'ail', 'Gingembre frais', 'Carotte', 'Coriandre et basilic thaï', 'Citron', 'Crevettes', 'Curry vert',
+            'Lait de coco', 'Sauce poisson', 'Huile de tournesol', 'Poivre', 'sel'], $byName->keys()->all());
+        $this->assertSame([1.0, 'piece', 'paquet'], [$byName['Crevettes']['quantity'], $byName['Crevettes']['unit'], $byName['Crevettes']['note']]);
+        $this->assertSame([0.5, 'sachet'], [$byName['Coriandre et basilic thaï']['quantity'], $byName['Coriandre et basilic thaï']['note']]);
+        $this->assertStringContainsString('illisible', $byName['Coriandre et basilic thaï']['check']);
+        $this->assertSame(1.5, $byName['Huile de tournesol']['quantity'], '« 1% cs » lu pour 1½ cs');
+        $this->assertStringContainsString('« 1% »', $byName['Huile de tournesol']['check']);
+        $this->assertStringContainsString('centimètres', $byName['Gingembre frais']['check']);
     }
 
     public function test_page_generique_une_colonne_etapes_numerotees(): void

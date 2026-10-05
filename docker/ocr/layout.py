@@ -13,9 +13,13 @@ d'une bande qui a les mêmes colonnes est rattachée à ces colonnes (chaque tit
 
 import csv
 import io
+import re
 import statistics
 
 MAX_DEPTH = 12
+
+# Unités d'une colonne de quantités dont le chiffre a pu être perdu (« sachet(s) », « pièce(s) »)
+UNIT = re.compile(r'^(?:\d*(?:g|kg|ml|cl|l|cs|cc|cm)|pi[eè]ces?(?:\(s\))?|sachets?(?:\(s\))?|paquets?(?:\(s\))?|pots?(?:\(s\))?|bo[iî]tes?(?:\(s\))?|gousses?(?:\(s\))?)\.?$')
 
 
 def words_from_tsv(tsv: str) -> list:
@@ -51,6 +55,108 @@ def _gaps(intervals, minimum):
     return out
 
 
+def _gutters(words, width, line_height):
+    """Abscisses des gouttières entre colonnes.
+
+    Pour chaque position horizontale, on compte les lignes de texte qui la traversent. Une gouttière est une bande
+    verticale traversée par (presque) aucune ligne, plus large qu'un espace entre deux mots : quelques mots qui
+    débordent (titre, paragraphe d'allergènes) sont tolérés. Un tableau « nom … quantité » n'est pas coupé.
+    """
+    by_line = {}
+    for w in words:
+        by_line.setdefault(w['line'], []).append(w)
+    lines = list(by_line.values())
+    if len(lines) < 2:
+        # Une seule ligne (rangée de titres « Les ingrédients   La recette ») : un vrai blanc, bien plus large qu'un espace
+        gaps = _gaps([(w['x'], w['x'] + w['w']) for w in words], max(width * 0.012, line_height * 1.2))
+        return [(a + b) / 2 for a, b in gaps]
+
+    x0 = min(w['x'] for w in words)
+    x1 = max(w['x'] + w['w'] for w in words)
+    step = 2
+    size = (x1 - x0) // step + 1
+    cover = [0] * size
+    for line in lines:
+        seen = bytearray(size)
+        for w in line:
+            for i in range((w['x'] - x0) // step, min((w['x'] + w['w'] - x0) // step + 1, size)):
+                seen[i] = 1
+        for i in range(size):
+            cover[i] += seen[i]
+
+    # Beaucoup de lignes : une gouttière étroite (30 px à 300 dpi) traversée par quelques mots suffit. Peu de lignes
+    # (paragraphe justifié, bout de colonne) : il faut un vrai blanc, sinon les espaces alignés par hasard couperaient le texte.
+    if len(lines) >= 8:
+        tolerance, minimum = max(1, len(lines) // 12), max(line_height * 0.9, width * 0.007)
+    else:
+        tolerance, minimum = 0, max(line_height * 1.5, width * 0.012)
+
+    gutters, start = [], None
+    for i in range(size + 1):
+        empty = i < size and cover[i] <= tolerance
+        if empty and start is None:
+            start = i
+        elif not empty and start is not None:
+            a, b = x0 + start * step, x0 + i * step
+            if start > 0 and i < size and b - a >= minimum:
+                gutters.append((a, b))
+            start = None
+
+    # On retire une à une les fausses gouttières (tableau, bout de ligne), puis on réévalue avec les voisines restantes
+    middles = [(a + b) / 2 for a, b in gutters]
+    changed = True
+    while changed and middles:
+        changed = False
+        bounds = [float('-inf')] + middles + [float('inf')]
+        for k, middle in enumerate(middles):
+            left = [w for w in words if bounds[k] < w['x'] + w['w'] / 2 <= middle]
+            right = [w for w in words if middle < w['x'] + w['w'] / 2 <= bounds[k + 2]]
+            # Un bout de ligne prolonge toujours une ligne commencée à sa gauche
+            if _is_table_gap(left, right, line_height) or _is_fragment(right, left, line_height):
+                del middles[k]
+                changed = True
+                break
+    return middles
+
+
+def _rows(words):
+    """Lignes d'un côté de la gouttière, sans les lettres isolées (puces mal lues)."""
+    rows = {}
+    for w in words:
+        if len(w['t']) >= 2:
+            rows.setdefault(w['line'], []).append(w)
+    return list(rows.values())
+
+
+def _is_fragment(side, other, line_height):
+    """Quelques bouts de lignes (« péremption », « casserole, ou ») en face de lignes de l'autre côté : c'est la fin
+    de ces lignes, pas une colonne."""
+    rows, others = _rows(side), _rows(other)
+    if not rows or not others or len(rows) > 3 or len(rows) > 0.5 * len(others):
+        return False
+    ys = [min(w['y'] for w in r) for r in others]
+    aligned = sum(1 for r in rows if any(abs(min(w['y'] for w in r) - y) < line_height * 0.7 for y in ys))
+    return aligned >= 0.8 * len(rows)
+
+
+def _is_table_gap(left, right, line_height):
+    """Écart entre les noms et les quantités d'un tableau (« Riz … 150g », valeurs nutritionnelles) : à ne pas couper.
+    La colonne de droite est faite de lignes courtes avec des chiffres, chacune en face d'une ligne de gauche."""
+    by_line = {}
+    for w in right:
+        by_line.setdefault(w['line'], []).append(w)
+    rows = list(by_line.values())
+    if not rows or not left:
+        return False
+    short = [r for r in rows if len(r) <= 3 and (any(c.isdigit() for w in r for c in w['t'])
+                                                 or any(UNIT.match(w['t'].lower()) for w in r))]
+    if len(short) < 0.6 * len(rows):
+        return False
+    left_ys = [w['y'] for w in left]
+    paired = sum(1 for r in short if any(abs(min(w['y'] for w in r) - y) < line_height * 0.7 for y in left_ys))
+    return paired >= 0.7 * len(short)
+
+
 def _cut(words, width, depth=0):
     """Arbre de découpe : ('leaf', mots) | ('H', enfants de haut en bas) | ('V', enfants de gauche à droite)."""
     if len(words) < 2 or depth > MAX_DEPTH:
@@ -66,10 +172,10 @@ def _cut(words, width, depth=0):
         if len(parts) > 1:
             return ('H', [_cut(p, width, depth + 1) for p in parts])
 
-    # Blancs verticaux : colonnes (plus large qu'un espace entre deux mots)
-    vgaps = _gaps([(w['x'], w['x'] + w['w']) for w in words], max(width * 0.012, line_height * 1.2))
-    if vgaps:
-        bounds = [float('-inf')] + [(a + b) / 2 for a, b in vgaps] + [float('inf')]
+    # Gouttières verticales : colonnes (voir _gutters)
+    gutters = _gutters(words, width, line_height)
+    if gutters:
+        bounds = [float('-inf')] + gutters + [float('inf')]
         parts = [[w for w in words if bounds[i] < w['x'] + w['w'] / 2 <= bounds[i + 1]] for i in range(len(bounds) - 1)]
         parts = [p for p in parts if p]
         if len(parts) > 1:
