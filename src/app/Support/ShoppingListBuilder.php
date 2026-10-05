@@ -53,7 +53,11 @@ class ShoppingListBuilder
         $entries = self::entries($list);
         $payload = $entries->map(fn (MealPlanEntry $e) => [$e->id, $e->recipe_id, $e->updated_at?->timestamp, $e->recipe?->updated_at?->timestamp])->all();
 
-        return substr(sha1(json_encode([$payload, $list->date_from->toDateString(), $list->date_to->toDateString()])), 0, 40);
+        // Le stock fait partie de l'empreinte : le modifier invite à mettre la liste à jour
+        $stock = Pantry::available($list->household, $list->date_from);
+        ksort($stock);
+
+        return substr(sha1(json_encode([$payload, $stock, $list->date_from->toDateString(), $list->date_to->toDateString()])), 0, 40);
     }
 
     public static function isStale(ShoppingList $list): bool
@@ -69,10 +73,11 @@ class ShoppingListBuilder
 
         $entries = self::entries($list);
         $needs = self::needs($entries, $household);
+        $stock = Pantry::available($household, $list->date_from);
         $stores = Store::active();
         $storeIds = $stores->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        DB::transaction(function () use ($list, $household, $needs, $stores, $storeIds, $entries) {
+        DB::transaction(function () use ($list, $household, $needs, $stock, $storeIds) {
             $existing = $list->items()->where('source', ShoppingListItem::SOURCE_RECIPE)->get()->keyBy('ingredient_id');
 
             foreach ($needs as $ingredientId => $need) {
@@ -80,24 +85,38 @@ class ShoppingListBuilder
                 $ingredient = $need['ingredient'];
                 $item = $existing->get($ingredientId) ?? new ShoppingListItem(['shopping_list_id' => $list->id, 'source' => ShoppingListItem::SOURCE_RECIPE]);
 
+                // Stock : déduit du besoin, sauf si la famille a choisi d'acheter quand même (ou a fixé la section à la main)
+                $needed = $need['needed'];
+                $inStock = ! $item->stock_ignored && ! $item->section_locked ? (float) ($stock[$ingredient->id] ?? 0.0) : 0.0;
+                $stockUsed = $needed !== null ? min($needed, $inStock) : null;
+                $net = $needed !== null ? max(0.0, $needed - $inStock) : null;
+                $covered = $inStock > 0 && ($needed === null || $net <= 0.0001);
+
                 // Magasin choisi à la main : conservé tant qu'il existe encore
                 $locked = (bool) $item->store_locked && in_array((int) $item->store_id, $storeIds, true);
-                $storeId = $locked ? (int) $item->store_id : self::chooseStore($ingredient, $need['needed'], $household, $storeIds);
+                $storeId = $locked ? (int) $item->store_id : self::chooseStore($ingredient, $net, $household, $storeIds);
 
-                $item->fill(self::priced($ingredient, $need['needed'], $storeId, $storeIds));
+                $item->fill($covered
+                    ? ['store_id' => $storeId, 'purchase' => null, 'estimated_cents' => null, 'used_cents' => null, 'best_store_id' => null, 'best_cents' => null]
+                    : self::priced($ingredient, $net, $storeId, $storeIds));
                 $item->fill([
                     'ingredient_id' => $ingredient->id,
                     'label' => $ingredient->name,
                     'aisle_id' => $ingredient->aisle_id,
                     'store_locked' => $locked,
-                    'needed_base' => $need['needed'],
+                    'needed_base' => $needed,
+                    'stock_base' => $stockUsed !== null && $stockUsed > 0 ? round($stockUsed, 3) : null,
                     'base_unit' => $ingredient->base_unit,
                     'uses' => $need['uses'],
                     'note' => $need['note'],
                 ]);
 
                 if (! $item->section_locked) {
-                    $item->section = $ingredient->is_staple ? ShoppingListItem::SECTION_CHECK : ShoppingListItem::SECTION_BUY;
+                    $item->section = match (true) {
+                        $covered => ShoppingListItem::SECTION_STOCK,
+                        (bool) $ingredient->is_staple => ShoppingListItem::SECTION_CHECK,
+                        default => ShoppingListItem::SECTION_BUY,
+                    };
                 }
 
                 $item->save();

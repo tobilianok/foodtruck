@@ -10,6 +10,7 @@ use App\Http\Controllers\PriceController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\ShoppingController;
+use App\Http\Controllers\StockController;
 use Illuminate\Support\Facades\Route;
 
 // Connexion via Authentik (OIDC)
@@ -73,6 +74,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/courses/articles/{item}/cocher', [ShoppingController::class, 'check'])->middleware('throttle:240,1')->name('shopping.items.check');
         Route::put('/courses/articles/{item}', [ShoppingController::class, 'updateItem'])->name('shopping.items.update');
         Route::delete('/courses/articles/{item}', [ShoppingController::class, 'destroyItem'])->name('shopping.items.destroy');
+
+        // Stock du foyer et anti-gaspi
+        Route::get('/stock', [StockController::class, 'index'])->name('stock.index');
+        Route::get('/stock/recettes', [StockController::class, 'recipes'])->name('stock.recipes');
+        Route::post('/stock', [StockController::class, 'store'])->name('stock.store');
+        Route::put('/stock/{lot}', [StockController::class, 'update'])->name('stock.update');
+        Route::delete('/stock/{lot}', [StockController::class, 'destroy'])->name('stock.destroy');
 
         // Référentiel : ingrédients, conditionnements, prix (tous les membres d'un foyer)
         Route::get('/ingredients', [IngredientController::class, 'index'])->name('ingredients.index');

@@ -14,7 +14,7 @@
 
     @php
         $modules = [
-            ['Économies', 'Budget, stock, anti-gaspi', 'v0.9.0'],
+            ['Économies', 'Remplacer un plat trop cher, bilan de la semaine, alertes de prix, ticket ↔ liste', 'v0.9.1'],
         ];
         $portions = rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',');
     @endphp
@@ -60,6 +60,20 @@
                     · ≈ {{ \App\Models\Price::formatCents((int) (clone $shoppingItems)->sum('estimated_cents')) }}
                 @else
                     Calculée d'après ton planning, par magasin et par rayon
+                @endif
+            </p>
+            <span class="tag tag-accent">Disponible</span>
+        </a>
+        @php
+            $pantryCount = $household->pantryItems()->count();
+            $pantrySoon = \App\Support\AntiWaste::expiring($household)->count();
+        @endphp
+        <a class="card card-link" href="{{ route('stock.index') }}">
+            <h2>Stock</h2>
+            <p>
+                @if ($pantryCount === 0) Rien en stock pour l'instant : les restes d'emballages s'y rangent à la fin des courses
+                @else {{ $pantryCount }} ligne{{ $pantryCount > 1 ? 's' : '' }} en stock
+                    @if ($pantrySoon) <br><strong>{{ $pantrySoon }} à consommer vite</strong> · que cuisiner ? @endif
                 @endif
             </p>
             <span class="tag tag-accent">Disponible</span>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MealPlanEntry;
 use App\Models\Recipe;
+use App\Support\AntiWaste;
 use App\Support\MealPlanner;
 use App\Support\RecipeServing;
 use Illuminate\Http\Request;
@@ -67,6 +68,7 @@ class PlanningController extends Controller
             'cost' => $cost,
             'budget' => $household->weekly_budget_cents,
             'today' => now('Europe/Paris')->toDateString(),
+            'soonLots' => AntiWaste::expiring($household),
         ]);
     }
 

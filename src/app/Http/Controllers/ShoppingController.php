@@ -7,6 +7,7 @@ use App\Models\Ingredient;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Models\Store;
+use App\Support\Pantry;
 use App\Support\ShoppingListBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,8 +108,16 @@ class ShoppingController extends Controller
         $this->authorizeList($request, $list);
 
         $list->update(['archived_at' => now()]);
+        $list->setRelation('household', $request->user()->household);
+        $stock = Pantry::applyList($list, $request->user()->id);
 
-        return redirect()->route('shopping.index')->with('status', 'Courses terminées : la liste est classée dans l\'historique.');
+        $message = 'Courses terminées : la liste est classée dans l\'historique.';
+        if ($stock['added'] > 0 || $stock['consumed'] > 0) {
+            $message .= ' Stock mis à jour : '.$stock['added'].' reste'.($stock['added'] > 1 ? 's' : '').' d\'emballage rangé'.($stock['added'] > 1 ? 's' : '')
+                .', '.$stock['consumed'].' produit'.($stock['consumed'] > 1 ? 's' : '').' utilisé'.($stock['consumed'] > 1 ? 's' : '').'.';
+        }
+
+        return redirect()->route('shopping.index')->with('status', $message);
     }
 
     public function reopen(Request $request, ShoppingList $list)
@@ -162,12 +171,20 @@ class ShoppingController extends Controller
     public function updateItem(Request $request, ShoppingListItem $item)
     {
         $this->authorizeItem($request, $item);
-        $action = $request->validate(['action' => ['required', Rule::in(['store', 'section'])]])['action'];
+        $action = $request->validate(['action' => ['required', Rule::in(['store', 'section', 'stock'])]])['action'];
 
         if ($action === 'store') {
             $storeId = $request->validate(['store_id' => ['required', 'integer', Rule::exists('stores', 'id')->where('is_active', true)]])['store_id'];
             ShoppingListBuilder::moveToStore($item, (int) $storeId);
             $message = '« '.$item->label.' » déplacé chez '.Store::find($storeId)->name.'.';
+        } elseif ($action === 'stock') {
+            // Acheter malgré le stock (il n'y en a plus, ou trop peu), ou redonner la main au stock
+            $item->update(['stock_ignored' => ! $item->stock_ignored, 'section_locked' => false]);
+            $item->list->setRelation('household', $request->user()->household);
+            ShoppingListBuilder::rebuild($item->list);
+            $message = $item->stock_ignored
+                ? '« '.$item->label.' » : le stock n\'est plus déduit, l\'article est à acheter.'
+                : '« '.$item->label.' » : le stock est de nouveau déduit.';
         } else {
             $toCheck = ! $item->isToCheck();
             $item->update(['section' => $toCheck ? ShoppingListItem::SECTION_CHECK : ShoppingListItem::SECTION_BUY, 'section_locked' => true]);
@@ -245,6 +262,7 @@ class ShoppingController extends Controller
         $items = $list->items()->with('ingredient', 'aisle', 'store', 'bestStore', 'checker')->get();
         $buy = $items->where('section', ShoppingListItem::SECTION_BUY);
         $check = $items->where('section', ShoppingListItem::SECTION_CHECK);
+        $covered = $items->where('section', ShoppingListItem::SECTION_STOCK);
 
         $stores = Store::active();
         $aisles = Aisle::ordered()->keyBy('id');
@@ -276,6 +294,7 @@ class ShoppingController extends Controller
             'household' => $household,
             'byStore' => $byStore,
             'check' => $check->sortBy([fn ($a, $b) => ($aisles->get($a->aisle_id)?->position ?? 9999) <=> ($aisles->get($b->aisle_id)?->position ?? 9999), fn ($a, $b) => strcmp($a->label, $b->label)])->values(),
+            'covered' => $covered->sortBy(fn ($i) => Str::lower($i->label))->values(),
             'stores' => $stores,
             'aisles' => $aisles->values(),
             'total' => $total,

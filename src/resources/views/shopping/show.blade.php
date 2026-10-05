@@ -22,7 +22,7 @@
                     <form method="post" action="{{ route('shopping.reopen', $list) }}">@csrf <button type="submit" class="btn btn-small">Rouvrir cette liste</button></form>
                 @else
                     <form method="post" action="{{ route('shopping.refresh', $list) }}">@csrf <button type="submit" class="btn btn-small btn-ghost">Recalculer d'après le planning</button></form>
-                    <form method="post" action="{{ route('shopping.archive', $list) }}">@csrf <button type="submit" class="btn btn-small btn-ghost" data-confirm="Les courses sont faites ? La liste sera classée dans l'historique.">Courses terminées</button></form>
+                    <form method="post" action="{{ route('shopping.archive', $list) }}">@csrf <button type="submit" class="btn btn-small btn-ghost" data-confirm="Les courses sont faites ? La liste sera classée et ton stock mis à jour (restes d'emballages ajoutés, produits utilisés retirés).">Courses terminées</button></form>
                 @endif
             </div>
         </section>
@@ -76,6 +76,17 @@
                 <p>Aucun article à acheter pour cette période. Ajoute des plats dans le <a href="{{ route('planning.index') }}">planning</a> puis recalcule la liste, ou ajoute des articles à la main ci-dessous.</p>
             </section>
         @endforelse
+
+        @if ($covered->isNotEmpty())
+            <details class="panel sl-store sl-check-block" data-store-block-skip>
+                <summary><strong>Déjà en stock</strong> <span class="muted small">{{ $covered->count() }} article{{ $covered->count() > 1 ? 's' : '' }} couvert{{ $covered->count() > 1 ? 's' : '' }} par ton <a href="{{ route('stock.index') }}">stock</a>, rien à acheter</span></summary>
+                <ul class="sl-items">
+                    @foreach ($covered as $item)
+                        @include('shopping._item', ['item' => $item])
+                    @endforeach
+                </ul>
+            </details>
+        @endif
 
         @if ($check->isNotEmpty())
             <section class="panel sl-store sl-check-block">

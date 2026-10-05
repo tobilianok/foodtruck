@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.9.0 - 2026-10-05 - Stock et anti-gaspi
+
+- Nouvelle page « Stock » : ce qu'il y a déjà à la maison, par lieu (placard, frigo, congélateur), avec quantité, date limite optionnelle et lieu proposé selon l'ingrédient. Ajout, modification et suppression à la main ; virgule décimale acceptée ; chaque foyer ne voit que son stock.
+- « À consommer vite » : produits périmés ou à date limite dans 3 jours ou moins, sur la page Stock et en bandeau en haut du Planning.
+- « Que cuisiner ? » : recettes classées selon le stock (d'abord celles qui emploient un produit à consommer vite, puis celles dont le plus d'ingrédients sont déjà là), avec ce qu'il reste à acheter et son coût, et un bouton « Ajouter au planning ».
+- Liste de courses : le stock est déduit des besoins (« en stock : 300 g », seul le reste est acheté) ; un besoin entièrement couvert passe dans « Déjà en stock », sans achat ni prix ; « Ne pas utiliser le stock » annule la déduction pour un article (« Utiliser le stock » la rétablit). Modifier le stock invite à mettre la liste à jour. Les lots périmés ne comptent pas.
+- « Courses terminées » met le stock à jour, une seule fois par liste : le stock utilisé sort (plus proche de la date limite d'abord), le surplus d'emballages des articles cochés entre (40 cl de lait d'une bouteille de 1 L) ; les articles ajoutés à la main et reliés à un ingrédient entrent en entier.
+- Accueil : carte « Stock » ; menu : entrée « Stock ».
+- Migration : table pantry_items, colonnes stock_base et stock_ignored sur les articles, stock_applied_at sur les listes.
+- 130 tests automatisés.
+- Reporté en v0.9.1 : rapprochement ticket ↔ liste, plat trop cher à remplacer, bilan de la semaine, alerte de prix qui monte.
+
 ## v0.8.0 - 2026-10-03 - Liste de courses
 
 - Nouvelle page « Courses » : liste calculée d'après le planning pour la période choisie (par défaut aujourd'hui + 6 jours, 31 jours au plus). Une seule liste en cours ; les anciennes sont dans l'historique (rouvrir possible).

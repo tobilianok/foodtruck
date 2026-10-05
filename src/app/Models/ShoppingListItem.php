@@ -17,9 +17,12 @@ class ShoppingListItem extends Model
 
     public const SECTION_CHECK = 'verifier';
 
+    /** Besoin entièrement couvert par le stock : rien à acheter. */
+    public const SECTION_STOCK = 'stock';
+
     protected $fillable = [
         'shopping_list_id', 'ingredient_id', 'label', 'aisle_id', 'source', 'section', 'section_locked', 'store_id', 'store_locked',
-        'needed_base', 'base_unit', 'quantity_text', 'purchase', 'estimated_cents', 'used_cents', 'best_store_id', 'best_cents',
+        'needed_base', 'stock_base', 'stock_ignored', 'base_unit', 'quantity_text', 'purchase', 'estimated_cents', 'used_cents', 'best_store_id', 'best_cents',
         'uses', 'note', 'is_checked', 'checked_by', 'checked_at',
     ];
 
@@ -29,6 +32,8 @@ class ShoppingListItem extends Model
             'section_locked' => 'boolean',
             'store_locked' => 'boolean',
             'needed_base' => 'float',
+            'stock_base' => 'float',
+            'stock_ignored' => 'boolean',
             'purchase' => 'array',
             'estimated_cents' => 'integer',
             'used_cents' => 'integer',
@@ -72,6 +77,21 @@ class ShoppingListItem extends Model
     public function isManual(): bool
     {
         return $this->source === self::SOURCE_MANUAL;
+    }
+
+    public function isCovered(): bool
+    {
+        return $this->section === self::SECTION_STOCK;
+    }
+
+    /** « en stock : 40 cl » quand le stock couvre tout ou partie du besoin. */
+    public function stockLabel(): ?string
+    {
+        if ($this->stock_base === null || $this->stock_base <= 0 || $this->base_unit === null) {
+            return null;
+        }
+
+        return Units::format(Units::practical($this->stock_base, $this->base_unit), $this->base_unit);
     }
 
     public function isToCheck(): bool

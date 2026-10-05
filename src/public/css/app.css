@@ -562,3 +562,32 @@ a.meal-title:hover { text-decoration: underline; }
     .sl-side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; text-align: left; }
     .sl-menu { right: auto; left: 0; }
 }
+
+/* ---- v0.9.0 : stock et anti-gaspi ---- */
+.stock-add { display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr 1.6fr auto; gap: 10px; align-items: end; }
+.stock-list { list-style: none; margin: 0; padding: 0; }
+.stock-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.stock-list li:last-child { border-bottom: 0; }
+.stock-main { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+.stock-side { display: flex; align-items: center; gap: 8px; }
+.stock-expiry { font-size: .82rem; padding: .1em .6em; border-radius: 999px; background: color-mix(in srgb, var(--muted) 14%, var(--surface)); color: var(--muted); white-space: nowrap; }
+.stock-expiry.is-soon { background: #fbe8c8; color: #8a5300; font-weight: 600; }
+.stock-expiry.is-expired { background: #f6d4d1; color: #a1271f; font-weight: 600; }
+@media (prefers-color-scheme: dark) {
+    .stock-expiry.is-soon { background: #4a3714; color: #f0c26b; }
+    .stock-expiry.is-expired { background: #4d2420; color: #f19a92; }
+}
+.stock-soon { border-color: #e2a33a; }
+.stock-edit { display: grid; gap: 8px; }
+.stock-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-bottom: 18px; }
+.stock-recipe header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; align-items: baseline; }
+.stock-recipe h2 { margin: 0; font-size: 1.05rem; }
+.stock-ratio { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+.stock-flag { color: var(--green); font-weight: 600; margin: 4px 0; }
+.chip-have { display: inline-block; margin: 2px 4px 2px 0; padding: .05em .55em; border-radius: 999px; background: color-mix(in srgb, var(--green) 14%, var(--surface)); }
+.chip-have.is-soon { background: #fbe8c8; color: #8a5300; font-weight: 600; }
+@media (prefers-color-scheme: dark) { .chip-have.is-soon { background: #4a3714; color: #f0c26b; } }
+@media (max-width: 860px) {
+    .stock-add { grid-template-columns: 1fr 1fr; }
+    .stock-add .field:first-child { grid-column: 1 / -1; }
+}

@@ -6,6 +6,7 @@
     $inSeason = $item->ingredient?->isInSeason($season);
     $saving = $item->possibleSaving();
     $by = $item->is_checked ? $item->checker?->firstName() : null;
+    $inStock = $item->stockLabel();
 @endphp
 <li @class(['sl-item', 'is-checked' => $item->is_checked]) id="article-{{ $item->id }}" data-item="{{ $item->id }}" data-store="{{ $item->store_id }}">
     <form method="post" action="{{ route('shopping.items.check', $item) }}" class="sl-check" data-check-form>
@@ -22,7 +23,7 @@
             <span class="sl-buy">{{ $buy }}</span>
         @endif
         <span class="sl-meta">
-            @if ($need) besoin : {{ $need }}@if ($leftover) · il en restera {{ $leftover }}@endif @endif
+            @if ($need) besoin : {{ $need }}@if ($inStock) · en stock : {{ $inStock }}@endif @if ($leftover) · il en restera {{ $leftover }}@endif @endif
             @if ($item->uses)
                 {{ $need ? '·' : '' }} pour {{ collect($item->uses)->pluck('title')->implode(', ') }}
             @endif
@@ -33,7 +34,9 @@
     </div>
 
     <div class="sl-side">
-        @if ($item->isToCheck())
+        @if ($item->isCovered())
+            <span class="sl-price muted">en stock</span>
+        @elseif ($item->isToCheck())
             <span class="sl-price muted">≈ {{ $item->estimated_cents !== null ? $Price::formatCents($item->estimated_cents) : '' }}</span>
         @elseif ($item->hasPrice())
             <span class="sl-price">{{ $Price::formatCents($item->estimated_cents) }}</span>
@@ -47,7 +50,7 @@
         <details class="sl-more">
             <summary aria-label="Options pour {{ $item->label }}">⋯</summary>
             <div class="sl-menu">
-                @if ($item->ingredient_id || $item->isManual())
+                @if (($item->ingredient_id || $item->isManual()) && ! $item->isCovered())
                     <form method="post" action="{{ route('shopping.items.update', $item) }}" class="sl-move">
                         @csrf @method('put')
                         <input type="hidden" name="action" value="store">
@@ -64,7 +67,16 @@
                         <button type="submit" class="btn btn-small">Déplacer</button>
                     </form>
                 @endif
-                @if ($item->source === 'recette')
+                @if ($item->source === 'recette' && ($item->stock_base > 0 || $item->isCovered() || $item->stock_ignored))
+                    <form method="post" action="{{ route('shopping.items.update', $item) }}">
+                        @csrf @method('put')
+                        <input type="hidden" name="action" value="stock">
+                        <button type="submit" class="btn btn-small btn-ghost">
+                            {{ $item->stock_ignored ? 'Utiliser le stock' : ($item->isCovered() ? 'Il n\'y en a plus : l\'acheter' : 'Ne pas utiliser le stock') }}
+                        </button>
+                    </form>
+                @endif
+                @if ($item->source === 'recette' && ! $item->isCovered())
                     <form method="post" action="{{ route('shopping.items.update', $item) }}">
                         @csrf @method('put')
                         <input type="hidden" name="action" value="section">

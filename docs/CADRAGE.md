@@ -1,7 +1,7 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.8.0 (étape 9 - liste de courses, en attente de validation)
-Dernière mise à jour : 2026-10-03
+Version du document : v0.9.0 (étape 10 - stock et anti-gaspi, en attente de validation)
+Dernière mise à jour : 2026-10-05
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
 ## Décisions actées
@@ -51,6 +51,15 @@ Liste de courses (décisions du 2026-10-03, v0.8.0)
 - Produits de base (sel, huile, farine, épices…) : section « À vérifier chez vous », hors budget ; « Il m'en manque » les ajoute aux courses. Ajouts libres possibles (article connu = rayon et prix repris).
 - Budget de la liste : budget hebdomadaire au prorata des jours, comparé au prix en caisse (paquets entiers) ; le surplus d'emballages est chiffré.
 
+Stock et anti-gaspi (décisions du 2026-10-05, v0.9.0)
+- Stock du foyer alimenté automatiquement et corrigeable à la main : en classant une liste (« Courses terminées »), le surplus des articles cochés (40 cl de lait restants d'une bouteille de 1 L…) entre au stock et ce qui a servi en sort ; ajout, modification et suppression à la main à tout moment.
+- Un lot = ingrédient, quantité (unité de base), date limite optionnelle, lieu (placard, frigo, congélateur), remarque, origine (manuel | courses). Lieu par défaut selon le rayon (surgelés → congélateur ; crèmerie, fromages, boucherie, poissonnerie, charcuterie → frigo ; sinon placard).
+- Consommation du plus proche de la date limite d'abord ; lots périmés ignorés par les listes. Mises à jour du stock appliquées une seule fois par liste (stock_applied_at).
+- Listes de courses : le stock est déduit du besoin ; un besoin entièrement couvert passe dans « Déjà en stock » (rien à acheter, hors budget) ; « Ne pas utiliser le stock » (ou « Il n'y en a plus : l'acheter ») est possible article par article. Le stock fait partie de l'empreinte de la liste : le modifier invite à la recalculer.
+- Anti-gaspi : « À consommer vite » (périmé ou date limite dans 3 jours ou moins) sur Stock et en bandeau du Planning ; « Que cuisiner ? » classe les recettes selon le stock (d'abord celles qui utilisent un produit à consommer vite, puis le plus d'ingrédients déjà là, puis le moins cher à compléter) avec bouton « Ajouter au planning ».
+- Pas encore : durées de conservation proposées par défaut, et sortie du stock quand un plat est cuisiné (le stock ne diminue qu'à la fin des courses ou à la main).
+- Découpage : v0.9.0 = stock et anti-gaspi ; v0.9.1 = rapprochement ticket ↔ liste (payé / estimé, cases cochées automatiquement, recalage des prix), plat trop cher à remplacer au-delà de 80 % du budget, bilan de la semaine après les courses, alerte de prix qui monte.
+
 ## Modèle de données
 
 Comptes et foyers
@@ -80,14 +89,14 @@ Recettes
 Planning et stock
 - meal_plan_entries (v0.7.0) : foyer, date, créneau (petit-dejeuner, dejeuner, gouter, diner, preparation), position, type (recette, restes, hors_maison, note), recette, plat d'origine des restes (source_entry_id, suppression en cascade), convives (null = semaine type), invités adultes/enfants, nombre de repas, parts en réglage libre, quantité de fournée, au congélateur, note, créé par. Pas de table « semaine » : une semaine = les dates du lundi au dimanche.
 - households.meal_slots (créneaux affichés, null = déjeuner, dîner, à préparer) et households.usual_absences (semaine type : membres absents par créneau et jour 1-7)
-- pantry_items : stock du foyer (ingrédient, quantité, date limite optionnelle) - v0.9.0
+- pantry_items (v0.9.0) : stock du foyer - ingrédient, quantité (unité de base, 3 décimales), date limite optionnelle (expires_on), lieu (placard | frigo | congelateur), remarque, origine (manuel | courses), liste d'origine (shopping_list_id), créé par. Les lots de même ingrédient, lieu et date limite sont fusionnés.
 
 Courses
-- shopping_lists (v0.8.0) : foyer, période (date_from, date_to), repas écartés (excluded_entry_ids), empreinte du planning (signature, détecte un planning modifié depuis), révision (incrémentée quand la liste change de forme, pour prévenir les autres téléphones), classée le (archived_at), créée par. Une seule liste en cours par foyer.
-- shopping_list_items : liste, ingrédient (null = ligne libre), libellé, rayon, origine (recette | manuel), section (achat | verifier) + section_locked, magasin + store_locked, besoin cumulé (unité de base), conditionnements retenus (JSON : pack, nombre, prix), prix en caisse, part réellement utilisée (prorata), magasin le moins cher et son prix, recettes à l'origine (JSON), remarque, coché par / quand. Un recalcul garde cases cochées, magasin et section choisis à la main, et les ajouts manuels.
+- shopping_lists (v0.8.0) : foyer, période (date_from, date_to), repas écartés (excluded_entry_ids), empreinte du planning (signature, détecte un planning modifié depuis), révision (incrémentée quand la liste change de forme, pour prévenir les autres téléphones), classée le (archived_at), stock mis à jour le (stock_applied_at), créée par. Une seule liste en cours par foyer.
+- shopping_list_items : liste, ingrédient (null = ligne libre), libellé, rayon, origine (recette | manuel), section (achat | verifier | stock) + section_locked, stock utilisé (stock_base) et « ne pas utiliser le stock » (stock_ignored), magasin + store_locked, besoin cumulé (unité de base), conditionnements retenus (JSON : pack, nombre, prix), prix en caisse, part réellement utilisée (prorata), magasin le moins cher et son prix, recettes à l'origine (JSON), remarque, coché par / quand. Un recalcul garde cases cochées, magasin et section choisis à la main, et les ajouts manuels.
 - receipts : ticket rattaché à une liste (magasin, date, total, photo), servant à recaler les prix
 
-## Algorithme de la liste de courses (v0.8.0)
+## Algorithme de la liste de courses (v0.8.0, stock en v0.9.0)
 
 1. Plats cuisinés de la période (type « recette », hors congélateur, hors repas écartés) ; les restes ne sont jamais recomptés.
 2. Facteur par plat = RecipeServing (parts du repas × nombre de repas / rendement de la recette, ou quantité de fournée) ; ingrédients facultatifs ignorés.
@@ -96,7 +105,10 @@ Courses
 5. Conditionnements (App\Support\PackPlanner) : combinaison la moins chère couvrant le besoin, à 2 % près (15 g/ml au plus, jamais sur des pièces) ; à égalité de prix, le moins de reste ; vrac au poids arrondi à 50 g (ou à la pièce).
 6. Produits de base (is_staple) : section « À vérifier chez vous », hors budget ; l'eau et les produits de base sans conditionnement ne figurent pas.
 7. Prix en caisse (paquets entiers), part réellement utilisée, surplus d'emballages, économie possible dans un autre magasin.
-Prévu en v0.9.0 : déduction du stock, reliquats proposés en stock et suggestions anti-gaspi, rapprochement avec le ticket.
+8. Stock (v0.9.0) : besoin net = besoin - stock disponible à la date de début (lots non périmés) ; besoin couvert → section « Déjà en stock », sans achat ni prix ; articles dont la section a été fixée à la main ou marqués « ne pas utiliser le stock » : stock ignoré.
+9. Classement de la liste (App\Support\Pantry::applyList, une seule fois) : le stock utilisé sort du stock (plus proche de la date limite d'abord) ; pour chaque article d'achat coché, le surplus (acheté - besoin net) entre au stock s'il vaut la peine d'être gardé (pièce : 0,5 au moins ; sinon au moins 15 g/ml ou 2 % du besoin) ; article manuel relié à un ingrédient : toute la quantité entre.
+10. Suggestions anti-gaspi (App\Support\AntiWaste) : produits de base ignorés ; quantités proratisées pour le foyer ; ligne couverte si le stock atteint 98 % du besoin ; recette retenue si au moins 25 % des lignes sont couvertes ou partiellement, ou si elle emploie un produit à consommer vite ; tri : produits à consommer vite utilisés, part couverte, coût à compléter.
+Prévu en v0.9.1 : rapprochement avec le ticket.
 
 ## Prix et tickets de caisse
 
@@ -121,8 +133,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 6. Tickets de caisse : connexion Paperless, lecture, rapprochement, prix réels (v0.5.0, lecteur Lidl v0.5.1, textes Paperless réels Lidl et Leclerc Drive v0.5.2) - VALIDÉ le 2026-09-29
 7. Affichage d'une recette proratisée (v0.6.0) - VALIDÉ le 2026-09-29
 8. Planning de la semaine et repas cumulables (v0.7.0) - VALIDÉ le 2026-10-03
-9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0) - LIVRÉ, en attente de validation
-10. Économies : budget, stock, anti-gaspi, rapprochement ticket ↔ liste de courses (v0.9.0)
+9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0) - VALIDÉ le 2026-10-05
+10. Économies : stock et anti-gaspi (v0.9.0) - LIVRÉ, en attente de validation ; puis rapprochement ticket ↔ liste, plat trop cher à remplacer, bilan de la semaine, alerte de prix qui monte (v0.9.1)
 11. Menu de la semaine proposé automatiquement dans le budget (v0.10.0)
 12. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
 
@@ -177,9 +189,12 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.7.0 : planning livré - grille de la semaine (déjeuner, dîner, à préparer ; petit-déjeuner et goûter en option), semaine type dans Mon foyer, ajout d'un plat / hors maison / note, convives pré-cochés d'après la semaine type, restes automatiques qui évitent les repas où personne n'est à la maison, congélateur, coût de la semaine et jauge de budget, ajout depuis la fiche recette, repas du jour sur l'accueil, entrée « Planning » ; 98 tests.
 - v0.7.0 installée et validée par Louis le 2026-10-03 (« c'est parfait on continue »).
 - v0.8.0 : liste de courses livrée - création pour une période choisie, quantités cumulées de tous les plats, conditionnements entiers au meilleur prix (60 cl de lait → 1 bouteille de 1 L, il en restera 40 cl), rangement par magasin (principal + fruits et légumes) puis par rayon, prix en caisse et jauge de budget au prorata de la période, surplus d'emballages et économie possible chiffrés, cases partagées en direct, produits de base « à vérifier chez vous », ajouts libres, repas écartables, détection d'un planning modifié, historique des listes, entrée « Courses » et carte sur l'accueil ; 118 tests.
+- v0.8.0 installée et validée par Louis le 2026-10-05 (« tout est ok on peux passer a la v0.9.0 »).
+- v0.9.0 : stock et anti-gaspi livrés - page Stock (ajout, modification, suppression, lieux, dates limites, « À consommer vite »), déduction du stock dans la liste de courses (« Déjà en stock », « ne pas utiliser le stock »), stock mis à jour en fin de courses (surplus d'emballages entrés, stock utilisé sorti), « Que cuisiner ? » (recettes selon le stock), bandeau « À consommer vite » dans le Planning, entrée « Stock » et carte sur l'accueil ; 130 tests.
 
 ## Questions ouvertes
 
 - Autres enseignes (Morin, Carrefour, Hyper U, Grand Frais) : lecteur à ajuster dès réception de tickets réels (texte Paperless).
-- Pour la v0.9.0 (économies) : stock du foyer (saisie à la main, ou déduit des reliquats des listes), anti-gaspi (recettes proposées pour les restes d'emballages et les produits proches de la date limite), rapprochement ticket ↔ liste (prix payés recalent les prix), et ordre des rayons propre à chaque magasin (parcours en magasin).
+- Pour la v0.9.1 : rapprochement ticket ↔ liste (prix payés recalent les prix), plat trop cher à remplacer, bilan de la semaine, alerte de prix qui monte ; ordre des rayons propre à chaque magasin (parcours en magasin) à placer quand Louis le demandera.
+- Stock : à l'usage, dire si la sortie du stock à la fin des courses suffit ou si « cuisiné » doit aussi décompter, et si des durées de conservation par défaut seraient utiles.
 - Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.

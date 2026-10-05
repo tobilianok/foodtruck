@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ShoppingList extends Model
 {
-    protected $fillable = ['household_id', 'date_from', 'date_to', 'excluded_entry_ids', 'signature', 'revision', 'archived_at', 'created_by'];
+    protected $fillable = ['household_id', 'date_from', 'date_to', 'excluded_entry_ids', 'signature', 'revision', 'archived_at', 'stock_applied_at', 'created_by'];
 
     protected function casts(): array
     {
@@ -18,6 +18,7 @@ class ShoppingList extends Model
             'excluded_entry_ids' => 'array',
             'revision' => 'integer',
             'archived_at' => 'datetime',
+            'stock_applied_at' => 'datetime',
         ];
     }
 

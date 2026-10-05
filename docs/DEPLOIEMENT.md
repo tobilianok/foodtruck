@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-10-03 (v0.8.0)
+Dernière mise à jour : 2026-10-05 (v0.9.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -131,6 +131,13 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - La migration ajoute shopping_lists et shopping_list_items ; la sauvegarde SQL de backups/ est faite par le script avant de migrer.
 - Les prix utilisés sont ceux du référentiel (estimations puis tickets) : plus il y a de tickets traités, plus les totaux sont justes.
 
+## Stock et anti-gaspi (v0.9.0)
+
+- Aucun service, port ni tâche planifiée en plus : le stock vit dans la base, les suggestions sont calculées à l'ouverture de la page.
+- La migration 2026_10_05_800001 ajoute pantry_items et trois colonnes (shopping_list_items.stock_base et stock_ignored, shopping_lists.stock_applied_at) ; la sauvegarde SQL de backups/ est faite par le script avant de migrer.
+- Les listes déjà classées avant la v0.9.0 n'alimentent pas le stock (stock_applied_at vide) : rien n'est appliqué rétroactivement, sauf si on rouvre puis reclasse une liste.
+- Les dates limites sont comparées en fuseau Europe/Paris.
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -140,7 +147,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.7.0 (v0.7.0 validée le 2026-10-03) ; v0.8.0 livrée, à installer puis pousser.
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.8.0 (v0.8.0 validée le 2026-10-05) ; v0.9.0 livrée, à installer puis pousser.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

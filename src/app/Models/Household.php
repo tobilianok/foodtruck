@@ -78,6 +78,11 @@ class Household extends Model
         return $this->hasMany(MealPlanEntry::class);
     }
 
+    public function pantryItems(): HasMany
+    {
+        return $this->hasMany(PantryItem::class);
+    }
+
     public function shoppingLists(): HasMany
     {
         return $this->hasMany(ShoppingList::class)->latest('id');

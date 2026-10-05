@@ -43,6 +43,16 @@
         </p>
     </section>
 
+    @if ($soonLots->isNotEmpty())
+        <section class="panel stock-soon">
+            <strong>À consommer vite :</strong>
+            @foreach ($soonLots->take(6) as $lot)
+                {{ $lot->ingredient->name }} <span @class(['stock-expiry', 'is-expired' => $lot->isExpired(), 'is-soon' => $lot->isSoon()])>{{ $lot->expiryLabel() }}</span>{{ $loop->last ? '' : ' ·' }}
+            @endforeach
+            <a href="{{ route('stock.recipes') }}">Que cuisiner ? →</a>
+        </section>
+    @endif
+
     <section class="week-grid">
         <div class="wg-corner" aria-hidden="true"></div>
         @foreach ($days as $d => $day)
