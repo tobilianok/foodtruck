@@ -3,7 +3,7 @@
     $problems = collect($rows)->whereNotNull('problem')->count();
     $recipe = $import->recipe;
 @endphp
-<li>
+<li @class(['import-item' => ! empty($discard)])>
     <a href="{{ route('recipes.imports.show', $import) }}" class="receipt-link">
         <span class="receipt-main">
             <strong>{{ $recipe?->title ?? ($import->parsed['recipe']['title'] ?? $import->title ?? 'Document n° '.$import->paperless_document_id) }}</strong>
@@ -29,4 +29,10 @@
             @endif
         </span>
     </a>
+    @if (! empty($discard))
+        <form method="post" action="{{ route('recipes.imports.ignore', $import) }}" class="import-discard">
+            @csrf
+            <button type="submit" class="btn btn-ghost btn-small btn-danger" data-confirm="Supprimer cette fiche ? Elle ne sera plus relue ni recréée par « Chercher dans Paperless » (le document reste dans Paperless){{ $recipe ? ', et son brouillon de recette sera supprimé' : '' }}.">Supprimer</button>
+        </form>
+    @endif
 </li>

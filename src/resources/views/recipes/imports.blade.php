@@ -29,13 +29,21 @@
     @endif
 
     <section class="panel">
-        <h2>À relire <span class="muted">({{ $pending->count() }})</span></h2>
+        <div class="panel-head">
+            <h2>À relire <span class="muted">({{ $pending->count() }})</span></h2>
+            @if ($pending->count() > 1)
+                <form method="post" action="{{ route('recipes.imports.discard-all') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-ghost btn-small btn-danger" data-confirm="Supprimer les {{ $pending->count() }} fiches à relire ? Elles ne seront plus relues ni recréées par « Chercher dans Paperless » (les documents restent dans Paperless).">Tout supprimer</button>
+                </form>
+            @endif
+        </div>
         @if ($pending->isEmpty())
             <p class="hint">Rien à relire. Dépose une fiche dans Paperless avec l'étiquette « {{ $household->paperlessRecipeTag() }} » : elle apparaîtra ici ou directement dans les recettes.</p>
         @else
             <ul class="receipt-list">
                 @foreach ($pending as $import)
-                    @include('recipes._import-row', ['import' => $import])
+                    @include('recipes._import-row', ['import' => $import, 'discard' => true])
                 @endforeach
             </ul>
         @endif
@@ -54,7 +62,8 @@
 
     @if ($ignored->isNotEmpty())
         <details class="panel">
-            <summary class="more-summary">Fiches mises de côté ({{ $ignored->count() }})</summary>
+            <summary class="more-summary">Fiches supprimées ({{ $ignored->count() }})</summary>
+            <p class="hint small">Ces fiches ne sont plus relues, même si le document reste dans Paperless. « Reprendre » les remet dans « À relire ».</p>
             <ul class="receipt-list">
                 @foreach ($ignored as $import)
                     <li>

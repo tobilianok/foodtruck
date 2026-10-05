@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Recipe;
 use App\Models\RecipeImport;
+use App\Support\RecipeScan\ImportDiscarder;
 use App\Support\RecipeScan\RecipeScanSync;
 use App\Support\RecipeScan\ScanImporter;
 use Illuminate\Http\Request;
@@ -104,14 +105,38 @@ class RecipeImportController extends Controller
         return redirect()->route('recipes.imports.show', $recipeImport)->with('status', 'Fiche relue : il reste des ingrédients à compléter.');
     }
 
+    /** « Supprimer » : la fiche est mise de côté (jamais recréée par la synchronisation) et son brouillon éventuel est supprimé. */
     public function ignore(Request $request, RecipeImport $recipeImport)
     {
         $this->authorizeImport($request, $recipeImport);
-        abort_if($recipeImport->recipe_id !== null, 404);
+        $recipeImport->loadMissing('recipe');
 
-        $recipeImport->update(['status' => RecipeImport::STATUS_IGNORED]);
+        $reason = ImportDiscarder::discard($recipeImport, $request->user());
 
-        return redirect()->route('recipes.imports.index')->with('status', 'Fiche mise de côté. Elle ne sera pas relue.');
+        return $reason === null
+            ? redirect()->route('recipes.imports.index')->with('status', 'Fiche supprimée. Elle ne sera plus relue ni recréée par la synchronisation (le document reste dans Paperless). Tu peux la reprendre depuis « Fiches supprimées ».')
+            : redirect()->route('recipes.imports.index')->withErrors(['paperless' => $reason]);
+    }
+
+    /** Supprime d'un coup toutes les fiches de la liste « À relire ». */
+    public function discardAll(Request $request)
+    {
+        $household = $request->user()->household;
+        $removed = 0;
+        $kept = [];
+
+        foreach ($household->recipeImports()->with('recipe')->get()->filter(fn (RecipeImport $i) => self::needsReview($i)) as $import) {
+            $reason = ImportDiscarder::discard($import, $request->user());
+            $reason === null ? $removed++ : $kept[] = $reason;
+        }
+
+        $message = $removed === 0
+            ? 'Aucune fiche à supprimer.'
+            : $removed.' fiche'.($removed > 1 ? 's' : '').' supprimée'.($removed > 1 ? 's' : '').' : elles ne seront plus relues ni recréées par la synchronisation (les documents restent dans Paperless).';
+
+        return $kept === []
+            ? redirect()->route('recipes.imports.index')->with('status', $message)
+            : redirect()->route('recipes.imports.index')->with('status', $message)->withErrors(['paperless' => count($kept).' fiche'.(count($kept) > 1 ? 's' : '').' conservée'.(count($kept) > 1 ? 's' : '').' : '.implode(' ', $kept)]);
     }
 
     public function restore(Request $request, RecipeImport $recipeImport)

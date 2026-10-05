@@ -797,3 +797,10 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .meal-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .meal-actions form { margin: 0; }
 @media (prefers-color-scheme: dark) { .meal-proposal { background: color-mix(in srgb, var(--sun) 14%, var(--surface)); } }
+
+/* ---- v0.13.1 : supprimer une fiche Paperless à relire ---- */
+.import-item { display: flex; align-items: center; gap: 8px; }
+.import-item .receipt-link { flex: 1 1 auto; min-width: 0; }
+.import-discard { margin: 0; flex: none; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-head h2 { margin: 0; }

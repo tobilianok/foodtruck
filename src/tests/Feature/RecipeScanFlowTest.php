@@ -255,6 +255,84 @@ class RecipeScanFlowTest extends TestCase
         $this->assertSame(RecipeImport::STATUS_TO_REVIEW, $import->fresh()->status);
     }
 
+    public function test_supprimer_une_fiche_a_relire_ne_la_recree_pas_a_la_synchronisation(): void
+    {
+        $this->fakePaperless("Ticket de caisse\nTotal 12,50");
+        $this->sync();
+        $import = RecipeImport::firstWhere('paperless_document_id', 480);
+
+        $this->actingAs($this->user)->get('/recettes/importees')->assertOk()
+            ->assertSee('Supprimer')->assertDontSee('Tout supprimer', false);
+
+        $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/ignorer")
+            ->assertRedirect('/recettes/importees')
+            ->assertSessionHas('status', fn ($s) => str_contains($s, 'Fiche supprimée'));
+        $this->assertSame(RecipeImport::STATUS_IGNORED, $import->fresh()->status);
+
+        // « Chercher dans Paperless » (même document, même texte) ne la ramène pas
+        $this->fakePaperless("Ticket de caisse\nTotal 12,50");
+        $counts = $this->sync();
+        $this->assertSame([0, 0], [$counts['new'], $counts['updated']]);
+        $this->assertSame(1, RecipeImport::count(), 'Aucun doublon');
+        $this->assertSame(RecipeImport::STATUS_IGNORED, $import->fresh()->status);
+
+        $this->actingAs($this->user)->get('/recettes/importees')->assertOk()->assertSee('Fiches supprimées (1)');
+    }
+
+    public function test_supprimer_une_fiche_avec_brouillon_supprime_le_brouillon(): void
+    {
+        $draft = Recipe::create(['title' => 'Brouillon scanné', 'slug' => 'brouillon-scanne', 'category' => 'plat', 'yield_quantity' => 4, 'yield_unit' => 'personnes', 'difficulty' => 'facile', 'status' => Recipe::STATUS_DRAFT, 'author_id' => $this->user->id]);
+        $import = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 490, 'title' => 'Brouillon scanné', 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_CREATED, 'recipe_id' => $draft->id]);
+
+        $this->actingAs($this->user)->get('/recettes/importees')->assertOk()->assertSee('Brouillon scanné')->assertSee('son brouillon de recette sera supprimé', false);
+        $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/ignorer")->assertRedirect('/recettes/importees');
+
+        $this->assertNull(Recipe::find($draft->id));
+        $this->assertSame([RecipeImport::STATUS_IGNORED, null], [$import->fresh()->status, $import->fresh()->recipe_id]);
+    }
+
+    public function test_un_brouillon_au_planning_ou_une_recette_publiee_ne_sont_pas_supprimes(): void
+    {
+        $planned = Recipe::create(['title' => 'Brouillon planifié', 'slug' => 'brouillon-planifie', 'category' => 'plat', 'yield_quantity' => 4, 'yield_unit' => 'personnes', 'difficulty' => 'facile', 'status' => Recipe::STATUS_DRAFT, 'author_id' => $this->user->id]);
+        $this->household->mealPlanEntries()->create(['date' => '2026-10-06', 'slot' => 'diner', 'kind' => 'recette', 'recipe_id' => $planned->id, 'meals' => 1, 'created_by' => $this->user->id]);
+        $a = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 491, 'title' => 'A', 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_CREATED, 'recipe_id' => $planned->id]);
+
+        $published = Recipe::create(['title' => 'Déjà publiée', 'slug' => 'deja-publiee', 'category' => 'plat', 'yield_quantity' => 4, 'yield_unit' => 'personnes', 'difficulty' => 'facile', 'status' => Recipe::STATUS_PUBLISHED, 'author_id' => $this->user->id]);
+        $b = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 492, 'title' => 'B', 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_CREATED, 'recipe_id' => $published->id]);
+
+        $this->actingAs($this->user)->post("/recettes/importees/{$a->id}/ignorer")->assertSessionHasErrors('paperless');
+        $this->actingAs($this->user)->post("/recettes/importees/{$b->id}/ignorer")->assertSessionHasErrors('paperless');
+
+        $this->assertNotNull(Recipe::find($planned->id));
+        $this->assertNotNull(Recipe::find($published->id));
+        $this->assertSame(RecipeImport::STATUS_CREATED, $a->fresh()->status);
+        $this->assertSame(RecipeImport::STATUS_CREATED, $b->fresh()->status);
+    }
+
+    public function test_tout_supprimer_vide_la_liste_a_relire_sans_toucher_aux_recettes_publiees(): void
+    {
+        foreach ([493, 494] as $id) {
+            RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => $id, 'title' => 'Fiche '.$id, 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_TO_REVIEW]);
+        }
+        $published = Recipe::create(['title' => 'Publiée auto', 'slug' => 'publiee-auto', 'category' => 'plat', 'yield_quantity' => 4, 'yield_unit' => 'personnes', 'difficulty' => 'facile', 'status' => Recipe::STATUS_PUBLISHED, 'author_id' => $this->user->id]);
+        $done = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 495, 'title' => 'Publiée auto', 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_CREATED, 'recipe_id' => $published->id]);
+
+        $this->actingAs($this->user)->get('/recettes/importees')->assertOk()->assertSee('Tout supprimer');
+        $this->post('/recettes/importees/tout-supprimer')
+            ->assertRedirect('/recettes/importees')
+            ->assertSessionHas('status', fn ($s) => str_contains($s, '2 fiches supprimées'));
+
+        $this->assertSame(2, RecipeImport::where('status', RecipeImport::STATUS_IGNORED)->count());
+        $this->assertSame(RecipeImport::STATUS_CREATED, $done->fresh()->status);
+        $this->assertNotNull(Recipe::find($published->id));
+
+        // Un autre foyer ne supprime rien chez nous
+        $stranger = $this->householdUser();
+        RecipeImport::where('status', RecipeImport::STATUS_IGNORED)->update(['status' => RecipeImport::STATUS_TO_REVIEW]);
+        $this->actingAs($stranger)->post('/recettes/importees/tout-supprimer')->assertRedirect('/recettes/importees');
+        $this->assertSame(2, RecipeImport::where('status', RecipeImport::STATUS_TO_REVIEW)->count());
+    }
+
     public function test_document_sans_texte_est_reessaye_plus_tard(): void
     {
         $this->fakePaperless('   ');

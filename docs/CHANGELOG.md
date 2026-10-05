@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.13.1 - 2026-10-05 - Supprimer une fiche Paperless à relire
+
+- Fiches Paperless → « À relire » : chaque fiche a maintenant un bouton « Supprimer », et un bouton « Tout supprimer » vide toute la liste d'un coup (confirmation demandée).
+- Supprimer ne revient pas à effacer : la fiche est mise de côté, donc « Chercher dans Paperless » et la synchronisation horaire ne la recréent pas, même si le document reste dans Paperless (et même s'il y est modifié). Pour qu'un document ne soit plus jamais examiné, on peut aussi lui retirer l'étiquette « recettes » dans Paperless.
+- Si la fiche avait déjà donné un brouillon de recette, ce brouillon est supprimé avec elle. Jamais supprimés par ce bouton : une recette publiée (à supprimer depuis sa propre fiche) et un brouillon déjà au planning (à retirer d'abord du planning) ; la raison est affichée et la fiche reste.
+- La liste « Fiches mises de côté » devient « Fiches supprimées », avec « Reprendre » pour remettre une fiche dans « À relire ». Dans l'écran de relecture, le bouton « Ce n'est pas une recette : l'ignorer » devient « Supprimer cette fiche ».
+- Aucune migration, aucun service ni port en plus.
+- 226 tests automatisés attendus (4 nouveaux dans RecipeScanFlowTest).
+
 ## v0.13.0 - 2026-10-05 - Menu automatique : la semaine proposée dans le budget
 
 - Nouveau bloc « Menu automatique » en haut du planning : « Proposer la semaine » remplit les déjeuners et les dîners libres de la semaine affichée. Les repas déjà prévus (plats, hors maison, notes) sont conservés et comptent dans le budget, les protéines et le quota végétarien. Les jours passés ne sont pas touchés ; les repas où personne n'est à la maison d'après la semaine type sont sautés.
