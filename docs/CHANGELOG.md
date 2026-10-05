@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.14.0 - 2026-10-05 - Tour de tests et corrections, lot 1 : fiches à colonnes mélangées
+
+- Correction signalée par Louis : la fiche Leclerc « Croziflette » (document Paperless n° 487, scan de photocopieuse sans texte, lu par Paperless) remontait sans ingrédients ni étapes (« Liste d'ingrédients introuvable », « Étapes de préparation introuvables »).
+- Cause : la reconnaissance de texte de Paperless a mélangé les deux colonnes ligne par ligne (« Les ingrédients La recette » sur une ligne, puis « e 1 reblochon Etape 1 », « e 200 g de lardons la crème fraîche. »…). La carbonara, même mise en page, était sortie colonnes séparées.
+- Nouveau séparateur de colonnes (App\Support\RecipeScan\ColumnSplitter), générique : déclenché seulement quand les deux titres sont sur la même ligne. Chaque ligne à puce est coupée entre l'ingrédient et la suite de la recette (repère « Étape », fin d'une phrase commencée à droite, nouvelle phrase) ; les lignes sans puce vont à la recette ; le texte est remis dans l'ordre puis lu normalement. Repères d'étapes mal lus (« Etapat », mot illisible à la place de « Etape 2 ») renumérotés à leur place.
+- Résultat sur la Croziflette : 4 personnes, 15 min, 7 ingrédients (reblochon, oignon, 20 cl de crème fraîche, 200 g de lardons, 300 g de crozets, sel, poivre) et les 5 étapes complètes, source mesrecettes.leclerc. Une fiche lue ainsi attend toujours la relecture (réserve « colonnes séparées automatiquement, à vérifier avec le PDF »).
+- « 20 ci de crème » : le « ci » est lu comme « cl » (centilitres), ligne signalée en rouge. « sol » (pour « sel ») reste à choisir à la relecture : le choix est appris pour les fiches suivantes.
+- Toutes les autres fiches de test (Julie Andrieu, HelloFresh, carbonara) et les tickets donnent exactement la même lecture qu'avant (comparaison avant/après).
+- Le script de mise à jour relit les fiches en attente avec les nouvelles règles (foodtruck:relire-recettes) : la Croziflette se remplit toute seule.
+- Aucune migration, aucun service ni port en plus.
+- 232 tests automatisés attendus (nouveau : ColumnSplitterTest, 6 tests).
+
 ## v0.13.2 - 2026-10-05 - Supprimer une fiche Paperless l'efface complètement
 
 - Demande de Louis : après « Supprimer », « Chercher dans Paperless » doit relire la fiche depuis zéro. La v0.13.1 mettait les fiches de côté (elles n'étaient jamais retraitées) : ce n'est plus le cas.

@@ -187,6 +187,10 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 - Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
 
+## Fiches à colonnes mélangées (v0.14.0)
+
+- Aucun service, port ni migration en plus. Le script (foodtruck-update-v0.14.0.sh) exige la v0.13.2 en place et un dépôt Git propre, sauvegarde la base, applique un correctif git vérifié, lance les tests (retour arrière par git apply -R si échec), vide les caches, redémarre app et scheduler, puis relit les fiches en attente (foodtruck:relire-recettes).
+
 ## Suppression des fiches Paperless à relire (v0.13.1, v0.13.2)
 
 - Aucun service ni port en plus. Le script de la v0.13.2 (foodtruck-update-v0.13.2.sh) exige la v0.13.1 en place, un dépôt Git propre, sauvegarde la base, applique un correctif git vérifié, lance les tests (retour arrière par git apply -R si échec), migre (suppression des fiches mises de côté par la v0.13.1), vide les caches et redémarre app et scheduler.
@@ -220,7 +224,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1 et v0.13.2 livrées le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2 et v0.14.0 livrées le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

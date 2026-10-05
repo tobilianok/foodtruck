@@ -32,6 +32,12 @@ class RecipeTextParser
 
         $issues = [];
 
+        // Deux colonnes mélangées ligne par ligne (« Les ingrédients La recette ») : remises dans l'ordre avant lecture
+        if (($split = ColumnSplitter::split($clean['text'])) !== null) {
+            $clean['text'] = $split;
+            $issues[] = 'Colonnes ingrédients / recette mélangées par la reconnaissance de texte : séparées automatiquement, à vérifier avec le PDF.';
+        }
+
         $meta = ['prep' => null, 'cook' => null, 'rest' => null, 'yield' => null];
         $head = [];
         $ingredientLines = [];

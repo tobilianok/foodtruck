@@ -135,6 +135,13 @@ class IngredientLineParser
                 $rest = trim(mb_substr($rest, mb_strlen($q[0])));
             }
 
+            // « 20 ci de crème » : le « l » de « cl » lu comme un « i »
+            $misreadUnit = null;
+            if (preg_match('/^ci(?=\s+(?:de\s|d[\x27’]))/iu', $rest) === 1) {
+                $rest = 'cl'.mb_substr($rest, 2);
+                $misreadUnit = '« ci » lu comme « cl » (centilitres) : à vérifier avec la fiche.';
+            }
+
             [$unit, $rest, $pieceWord] = self::extractUnit($rest);
 
             if ($qualifier) {
@@ -155,6 +162,7 @@ class IngredientLineParser
         if ($hadQuantity && $quantity !== null) {
             [$quantity, $check] = self::plausible($quantity, $unit, $quantityText);
         }
+        $check ??= $misreadUnit ?? null;
 
         $rest = self::stripDe($rest);
 
