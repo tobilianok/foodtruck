@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-10-05 (v0.9.0)
+Dernière mise à jour : 2026-10-05 (v0.9.1)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -138,6 +138,16 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Les listes déjà classées avant la v0.9.0 n'alimentent pas le stock (stock_applied_at vide) : rien n'est appliqué rétroactivement, sauf si on rouvre puis reclasse une liste.
 - Les dates limites sont comparées en fuseau Europe/Paris.
 
+## Bilan, rapprochement et reset (v0.9.1)
+
+- Aucun service, port ni tâche planifiée en plus. La migration 2026_10_05_900001 ajoute receipts.shopping_list_id ; la sauvegarde SQL de backups/ est faite par le script avant de migrer.
+- Les tickets déjà traités ne sont pas rattachés rétroactivement : ouvrir le ticket (Tickets) et choisir sa liste, ou le rattacher depuis le Bilan de la liste.
+- Remise à zéro des données d'essai (à lancer à la main, sur la VM) :
+  cd /opt/stacks/foodtruck && ./ft reset
+  Efface planning, listes de courses et stock de tous les foyers ; garde comptes, foyers, recettes, référentiel, tickets, prix. Un seul foyer : ./ft reset --foyer=1. Sauvegarde automatique avant : backups/foodtruck-avant-reset-AAAAMMJJ-HHMMSS.sql.gz.
+- Restaurer une sauvegarde (si besoin) : gzip -dc backups/FICHIER.sql.gz | docker compose exec -T db sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" foodtruck'
+- ft est livré par le script de mise à jour (nouvelle commande reset).
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -147,7 +157,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.8.0 (v0.8.0 validée le 2026-10-05) ; v0.9.0 livrée, à installer puis pousser.
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.9.0 (v0.9.0 validée le 2026-10-05) ; v0.9.1 livrée, à installer puis pousser.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

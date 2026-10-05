@@ -32,6 +32,12 @@ class ShoppingList extends Model
         return $this->hasMany(ShoppingListItem::class)->orderBy('id');
     }
 
+    /** Tickets de caisse rattachés à cette liste. */
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(Receipt::class)->orderBy('purchased_on')->orderBy('id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

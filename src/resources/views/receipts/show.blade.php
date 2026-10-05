@@ -38,6 +38,24 @@
         @endif
     </section>
 
+    <section class="panel">
+        <h2>Liste de courses</h2>
+        <form method="post" action="{{ route('receipts.link', $receipt) }}" class="inline-form">
+            @csrf
+            <select name="list_id" aria-label="Liste de courses">
+                <option value="">— aucune —</option>
+                @foreach ($lists as $candidate)
+                    <option value="{{ $candidate->id }}" @selected($receipt->shopping_list_id === $candidate->id)>Courses du {{ $candidate->periodLabel() }}</option>
+                @endforeach
+            </select>
+            <button type="submit" class="btn btn-small">Enregistrer</button>
+            @if ($receipt->shopping_list_id)
+                <a href="{{ route('shopping.bilan', $receipt->shopping_list_id) }}" class="btn btn-small btn-ghost">Voir le bilan</a>
+            @endif
+        </form>
+        <p class="hint small">Un ticket traité est rattaché tout seul à la liste de sa période. Les articles retrouvés sur le ticket sont cochés dans la liste, et le bilan compare le payé à l'estimé.</p>
+    </section>
+
     <form method="post" action="{{ route('receipts.update', $receipt) }}" class="stack">
         @csrf @method('put')
 

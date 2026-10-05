@@ -6,6 +6,7 @@ use App\Models\MealPlanEntry;
 use App\Models\Recipe;
 use App\Support\AntiWaste;
 use App\Support\MealPlanner;
+use App\Support\Savings;
 use App\Support\RecipeServing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -44,6 +45,7 @@ class PlanningController extends Controller
             $entry->source?->setRelation('household', $household);
         }
         $cost = MealPlanner::cost($entries, $household);
+        $today = now('Europe/Paris')->toDateString();
 
         // Présences de la semaine type affichées dans les cases (seulement si tout le foyer n'est pas là)
         $usual = [];
@@ -67,8 +69,9 @@ class PlanningController extends Controller
             'frozen' => $frozen,
             'cost' => $cost,
             'budget' => $household->weekly_budget_cents,
-            'today' => now('Europe/Paris')->toDateString(),
+            'today' => $today,
             'soonLots' => AntiWaste::expiring($household),
+            'swaps' => Savings::replacements($household, $request->user(), $entries, $cost, $today),
         ]);
     }
 
@@ -138,6 +141,28 @@ class PlanningController extends Controller
         });
 
         return $this->backToWeek($entry, $this->message($entry->fresh(), 'modifié', $unplaced));
+    }
+
+    /** Remplace la recette d'un plat par une autre (plat trop cher) : convives, jour et créneau sont conservés. */
+    public function replace(Request $request, MealPlanEntry $entry)
+    {
+        $this->authorizeEntry($request, $entry);
+        abort_unless($entry->isRecipe() && ! $entry->isLeftover() && $entry->batch_quantity === null, 404);
+
+        $data = $request->validate(['recipe_id' => ['required', 'integer']]);
+        $recipe = Recipe::visibleTo($request->user())->where('status', Recipe::STATUS_PUBLISHED)->where('yield_unit', 'personnes')->find($data['recipe_id']);
+        abort_if($recipe === null, 404);
+
+        $old = $entry->recipe;
+        $unplaced = DB::transaction(function () use ($entry, $recipe) {
+            $entry->update(['recipe_id' => $recipe->id]);
+            $entry->leftovers()->update(['recipe_id' => $recipe->id]);
+
+            return MealPlanner::placeLeftovers($entry->fresh());
+        });
+
+        return $this->backToWeek($entry, '« '.$old->title.' » remplacé par « '.$recipe->title.' » ('.$this->when($entry->fresh()).'). La liste de courses se met à jour avec le planning.'
+            .($unplaced > 0 ? ' '.$unplaced.' reste'.($unplaced > 1 ? 's' : '').' mis de côté faute de créneau libre.' : ''));
     }
 
     public function destroy(Request $request, MealPlanEntry $entry)

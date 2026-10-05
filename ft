@@ -5,6 +5,23 @@
 #   ./ft php artisan migrate
 #   ./ft php artisan foodtruck:check
 #   ./ft composer install
+#   ./ft reset            remise à zéro du planning, des listes et du stock (avec sauvegarde)
 cd "$(dirname "$0")" || exit 1
 if [ -t 0 ] && [ -t 1 ]; then TTY=""; else TTY="-T"; fi
+
+if [ "${1:-}" = "reset" ]; then
+    shift
+    docker compose exec $TTY -u www-data app php artisan foodtruck:reset --apercu "$@" || exit 1
+    printf '\nPour confirmer, tape EFFACER : '
+    read -r ANSWER
+    [ "$ANSWER" = "EFFACER" ] || { echo "Annulé : rien n'a été effacé."; exit 1; }
+    mkdir -p backups
+    BACKUP="backups/foodtruck-avant-reset-$(date +%Y%m%d-%H%M%S).sql.gz"
+    docker compose exec -T db sh -c 'exec mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction --routines foodtruck' | gzip > "$BACKUP"
+    [ "$(gzip -dc "$BACKUP" | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "Sauvegarde vide : arrêt, rien n'a été effacé."; rm -f "$BACKUP"; exit 1; }
+    chmod 600 "$BACKUP"
+    echo "Base sauvegardée dans $PWD/$BACKUP"
+    exec docker compose exec $TTY -u www-data app php artisan foodtruck:reset --oui "$@"
+fi
+
 exec docker compose exec $TTY -u www-data app "$@"

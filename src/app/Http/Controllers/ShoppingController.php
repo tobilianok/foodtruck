@@ -7,6 +7,9 @@ use App\Models\Ingredient;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Models\Store;
+use App\Models\PantryItem;
+use App\Models\Receipt;
+use App\Support\ListReconciliation;
 use App\Support\Pantry;
 use App\Support\ShoppingListBuilder;
 use Illuminate\Http\JsonResponse;
@@ -46,6 +49,22 @@ class ShoppingController extends Controller
         $this->authorizeList($request, $list);
 
         return $this->render($request, $list);
+    }
+
+    /** Bilan d'une liste : payé / estimé d'après les tickets rattachés, prix qui bougent, stock rangé. */
+    public function bilan(Request $request, ShoppingList $list)
+    {
+        $this->authorizeList($request, $list);
+        $list->setRelation('household', $request->user()->household);
+
+        return view('shopping.bilan', [
+            'list' => $list,
+            'cmp' => ListReconciliation::compare($list),
+            'prices' => ListReconciliation::priceChanges($list),
+            'stocked' => PantryItem::with('ingredient')->where('shopping_list_id', $list->id)->get(),
+            'loose' => $request->user()->household->receipts()->whereNull('shopping_list_id')->where('status', Receipt::STATUS_DONE)
+                ->whereNotNull('purchased_on')->with('store')->orderByDesc('purchased_on')->limit(8)->get(),
+        ]);
     }
 
     public function store(Request $request)
@@ -117,7 +136,7 @@ class ShoppingController extends Controller
                 .', '.$stock['consumed'].' produit'.($stock['consumed'] > 1 ? 's' : '').' utilisé'.($stock['consumed'] > 1 ? 's' : '').'.';
         }
 
-        return redirect()->route('shopping.index')->with('status', $message);
+        return redirect()->route('shopping.bilan', $list)->with('status', $message);
     }
 
     public function reopen(Request $request, ShoppingList $list)

@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/planning/repas', [PlanningController::class, 'store'])->name('planning.store');
         Route::get('/planning/repas/{entry}/modifier', [PlanningController::class, 'edit'])->name('planning.edit');
         Route::put('/planning/repas/{entry}', [PlanningController::class, 'update'])->name('planning.update');
+        Route::post('/planning/repas/{entry}/remplacer', [PlanningController::class, 'replace'])->name('planning.replace');
         Route::delete('/planning/repas/{entry}', [PlanningController::class, 'destroy'])->name('planning.destroy');
         Route::post('/planning/repas/{entry}/congeler', [PlanningController::class, 'freeze'])->name('planning.freeze');
         Route::get('/planning/{week}', [PlanningController::class, 'index'])->where('week', '\d{4}-\d{2}-\d{2}')->name('planning.week');
@@ -65,6 +66,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/courses', [ShoppingController::class, 'index'])->name('shopping.index');
         Route::post('/courses', [ShoppingController::class, 'store'])->name('shopping.store');
         Route::get('/courses/liste/{list}', [ShoppingController::class, 'show'])->name('shopping.show');
+        Route::get('/courses/liste/{list}/bilan', [ShoppingController::class, 'bilan'])->name('shopping.bilan');
         Route::put('/courses/liste/{list}', [ShoppingController::class, 'update'])->name('shopping.update');
         Route::post('/courses/liste/{list}/actualiser', [ShoppingController::class, 'refresh'])->name('shopping.refresh');
         Route::post('/courses/liste/{list}/terminer', [ShoppingController::class, 'archive'])->name('shopping.archive');
@@ -99,6 +101,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/tickets/synchroniser', [ReceiptController::class, 'sync'])->middleware('throttle:6,1')->name('receipts.sync');
         Route::get('/tickets/{receipt}', [ReceiptController::class, 'show'])->name('receipts.show');
         Route::put('/tickets/{receipt}', [ReceiptController::class, 'update'])->name('receipts.update');
+        Route::post('/tickets/{receipt}/liste', [ReceiptController::class, 'link'])->name('receipts.link');
         Route::post('/tickets/{receipt}/relire', [ReceiptController::class, 'reparse'])->name('receipts.reparse');
         Route::post('/tickets/{receipt}/ignorer', [ReceiptController::class, 'ignore'])->name('receipts.ignore');
 

@@ -266,7 +266,7 @@ class StockTest extends TestCase
         $manual = $list->items()->where('source', 'manuel')->first();
         $this->postJson("/courses/articles/{$manual->id}/cocher", ['checked' => 1]);
 
-        $this->post("/courses/liste/{$list->id}/terminer")->assertRedirect('/courses')
+        $this->post("/courses/liste/{$list->id}/terminer")->assertRedirect("/courses/liste/{$list->id}/bilan")
             ->assertSessionHas('status', fn ($s) => str_contains($s, 'Stock mis à jour'));
 
         // Lait : 400 ml utilisés, bouteille de 1 L pour 200 ml de besoin → 800 ml de reste

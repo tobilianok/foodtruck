@@ -13,6 +13,42 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
 
 /*
+ * ./ft reset   (recommandé : sauvegarde la base avant)
+ * Efface les données d'usage - planning, listes de courses, stock - et garde tout le reste.
+ */
+Artisan::command('foodtruck:reset {--foyer= : Numéro du foyer (par défaut : tous)} {--apercu : Affiche seulement ce qui serait effacé} {--oui : Efface sans demander confirmation}', function () {
+    $householdId = $this->option('foyer') !== null ? (int) $this->option('foyer') : null;
+    $counts = App\Support\UsageReset::counts($householdId);
+
+    $this->info('Remise à zéro des données d\'usage'.($householdId ? " (foyer n° {$householdId})" : ' (tous les foyers)'));
+    foreach ($counts as $label => $count) {
+        $this->line(sprintf('  %-20s %d', $label, $count));
+    }
+    $this->line('  Conservé : comptes, foyers et réglages, recettes, ingrédients, magasins, tickets, prix.');
+
+    if ($this->option('apercu')) {
+        return 0;
+    }
+
+    if (array_sum($counts) === 0) {
+        $this->info('Rien à effacer.');
+
+        return 0;
+    }
+
+    if (! $this->option('oui') && $this->ask('Pour confirmer, tape EFFACER') !== 'EFFACER') {
+        $this->warn('Annulé : rien n\'a été effacé.');
+
+        return 1;
+    }
+
+    App\Support\UsageReset::run($householdId);
+    $this->info('Terminé : le planning, les listes et le stock sont vides.');
+
+    return 0;
+})->purpose('Efface planning, listes de courses et stock (garde comptes, recettes, référentiel, tickets, prix)');
+
+/*
  * ./ft php artisan foodtruck:check
  * Contrôle rapide du socle : base de données, URL publique, Authentik.
  */

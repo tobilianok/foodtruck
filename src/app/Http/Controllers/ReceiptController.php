@@ -8,6 +8,7 @@ use App\Models\IngredientPack;
 use App\Models\Receipt;
 use App\Models\ReceiptLine;
 use App\Models\Store;
+use App\Support\ListReconciliation;
 use App\Support\Receipts\PaperlessClient;
 use App\Support\Receipts\ReceiptMatcher;
 use App\Support\Receipts\ReceiptProcessor;
@@ -96,7 +97,31 @@ class ReceiptController extends Controller
             'choices' => self::packChoices(),
             'aisles' => Aisle::ordered(),
             'linesTotal' => $receipt->linesTotalCents(),
+            'lists' => $receipt->household->shoppingLists()->limit(8)->get(),
         ]);
+    }
+
+    /** Rattache le ticket à une liste de courses (ou le détache) et coche les articles retrouvés. */
+    public function link(Request $request, Receipt $receipt)
+    {
+        $this->authorizeReceipt($request, $receipt);
+        $data = $request->validate(['list_id' => ['nullable', 'integer']]);
+
+        $list = null;
+        if (! empty($data['list_id'])) {
+            $list = $request->user()->household->shoppingLists()->find($data['list_id']);
+            abort_if($list === null, 404);
+        }
+
+        $ticked = ListReconciliation::link($receipt, $list);
+
+        if ($list === null) {
+            return redirect()->route('receipts.show', $receipt)->with('status', 'Ticket détaché de sa liste de courses.');
+        }
+
+        return redirect()->route('receipts.show', $receipt)->with('status', 'Ticket rattaché à la liste du '.$list->periodLabel().'.'
+            .($ticked > 0 ? ' '.$ticked.' article'.($ticked > 1 ? 's' : '').' coché'.($ticked > 1 ? 's' : '').' d\'après le ticket.' : '')
+            .($list->isArchived() && $ticked === 0 ? ' La liste est classée : ses cases ne sont pas modifiées.' : ''));
     }
 
     /** Validation du rapprochement et enregistrement des prix. */

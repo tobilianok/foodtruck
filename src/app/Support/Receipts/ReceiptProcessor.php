@@ -9,6 +9,7 @@ use App\Models\ReceiptAlias;
 use App\Models\ReceiptLine;
 use App\Models\Store;
 use App\Models\User;
+use App\Support\ListReconciliation;
 use App\Support\UnitConversionException;
 use App\Support\Units;
 use Illuminate\Support\Facades\DB;
@@ -176,6 +177,9 @@ class ReceiptProcessor
                 'processed_by' => $user?->id,
             ])->save();
         });
+
+        // Ticket soldé : rattaché à la liste de courses de la période, ses articles sont cochés
+        ListReconciliation::autoLink($receipt->refresh());
 
         return $applied;
     }

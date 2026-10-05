@@ -315,7 +315,7 @@ class ShoppingListTest extends TestCase
         $this->plan($this->galettes, '2026-09-29');
         $first = $this->createList();
 
-        $this->post("/courses/liste/{$first->id}/terminer")->assertRedirect('/courses');
+        $this->post("/courses/liste/{$first->id}/terminer")->assertRedirect("/courses/liste/{$first->id}/bilan");
         $this->assertTrue($first->fresh()->isArchived());
         $this->get('/courses')->assertSee('Calculer la liste')->assertSee('Listes précédentes')->assertSee('Courses du 29 septembre au 5 octobre 2026');
 

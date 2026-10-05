@@ -23,7 +23,7 @@ class Receipt extends Model
     public const SOURCES = ['paperless' => 'Paperless', 'manuel' => 'saisie manuelle'];
 
     protected $fillable = [
-        'household_id', 'source', 'paperless_document_id', 'paperless_modified_at', 'title', 'correspondent',
+        'household_id', 'shopping_list_id', 'source', 'paperless_document_id', 'paperless_modified_at', 'title', 'correspondent',
         'store_id', 'purchased_on', 'total_cents', 'expected_lines', 'unread_lines', 'raw_text', 'status', 'auto_applied', 'processed_at', 'processed_by',
     ];
 
@@ -48,6 +48,11 @@ class Receipt extends Model
     public function store(): BelongsTo
     {
         return $this->belongsTo(Store::class);
+    }
+
+    public function shoppingList(): BelongsTo
+    {
+        return $this->belongsTo(ShoppingList::class);
     }
 
     public function lines(): HasMany

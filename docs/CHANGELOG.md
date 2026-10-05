@@ -1,5 +1,15 @@
 # Journal des versions - Foodtruck
 
+## v0.9.1 - 2026-10-05 - Économies : bilan, tickets rattachés aux listes, plats à remplacer, reset
+
+- Commande `./ft reset` : remise à zéro du planning, des listes de courses et du stock après des essais. Montre ce qui sera effacé, demande de taper EFFACER, sauvegarde la base dans backups/ avant d'effacer. Comptes, foyers et réglages, recettes, référentiel, tickets et prix sont conservés. `--foyer=N` pour un seul foyer. Jamais lancée par les scripts de mise à jour.
+- Un ticket traité est rattaché automatiquement à la liste de courses de sa période (modifiable depuis la fiche du ticket). Les articles retrouvés sur le ticket sont cochés dans la liste (sauf liste déjà classée).
+- Nouvelle page « Bilan » d'une liste, ouverte par « Courses terminées » : budget, estimé et payé avec jauge, écart article par article, articles non retrouvés sur les tickets, achats hors liste, stock rangé. Accès aussi depuis la liste, l'historique des listes et la carte « Économies » de l'accueil.
+- Prix : alerte « prix qui monte » (+10 % et +10 centimes au moins sur le dernier prix réel du même conditionnement et magasin) et « estimations recalées sur le prix réel ». Les prix des tickets recalaient déjà le référentiel depuis la v0.5.0.
+- Planning : à partir de 80 % du budget de la semaine, « Économiser sur la semaine » propose, pour les plats les plus chers encore à cuisiner, des recettes de la même catégorie moins chères pour les mêmes convives, avec un bouton « Remplacer » (jour, créneau, convives et restes conservés).
+- Migration : colonne receipts.shopping_list_id.
+- 150 tests automatisés.
+
 ## v0.9.0 - 2026-10-05 - Stock et anti-gaspi
 
 - Nouvelle page « Stock » : ce qu'il y a déjà à la maison, par lieu (placard, frigo, congélateur), avec quantité, date limite optionnelle et lieu proposé selon l'ingrédient. Ajout, modification et suppression à la main ; virgule décimale acceptée ; chaque foyer ne voit que son stock.

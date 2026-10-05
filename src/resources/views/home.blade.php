@@ -13,9 +13,6 @@
     </section>
 
     @php
-        $modules = [
-            ['Économies', 'Remplacer un plat trop cher, bilan de la semaine, alertes de prix, ticket ↔ liste', 'v0.9.1'],
-        ];
         $portions = rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',');
     @endphp
 
@@ -119,12 +116,23 @@
             </p>
             <span class="tag tag-accent">Disponible</span>
         </a>
-        @foreach ($modules as [$name, $desc, $version])
-            <article class="card is-soon">
-                <h2>{{ $name }}</h2>
-                <p>{{ $desc }}</p>
-                <span class="tag">Prévu en {{ $version }}</span>
-            </article>
-        @endforeach
+        @php
+            $billed = $household->shoppingLists()->whereHas('receipts')->first();
+            $billedCmp = $billed ? \App\Support\ListReconciliation::compare($billed->setRelation('household', $household)) : null;
+            $lastList = $billed ?? $household->shoppingLists()->first();
+        @endphp
+        <a class="card card-link" href="{{ $lastList ? route('shopping.bilan', $lastList) : route('shopping.index') }}">
+            <h2>Économies</h2>
+            <p>
+                @if ($billed)
+                    Dernier bilan : {{ \App\Models\Price::formatCents($billedCmp['paid_cents']) }} payés
+                    sur un budget de {{ \App\Models\Price::formatCents($billedCmp['budget_cents']) }}<br>
+                    <span class="muted">courses du {{ $billed->periodLabel() }}</span>
+                @else
+                    Bilan payé / estimé d'après tes tickets, plats à remplacer quand le budget est entamé, alertes de prix
+                @endif
+            </p>
+            <span class="tag tag-accent">Disponible</span>
+        </a>
     </section>
 @endsection

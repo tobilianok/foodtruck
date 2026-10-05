@@ -591,3 +591,17 @@ a.meal-title:hover { text-decoration: underline; }
     .stock-add { grid-template-columns: 1fr 1fr; }
     .stock-add .field:first-child { grid-column: 1 / -1; }
 }
+
+/* v0.9.1 : bilan des courses */
+.bilan-figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+.bilan-figures div { display: flex; flex-direction: column; gap: 2px; }
+.bilan-figures strong { font-size: 1.35rem; }
+.bilan-table td:nth-child(n+2), .bilan-table th:nth-child(n+2) { text-align: right; white-space: nowrap; }
+.bilan-table tr.is-missing td { color: var(--muted); }
+.diff-up { color: #b3261e; font-weight: 600; }
+.diff-down { color: var(--green); font-weight: 600; }
+.bilan-attach { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+@media (prefers-color-scheme: dark) { .diff-up { color: #ff8a80; } }
+@media (max-width: 520px) { .bilan-figures strong { font-size: 1.1rem; } }
+.swap { margin-top: 12px; }
+.swap-dish { margin: 0 0 4px; }

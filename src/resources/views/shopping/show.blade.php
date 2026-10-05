@@ -18,6 +18,7 @@
                 <h1>Courses du {{ $list->periodLabel() }}</h1>
             </div>
             <div class="week-nav">
+                <a href="{{ route('shopping.bilan', $list) }}" class="btn btn-small btn-ghost">Bilan</a>
                 @if ($archived)
                     <form method="post" action="{{ route('shopping.reopen', $list) }}">@csrf <button type="submit" class="btn btn-small">Rouvrir cette liste</button></form>
                 @else

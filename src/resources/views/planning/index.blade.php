@@ -43,6 +43,33 @@
         </p>
     </section>
 
+    @if ($swaps)
+        <section class="panel swaps-panel">
+            <h2>Économiser sur la semaine</h2>
+            <p class="hint small">Le budget est entamé à plus de 80 % : voici des recettes moins chères, pour le même nombre de convives, à la place des plats les plus coûteux encore à cuisiner.</p>
+            @foreach ($swaps as $swap)
+                <div class="swap">
+                    <p class="swap-dish"><strong>{{ $swap['entry']->recipe->title }}</strong>
+                        <span class="muted small">· {{ $swap['entry']->date->locale('fr')->isoFormat('dddd D') }}, {{ mb_strtolower($swap['entry']->slotLabel()) }} · {{ $Price::formatCents($swap['cost_cents']) }}</span></p>
+                    <ul class="frozen-list">
+                        @foreach ($swap['options'] as $option)
+                            <li>
+                                <span><a href="{{ route('recipes.show', $option['recipe']) }}">{{ $option['recipe']->title }}</a>
+                                    <span class="muted small">· {{ $Price::formatCents($option['cost_cents']) }}</span>
+                                    <span class="badge-cheap">−{{ $Price::formatCents($option['saving_cents']) }}</span></span>
+                                <form method="post" action="{{ route('planning.replace', $swap['entry']) }}">
+                                    @csrf
+                                    <input type="hidden" name="recipe_id" value="{{ $option['recipe']->id }}">
+                                    <button type="submit" class="btn btn-small btn-ghost" data-confirm="Remplacer « {{ $swap['entry']->recipe->title }} » par « {{ $option['recipe']->title }} » ?">Remplacer</button>
+                                </form>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
     @if ($soonLots->isNotEmpty())
         <section class="panel stock-soon">
             <strong>À consommer vite :</strong>
