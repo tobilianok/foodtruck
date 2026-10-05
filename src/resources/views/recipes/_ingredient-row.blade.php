@@ -1,4 +1,5 @@
-<div class="row ingredient-row" data-row>
+<div class="row ingredient-row @if (! empty($row['problem'])) has-problem @endif" data-row>
+    <input type="hidden" name="ingredients[{{ $key }}][label]" value="{{ $row['label'] ?? '' }}">
     <label class="field ing-group">
         <span>Groupe</span>
         <input type="text" name="ingredients[{{ $key }}][group]" value="{{ $row['group'] ?? '' }}" maxlength="60" placeholder="—">
@@ -29,4 +30,13 @@
         <span>facultatif</span>
     </label>
     <button type="button" class="btn btn-icon" data-remove-row aria-label="Retirer cet ingrédient">✕</button>
+    @if (! empty($row['problem']))
+        <p class="row-warning">
+            « {{ $row['label'] ?? $row['name'] }} » : {{ $row['problem'] }}
+            @if (! empty($row['candidates']))
+                Proches : {{ implode(', ', $row['candidates']) }}.
+            @endif
+            <a href="{{ route('ingredients.create', ['nom' => $row['label'] ?? $row['name']]) }}" target="_blank" rel="noopener">Créer cet ingrédient ↗</a>
+        </p>
+    @endif
 </div>

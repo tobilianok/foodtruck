@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Services\OidcClient;
 use App\Support\Receipts\PaperlessClient;
 use App\Support\Receipts\ReceiptSync;
+use App\Support\RecipeScan\RecipeScanSync;
 use App\Support\RecipeImporter;
 use App\Support\ReferenceImporter;
 use Illuminate\Support\Facades\Artisan;
@@ -252,4 +253,45 @@ Artisan::command('foodtruck:reparse {--tout : relire aussi les tickets déjà tr
     $this->info($receipts->count().' ticket(s) relu(s) : '.$done.' entièrement reconnu(s), '.($receipts->count() - $done).' à valider.');
 })->purpose('Relit les tickets avec les règles de lecture à jour');
 
+/*
+ * ./ft php artisan foodtruck:recettes
+ * Récupère dans Paperless les fiches de recettes (étiquette « recettes »), les lit et crée les recettes
+ * (lancé toutes les heures, 20 minutes après les tickets).
+ */
+Artisan::command('foodtruck:recettes', function (RecipeScanSync $sync) {
+    $households = Household::whereNotNull('paperless_url')->get()->filter->hasPaperless();
+
+    if ($households->isEmpty()) {
+        $this->line('Aucun foyer relié à Paperless.');
+
+        return 0;
+    }
+
+    $failed = 0;
+    foreach ($households as $household) {
+        $counts = $sync->run($household);
+        $this->line("{$household->name} : ".RecipeScanSync::summary($counts));
+        $failed += $counts['error'] ? 1 : 0;
+    }
+
+    return $failed ? 1 : 0;
+})->purpose('Lit les fiches de recettes déposées dans Paperless');
+
+/*
+ * ./ft php artisan foodtruck:relire-recettes
+ * Relit les fiches de recettes encore « à relire » avec les règles à jour (après l'ajout d'ingrédients au référentiel,
+ * par exemple) : celles qui sont désormais entièrement reconnues deviennent des recettes.
+ */
+Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\ScanImporter $importer) {
+    $imports = \App\Models\RecipeImport::where('status', \App\Models\RecipeImport::STATUS_TO_REVIEW)->whereNull('recipe_id')->get();
+
+    foreach ($imports as $import) {
+        $importer->ingest($import);
+    }
+
+    $created = $imports->filter(fn ($i) => $i->fresh()->recipe_id !== null)->count();
+    $this->info($imports->count().' fiche(s) relue(s) : '.$created.' recette(s) créée(s), '.($imports->count() - $created).' encore à compléter.');
+})->purpose('Relit les fiches de recettes en attente avec les règles à jour');
+
 Schedule::command('foodtruck:tickets')->hourly()->withoutOverlapping(30);
+Schedule::command('foodtruck:recettes')->hourlyAt(20)->withoutOverlapping(30);

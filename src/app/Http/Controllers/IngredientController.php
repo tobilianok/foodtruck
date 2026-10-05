@@ -48,12 +48,12 @@ class IngredientController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         return view('ingredients.create', [
             'aisles' => Aisle::ordered(),
             'stores' => Store::active(),
-            'ingredient' => new Ingredient(['base_unit' => 'g']),
+            'ingredient' => new Ingredient(['base_unit' => 'g', 'name' => mb_substr(trim((string) $request->query('nom')), 0, 80) ?: null]),
         ]);
     }
 

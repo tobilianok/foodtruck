@@ -274,11 +274,11 @@
     @endif
     {{-- Paperless --}}
     @if ($canManage)
-        <details class="panel" id="avance" @if ($errors->has('paperless_url') || $errors->has('paperless_token')) open @endif>
-            <summary class="more-summary">Avancé : relier Paperless pour les tickets de caisse</summary>
+        <details class="panel" id="avance" @if ($errors->has('paperless_url') || $errors->has('paperless_token') || $errors->has('paperless_recipe_tag')) open @endif>
+            <summary class="more-summary">Avancé : relier Paperless (tickets de caisse et fiches de recettes)</summary>
             <p class="hint">
-                Foodtruck lit les documents Paperless portant l'étiquette choisie et en tire les prix réellement payés.
-                Utilise un compte Paperless dédié, en lecture seule, qui ne voit que ces documents.
+                Foodtruck lit les documents Paperless portant l'étiquette choisie : les tickets donnent les prix réellement payés,
+                les fiches de recettes scannées deviennent des recettes. Utilise un compte Paperless dédié, en lecture seule, qui ne voit que ces documents.
             </p>
             <form method="post" action="{{ route('household.paperless') }}" class="grid-2 align-end">
                 @csrf @method('put')
@@ -289,6 +289,10 @@
                 <label class="field">
                     <span>Étiquette des tickets</span>
                     <input type="text" name="paperless_tag" value="{{ old('paperless_tag', $household->paperlessTag()) }}" maxlength="80">
+                </label>
+                <label class="field">
+                    <span>Étiquette des fiches de recettes</span>
+                    <input type="text" name="paperless_recipe_tag" value="{{ old('paperless_recipe_tag', $household->paperlessRecipeTag()) }}" maxlength="80">
                 </label>
                 <label class="field span-2">
                     <span>Jeton d'API</span>

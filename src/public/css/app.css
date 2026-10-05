@@ -779,3 +779,9 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
     .recipe-card-body h2 { font-size: 1rem; }
 }
 .recipe .back { margin: 18px 0 12px; }
+
+/* ---- v0.12.0 : fiches de recettes lues dans Paperless ---- */
+.ingredient-row.has-problem { background: color-mix(in srgb, var(--tomato-ink) 7%, transparent); border-radius: 10px; padding-inline: 8px; }
+.row-warning { grid-column: 1 / -1; margin: 0; font-size: .85rem; color: var(--tomato-ink); }
+.row-warning a { margin-left: .25em; }
+@media (prefers-color-scheme: dark) { .row-warning { color: #ef9a8e; } }

@@ -11,7 +11,7 @@ class Household extends Model
 {
     protected $fillable = [
         'name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'meal_slots', 'usual_absences', 'created_by',
-        'paperless_url', 'paperless_token', 'paperless_tag', 'paperless_synced_at', 'paperless_last_error',
+        'paperless_url', 'paperless_token', 'paperless_tag', 'paperless_recipe_tag', 'paperless_synced_at', 'paperless_last_error',
     ];
 
     protected $hidden = ['paperless_token'];
@@ -66,6 +66,16 @@ class Household extends Model
     public function paperlessTag(): string
     {
         return $this->paperless_tag ?: 'courses alimentaires';
+    }
+
+    public function paperlessRecipeTag(): string
+    {
+        return $this->paperless_recipe_tag ?: 'recettes';
+    }
+
+    public function recipeImports(): HasMany
+    {
+        return $this->hasMany(RecipeImport::class)->latest('id');
     }
 
     public function invitations(): HasMany

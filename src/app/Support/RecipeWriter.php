@@ -44,6 +44,7 @@ class RecipeWriter
             'ingredients' => ['nullable', 'array', 'max:60'],
             'ingredients.*.group' => ['nullable', 'string', 'max:60'],
             'ingredients.*.name' => ['nullable', 'string', 'max:80'],
+            'ingredients.*.label' => ['nullable', 'string', 'max:160'],
             'ingredients.*.quantity' => ['nullable', 'string', 'max:12'],
             'ingredients.*.unit' => ['nullable', Rule::in(array_keys(Units::UNITS))],
             'ingredients.*.note' => ['nullable', 'string', 'max:120'],

@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Equipment;
 use App\Models\Ingredient;
 use App\Models\Recipe;
+use App\Models\RecipeImport;
 use App\Models\Tag;
 use App\Support\RecipeCost;
 use App\Support\RecipeServing;
 use App\Support\RecipePhoto;
+use App\Support\RecipeScan\ScanImporter;
 use App\Support\RecipeWriter;
 use App\Support\Units;
 use Illuminate\Http\Request;
@@ -70,6 +72,11 @@ class RecipeController extends Controller
             'household' => $household,
             'tags' => Tag::ordered(),
             'total' => Recipe::visibleTo($user)->count(),
+            'importCount' => RecipeImport::where('household_id', $user->household_id)
+                ->where(fn ($q) => $q->where('status', RecipeImport::STATUS_TO_REVIEW)
+                    ->orWhere(fn ($q) => $q->where('status', RecipeImport::STATUS_CREATED)
+                        ->whereHas('recipe', fn ($r) => $r->where('status', Recipe::STATUS_DRAFT))))
+                ->count(),
         ]);
     }
 
@@ -112,6 +119,7 @@ class RecipeController extends Controller
 
         $recipe = RecipeWriter::save(new Recipe(['author_id' => $request->user()->id]), $data);
         $this->handlePhoto($request, $recipe);
+        $this->finishImport($request, $recipe);
 
         return redirect()->route('recipes.show', $recipe)->with('status', $recipe->isPublished()
             ? 'Recette publiée : elle est visible par tous les comptes.'
@@ -206,9 +214,29 @@ class RecipeController extends Controller
         }
     }
 
-    private function formData(Recipe $recipe): array
+    /** Fiche Paperless relue à la main : elle est rattachée à la recette créée et les rapprochements sont retenus. */
+    private function finishImport(Request $request, Recipe $recipe): void
     {
-        $ingredients = old('ingredients', $recipe->exists
+        $importId = (int) $request->input('import_id');
+        if ($importId <= 0) {
+            return;
+        }
+
+        $import = RecipeImport::where('household_id', $request->user()->household_id)->find($importId);
+        if (! $import || $import->recipe_id) {
+            return;
+        }
+
+        $import->forceFill(['recipe_id' => $recipe->id, 'status' => RecipeImport::STATUS_CREATED, 'auto_published' => false])->save();
+        ScanImporter::learn((array) $request->input('ingredients', []));
+    }
+
+    /**
+     * @param  array{ingredients?: array, steps?: array}  $prefill  lignes proposées (relecture d'une fiche Paperless)
+     */
+    public static function formData(Recipe $recipe, array $prefill = []): array
+    {
+        $ingredients = old('ingredients', $prefill['ingredients'] ?? ($recipe->exists
             ? $recipe->ingredients->map(fn ($line) => [
                 'group' => $line->group_label,
                 'name' => $line->ingredient->name,
@@ -217,11 +245,11 @@ class RecipeController extends Controller
                 'note' => $line->note,
                 'optional' => $line->is_optional,
             ])->values()->all()
-            : [[], [], []]);
+            : [[], [], []]));
 
-        $steps = old('steps', $recipe->exists
+        $steps = old('steps', $prefill['steps'] ?? ($recipe->exists
             ? $recipe->steps->map(fn ($s) => ['body' => $s->body, 'timer' => $s->timer_minutes, 'equipment_id' => $s->equipment_id])->values()->all()
-            : [[], []]);
+            : [[], []]));
 
         return [
             'recipe' => $recipe,

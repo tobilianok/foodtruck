@@ -75,6 +75,8 @@ Nginx Proxy Manager (hôte proxy) :
     ./ft php artisan foodtruck:tickets      synchronise les tickets Paperless maintenant
     ./ft php artisan foodtruck:reparse      relit les tickets à valider avec les règles de lecture à jour
     ./ft php artisan foodtruck:reparse --tout   relit aussi les tickets traités (sans doubler les prix)
+    ./ft php artisan foodtruck:recettes     récupère maintenant les fiches de recettes de Paperless
+    ./ft php artisan foodtruck:relire-recettes   relit les fiches en attente avec les règles à jour
     docker compose logs -f scheduler        journal des tâches planifiées
     ./ft php artisan migrate --force        migrations
     ./ft php artisan config:clear           après modification de src/.env
@@ -160,6 +162,14 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Nouveaux fichiers statiques : src/public/fonts (polices Bricolage Grotesque et Figtree, licence SIL OFL, voir LICENCES.txt) servies par le conteneur web, sans appel externe. Le style et les scripts sont versionnés par l'adresse (?v=), un rechargement du navigateur suffit après la mise à jour.
 - Nouvelles adresses : /plus et /aide. Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 
+## Recettes scannées dans Paperless (v0.12.0)
+
+- Aucun service ni port en plus. La migration 2026_10_05_960001 ajoute households.paperless_recipe_tag et les tables recipe_imports (une ligne par document Paperless lu) et recipe_aliases (rapprochements appris) ; la sauvegarde SQL de backups/ est faite par le script avant de migrer. Le script exige la v0.11.0 en place et importe les nouveaux ingrédients (./ft php artisan foodtruck:reference).
+- Dans Paperless : créer l'étiquette « recettes » (ou un autre nom, à indiquer dans Mon foyer → Avancé) et la donner au compte Paperless dédié en lecture (le même que pour les tickets : il doit voir ces documents). Déposer ou scanner une fiche, lui donner l'étiquette : elle est lue à l'heure suivante (tâche planifiée du conteneur scheduler, 20 minutes après les tickets) ou tout de suite avec Recettes → Fiches Paperless → « Chercher dans Paperless ».
+- Le texte lu est celui de la reconnaissance de Paperless : un document dont le texte est vide est réessayé plus tard.
+- Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
+- Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -169,7 +179,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.10.0 ; v0.9.1 et v0.10.0 validées le 2026-10-05 ; v0.11.0 livrée, en attente de validation (à pousser avec le tag v0.11.0 après installation).
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.11.0 ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05 ; v0.12.0 livrée le 2026-10-05, en attente de validation.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

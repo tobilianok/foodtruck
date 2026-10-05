@@ -257,8 +257,9 @@ class ReceiptController extends Controller
             'paperless_url' => ['nullable', 'url:http,https', 'max:255'],
             'paperless_token' => ['nullable', 'string', 'max:255'],
             'paperless_tag' => ['nullable', 'string', 'max:80'],
+            'paperless_recipe_tag' => ['nullable', 'string', 'max:80'],
             'disconnect' => ['nullable', 'boolean'],
-        ], [], ['paperless_url' => 'adresse de Paperless', 'paperless_token' => 'jeton', 'paperless_tag' => 'étiquette']);
+        ], [], ['paperless_url' => 'adresse de Paperless', 'paperless_token' => 'jeton', 'paperless_tag' => 'étiquette des tickets', 'paperless_recipe_tag' => 'étiquette des recettes']);
 
         if ($request->boolean('disconnect')) {
             $household->forceFill(['paperless_url' => null, 'paperless_token' => null, 'paperless_last_error' => null])->save();
@@ -288,14 +289,29 @@ class ReceiptController extends Controller
             throw ValidationException::withMessages(['paperless_url' => $e->getMessage()]);
         }
 
+        // Étiquette des fiches de recettes : vérifiée seulement si elle change (« recettes » par défaut)
+        $recipeTag = trim((string) ($data['paperless_recipe_tag'] ?? '')) ?: 'recettes';
+        $recipeTagNote = '';
+        if ($recipeTag !== $household->paperlessRecipeTag() || ! $household->paperless_recipe_tag) {
+            try {
+                $client->tagId($recipeTag);
+            } catch (Throwable $e) {
+                if ($recipeTag !== 'recettes' || $household->paperless_recipe_tag) {
+                    throw ValidationException::withMessages(['paperless_recipe_tag' => $e->getMessage()]);
+                }
+                $recipeTagNote = " L'étiquette « recettes » n'existe pas encore dans Paperless : crée-la pour y déposer tes fiches de recettes.";
+            }
+        }
+
         $household->forceFill([
             'paperless_url' => rtrim($data['paperless_url'], '/'),
             'paperless_token' => $data['paperless_token'] ?: $household->paperless_token,
             'paperless_tag' => $tag,
+            'paperless_recipe_tag' => $recipeTag,
             'paperless_last_error' => null,
         ])->save();
 
-        return back()->with('status', "Paperless relié : {$check['documents']} document(s) avec l'étiquette « {$tag} ». Lance une synchronisation depuis « Tickets ».");
+        return back()->with('status', "Paperless relié : {$check['documents']} document(s) avec l'étiquette « {$tag} ». Lance une synchronisation depuis « Tickets ».".$recipeTagNote);
     }
 
     private function authorizeReceipt(Request $request, Receipt $receipt): void

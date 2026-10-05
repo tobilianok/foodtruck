@@ -4,8 +4,18 @@
 
 @section('content')
     <x-page-header title="Recettes" :lead="$total.' recettes partagées par tous les comptes. Touche-en une pour voir les étapes et l\'ajouter à ton planning.'">
+        @if ($household->hasPaperless() || $importCount > 0)
+            <a class="btn btn-ghost" href="{{ route('recipes.imports.index') }}">Fiches Paperless{{ $importCount > 0 ? ' ('.$importCount.')' : '' }}</a>
+        @endif
         <a class="btn" href="{{ route('recipes.create') }}">Nouvelle recette</a>
     </x-page-header>
+
+    @if ($importCount > 0)
+        <div class="alert alert-info">
+            {{ $importCount }} fiche{{ $importCount > 1 ? 's' : '' }} venue{{ $importCount > 1 ? 's' : '' }} de Paperless {{ $importCount > 1 ? 'attendent' : 'attend' }} ta relecture.
+            <a href="{{ route('recipes.imports.index') }}">Les relire</a>
+        </div>
+    @endif
 
     <form method="get" action="{{ route('recipes.index') }}" class="panel filters-recipes" data-autofilter>
         <div class="search-row">

@@ -1,5 +1,19 @@
 # Journal des versions - Foodtruck
 
+## v0.12.0 - 2026-10-05 - Recettes scannées dans Paperless
+
+- Les fiches de recettes déposées dans Paperless avec l'étiquette « recettes » sont lues automatiquement (toutes les heures, ou avec « Chercher dans Paperless ») et transformées en recettes : titre, nombre de personnes, temps, ingrédients (quantité, unité, précision), étapes, conseil, source.
+- Lecteur intégré, gratuit, sans IA ni service externe. Réglé sur un premier exemple réel (Julie Andrieu, impression de site à deux colonnes : numéros d'étapes au milieu du bloc, conseil imprimé à côté, ligatures perdues). Cinq mises en page d'étapes reconnues ; chaque nouveau format sera ajouté comme test.
+- Rapprochement avec le référentiel : rapprochements appris, synonymes courants, noms identiques ou précisés (« comté 24 mois râpé » → Comté). Prudent : en cas de doute il ne choisit pas (« pâte à tartiner » n'est pas « Pâtes »). « 7 cl de bouillon » devient une fraction de cube.
+- Tout reconnu et sans réserve : recette publiée toute seule. Tout reconnu avec une réserve : brouillon à relire. Un ingrédient inconnu : la fiche attend sa relecture.
+- Nouvel écran « Fiches Paperless » (Recettes) et relecture dans le formulaire de recette prérempli : lignes à vérifier en rouge, ingrédients proches, lien « Créer cet ingrédient », texte d'origine consultable, « Relire la fiche », « L'ignorer ». Les corrections faites à la main sont retenues pour les fiches suivantes.
+- Bandeau « N fiches attendent ta relecture » sur la page Recettes.
+- Mon foyer → Avancé : nouveau champ « Étiquette des fiches de recettes ».
+- Commandes : foodtruck:recettes (synchronisation, planifiée toutes les heures à :20) et foodtruck:relire-recettes.
+- Référentiel : Lait fermenté (ribot), Sauge fraîche, Romarin frais, Thym frais, Menthe fraîche.
+- Migration : households.paperless_recipe_tag, recipe_imports, recipe_aliases.
+- 183 tests automatisés (nouveaux : RecipeScanParserTest, RecipeScanFlowTest).
+
 ## v0.11.0 - 2026-10-05 - Refonte de l'interface
 
 - Nouvelle identité visuelle : fond papier, vert feuille, jaune beurre, rouge tomate ; polices Bricolage Grotesque et Figtree auto-hébergées (dossier public/fonts, aucun appel externe) ; mode sombre automatique.

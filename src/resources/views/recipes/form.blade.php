@@ -1,18 +1,57 @@
 @extends('layouts.app')
 
-@section('title', $recipe->exists ? 'Modifier · '.$recipe->title : 'Nouvelle recette')
+@section('title', $recipe->exists ? 'Modifier · '.$recipe->title : (isset($import) ? 'Relire une fiche Paperless' : 'Nouvelle recette'))
 
 @section('content')
     <section class="hero hero-compact">
-        <p><a href="{{ $recipe->exists ? route('recipes.show', $recipe) : route('recipes.index') }}">← {{ $recipe->exists ? $recipe->title : 'Recettes' }}</a></p>
-        <h1>{{ $recipe->exists ? 'Modifier la recette' : 'Nouvelle recette' }}</h1>
-        <p class="lead">Les ingrédients se choisissent dans le référentiel : c'est ce qui permet ensuite de calculer les portions, le coût et la liste de courses.</p>
+        @isset($import)
+            <p><a href="{{ route('recipes.imports.index') }}">← Fiches Paperless</a></p>
+            <h1>Relire la fiche Paperless n° {{ $import->paperless_document_id }}</h1>
+            <p class="lead">Voici ce que Foodtruck a compris de la fiche. Corrige ce qui doit l'être (les lignes à vérifier sont marquées), puis crée la recette.</p>
+        @else
+            <p><a href="{{ $recipe->exists ? route('recipes.show', $recipe) : route('recipes.index') }}">← {{ $recipe->exists ? $recipe->title : 'Recettes' }}</a></p>
+            <h1>{{ $recipe->exists ? 'Modifier la recette' : 'Nouvelle recette' }}</h1>
+            <p class="lead">Les ingrédients se choisissent dans le référentiel : c'est ce qui permet ensuite de calculer les portions, le coût et la liste de courses.</p>
+        @endisset
     </section>
+
+    @isset($import)
+        @if (! empty($importIssues))
+            <div class="alert alert-error">
+                <p>À vérifier :</p>
+                <ul>
+                    @foreach ($importIssues as $issue)
+                        <li>{{ $issue }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+        <section class="panel">
+            <details>
+                <summary class="more-summary">Texte lu dans Paperless</summary>
+                <pre class="raw-text">{{ $import->raw_text }}</pre>
+            </details>
+            <div class="row-actions">
+                <form method="post" action="{{ route('recipes.imports.reanalyse', $import) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-ghost btn-small">Relire la fiche</button>
+                </form>
+                <form method="post" action="{{ route('recipes.imports.ignore', $import) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-ghost btn-small" data-confirm="Mettre cette fiche de côté ? Elle ne sera plus relue.">Ce n'est pas une recette : l'ignorer</button>
+                </form>
+            </div>
+            <p class="hint small">« Relire la fiche » reprend le texte avec les règles à jour : utile après avoir ajouté un ingrédient manquant au référentiel.</p>
+        </section>
+    @endisset
 
     <form method="post" enctype="multipart/form-data" class="stack"
           action="{{ $recipe->exists ? route('recipes.update', $recipe) : route('recipes.store') }}">
         @csrf
         @if ($recipe->exists) @method('put') @endif
+        @isset($import)
+            <input type="hidden" name="import_id" value="{{ $import->id }}">
+        @endisset
 
         <section class="panel">
             <h2>L'essentiel</h2>

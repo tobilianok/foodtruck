@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.11.0 (étape 12 - refonte de l'interface ; v0.9.1 et v0.10.0 validées le 2026-10-05)
+Version du document : v0.12.0 (étape 13 - recettes scannées dans Paperless, livrée le 2026-10-05, en attente de validation ; ensuite : v0.13.0 menu automatique)
 Dernière mise à jour : 2026-10-05
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -74,8 +74,18 @@ Interface (décision du 2026-10-05, livrée en v0.11.0)
 - Principes : un titre et une phrase d'explication sur chaque page, états vides qui disent quoi faire, options avancées repliées (qui mange et combien de repas, filtres de recettes, options de la liste, Paperless sous « Avancé »), vocabulaire courant.
 - Identité visuelle : fond papier, vert feuille (action), jaune beurre (aujourd'hui, à consommer vite), rouge tomate (alertes) ; polices Bricolage Grotesque et Figtree auto-hébergées (aucun appel externe) ; mode sombre automatique.
 
-Recettes scannées (décision du 2026-10-05, v0.12.0)
-- Fiches de recettes scannées dans Paperless (étiquette dédiée, comme les tickets) : Foodtruck les récupère automatiquement et crée la recette avec tous ses détails (titre, rendement, durées, ingrédients, étapes). Lecteur intégré gratuit, sans IA ni API externe, réglé sur de vraies fiches (Louis fournira 2 à 3 scans / textes Paperless) ; recette créée en brouillon à relire ; publiée seule si tout est reconnu. L'option API Claude a été écartée pour l'instant.
+Recettes scannées (décision du 2026-10-05, livrée en v0.12.0)
+- Fiches de recettes scannées dans Paperless (étiquette « recettes », réglable dans Mon foyer → Avancé) : Foodtruck les récupère automatiquement chaque heure (20 minutes après les tickets), ou à la demande avec « Chercher dans Paperless » (Recettes → Fiches Paperless), et crée la recette avec tous ses détails. Lecteur intégré gratuit, sans IA ni API externe, réglé sur de vraies fiches (Louis les fournit une par une, formats différents). L'option API Claude a été écartée pour l'instant.
+- Ce que le lecteur comprend : titre (celui de Paperless, sinon l'en-tête imprimé ou le grand titre), nombre de personnes (« Nombre de couverts », « Pour 4 personnes »), temps de préparation / cuisson / repos (« 10 min », « 1 h 30 »), ingrédients (quantité, unité, précision entre parenthèses, « ou » en variante, groupes « Pour la pâte »), étapes, conseil, source (auteur et site de l'en-tête d'impression), étiquette « végétarien » / « végan » d'après le titre, catégorie probable, protéine principale probable, appareils cités (four, mixeur plongeant…), minuteur d'une étape quand une seule durée y est citée.
+- Nettoyage : pieds de page (« 1 sur 2 05/10/2026 »), adresses web, en-têtes répétés, lignes © ; ligatures perdues à l'impression (« �nement » devient « finement »).
+- Étapes : cinq mises en page reconnues, dans l'ordre : numéro seul sur sa ligne ; « 1. », « 2) », « Étape 3 » ; numéro au milieu du bloc de l'étape (impression de site à deux colonnes, cas de julieandrieu.com) ; puces ; paragraphes. Un encadré « conseil » imprimé à côté des étapes est séparé et rangé dans la présentation de la recette (« Conseil de Julie : … »).
+- Rapprochement avec le référentiel d'ingrédients, dans l'ordre : rapprochement déjà validé à la main (appris) ; synonymes courants (oignon → Oignon jaune, crème épaisse, sel, poivre, pâtes courtes…) ; nom identique ; ingrédient contenu dans le libellé avec seulement une précision en plus (« comté 24 mois râpé » → Comté, mais « pâte à tartiner » ne devient pas « Pâtes ») ; libellé contenu dans l'ingrédient (« sauge » → Sauge fraîche). En cas d'égalité ou de doute, aucun choix : la fiche attend une relecture.
+- Quantités : chaque quantité doit se convertir dans l'unité de l'ingrédient. « 7 cl de bouillon » devient une fraction de cube (1 cube pour 50 cl, arrondi au quart de cube au-dessus).
+- Décision après lecture : tout reconnu et sans réserve → recette publiée automatiquement ; tout reconnu avec une réserve (titre déjà pris, nombre de personnes absent, étape au découpage incertain) → recette créée en brouillon, à relire ; un ingrédient ou une unité pose problème → pas de recette, la fiche attend sa relecture (formulaire de recette prérempli, lignes à vérifier marquées en rouge avec les ingrédients proches et un lien « Créer cet ingrédient »). L'auteur est l'administrateur du foyer.
+- Relecture : à la validation, les rapprochements corrigés à la main sont retenus (table recipe_aliases) et servent aux fiches suivantes. « Relire la fiche » (ou ./ft php artisan foodtruck:relire-recettes) reprend le texte avec les règles à jour, par exemple après l'ajout d'un ingrédient. « L'ignorer » met de côté un document qui n'est pas une recette. Une fiche déjà transformée en recette n'est jamais relue (le travail de relecture est conservé).
+- Un document sans texte (reconnaissance de Paperless pas encore terminée) est simplement réessayé à la synchronisation suivante.
+- Référentiel : ajout de Lait fermenté (ribot), Sauge fraîche, Romarin frais, Thym frais, Menthe fraîche (prix estimés).
+- Le lecteur se règle fiche après fiche : chaque nouveau format apporté par Louis devient un test automatique (tests/Fixtures/paperless).
 
 Économies et bilan (décisions du 2026-10-05, v0.9.1)
 - Un ticket traité est rattaché automatiquement à la liste de courses dont la période correspond à sa date d'achat (courses faites de 4 jours avant le début à 1 jour après la fin ; la liste dont le début est le plus proche l'emporte). Le rattachement se change ou se retire à la main depuis la fiche du ticket, et un ticket peut être rattaché depuis le bilan.
@@ -122,6 +132,12 @@ Courses
 - shopping_list_items : liste, ingrédient (null = ligne libre), libellé, rayon, origine (recette | manuel), section (achat | verifier | stock) + section_locked, stock utilisé (stock_base) et « ne pas utiliser le stock » (stock_ignored), magasin + store_locked, besoin cumulé (unité de base), conditionnements retenus (JSON : pack, nombre, prix), prix en caisse, part réellement utilisée (prorata), magasin le moins cher et son prix, recettes à l'origine (JSON), remarque, coché par / quand. Un recalcul garde cases cochées, magasin et section choisis à la main, et les ajouts manuels.
 - receipts (v0.5.0) : ticket de caisse du foyer (magasin, date, total, texte lu, statut) ; shopping_list_id (v0.9.1) : liste de courses soldée par ce ticket (null = aucune ; suppression de la liste = détaché)
 
+
+Fiches de recettes Paperless (v0.12.0)
+- recipe_imports : household_id, paperless_document_id (unique par foyer), paperless_modified_at, title, raw_text (texte Paperless), parsed (JSON : recette lue + lignes d'ingrédients rapprochées), issues (JSON : réserves), status (a_relire / cree / ignoree), recipe_id (recette créée), auto_published
+- recipe_aliases : normalized_label (unique), ingredient_id, hits (rapprochements appris à la relecture)
+- households.paperless_recipe_tag : étiquette Paperless des fiches de recettes (défaut « recettes »)
+
 ## Algorithme de la liste de courses (v0.8.0, stock en v0.9.0)
 
 1. Plats cuisinés de la période (type « recette », hors congélateur, hors repas écartés) ; les restes ne sont jamais recomptés.
@@ -162,8 +178,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0) - VALIDÉ le 2026-10-05
 10. Économies : stock et anti-gaspi (v0.9.0) - VALIDÉ le 2026-10-05 ; rapprochement ticket ↔ liste, bilan, plat trop cher à remplacer, alerte de prix, reset (v0.9.1) - VALIDÉ le 2026-10-05
 11. Âge des membres : date de naissance et coefficients automatiques (v0.10.0) - VALIDÉ le 2026-10-05
-12. Refonte de l'interface : plus simple et ergonomique pour un nouvel utilisateur (v0.11.0) - LIVRÉ, en attente de validation
-13. Recettes scannées dans Paperless récupérées automatiquement (v0.12.0)
+12. Refonte de l'interface : plus simple et ergonomique pour un nouvel utilisateur (v0.11.0) - VALIDÉ le 2026-10-05
+13. Recettes scannées dans Paperless récupérées automatiquement (v0.12.0) - livrée le 2026-10-05, à valider ; le lecteur sera affiné avec les autres fiches de Louis
 14. Menu de la semaine proposé automatiquement dans le budget (v0.13.0)
 15. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
 
@@ -225,6 +241,8 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.10.0 : âge des membres livré - date de naissance dans Mon foyer et dans l'assistant, coefficient automatique selon la grille (calculé à la date de chaque repas pour le planning, les listes de courses et les coûts), réglage manuel, âge et note affichés ; 158 tests.
 - v0.9.1 et v0.10.0 validées par Louis le 2026-10-05 (« v0.9.1 et v0.10.0 sont ok, on continue ! »).
 - v0.11.0 : refonte de l'interface livrée - nouvelle identité visuelle, 5 onglets et barre du bas sur mobile, accueil guidé en 4 étapes, pages Plus et Aide, formulaires simplifiés (ajout d'un repas, recettes, courses, foyer), états vides explicatifs ; aucune migration ; 162 tests.
+- v0.11.0 validée par Louis le 2026-10-05 (« tout a l'air ok pour la v0.11.0, on peut attaquer la v0.12.0 »). v0.12.0 en attente de 2 à 3 fiches scannées (texte Paperless) pour régler le lecteur.
+- v0.12.0 livrée : lecteur de fiches Paperless (premier exemple : Gratin de courge butternut, Julie Andrieu), création automatique des recettes, relecture, apprentissage des rapprochements ; migration 2026_10_05_960001 ; 183 tests. En attente de validation et de nouvelles fiches (formats différents).
 - Demandes de Louis du 2026-10-05 : âges (livré en v0.10.0), refonte de l'interface (livrée en v0.11.0), recettes scannées via Paperless (v0.12.0). La v0.13.0 (menu automatique) passe après.
 
 ## Questions ouvertes
