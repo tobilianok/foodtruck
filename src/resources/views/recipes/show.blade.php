@@ -167,6 +167,46 @@
                     <p class="hint small">{{ $warning }}</p>
                 @endforeach
             </form>
+
+            {{-- Ajouter au planning avec ces réglages --}}
+            <form method="post" action="{{ route('planning.store') }}" class="serving-row plan-add">
+                @csrf
+                <input type="hidden" name="kind" value="recette">
+                <input type="hidden" name="recipe_id" value="{{ $recipe->id }}">
+                @foreach ($serving->query() as $key => $value)
+                    @if (is_array($value))
+                        @foreach ($value as $item) <input type="hidden" name="{{ $key }}[]" value="{{ $item }}"> @endforeach
+                    @else
+                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                    @endif
+                @endforeach
+                <span class="serving-title"><strong>Au planning</strong></span>
+                <label class="field-inline">
+                    <span class="sr-only">Jour</span>
+                    <select name="date">
+                        @for ($i = 0; $i < 14; $i++)
+                            @php $day = now('Europe/Paris')->addDays($i); @endphp
+                            <option value="{{ $day->toDateString() }}">{{ $i === 0 ? 'Aujourd\'hui' : ($i === 1 ? 'Demain' : ucfirst($day->locale('fr')->isoFormat('dddd D MMM'))) }}</option>
+                        @endfor
+                    </select>
+                </label>
+                <label class="field-inline">
+                    <span class="sr-only">Repas</span>
+                    <select name="slot">
+                        @php
+                            $planSlots = auth()->user()->household->mealSlots();
+                            // Créneau proposé : goûter ou petit-déjeuner s'ils sont affichés, fournées à préparer, sinon dîner
+                            $preferred = in_array($recipe->category, ['gouter', 'petit-dejeuner'], true) && in_array($recipe->category, $planSlots, true)
+                                ? $recipe->category
+                                : ($recipe->category === 'base' || ! $serving->isPortions() ? 'preparation' : 'diner');
+                        @endphp
+                        @foreach ($planSlots as $slot)
+                            <option value="{{ $slot }}" @selected($slot === $preferred)>{{ \App\Models\MealPlanEntry::SLOTS[$slot][0] }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <button type="submit" class="btn btn-small">Ajouter au planning</button>
+            </form>
         </section>
 
         <div class="recipe-body">

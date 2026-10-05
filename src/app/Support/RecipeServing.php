@@ -41,6 +41,9 @@ class RecipeServing
 
     public int $meals = 1;
 
+    /** Convives choisis explicitement (sinon : tout le foyer, ou la semaine type dans le planning). */
+    public bool $adjusted = false;
+
     /** Parts d'un repas saisies à la main (remplace le calcul par les membres). */
     public ?float $manual = null;
 
@@ -76,6 +79,7 @@ class RecipeServing
         $serving = new self($recipe, self::MODE_PORTIONS);
         $serving->members = $household?->members ?? collect();
         $adjusted = ! empty($input['ajuste']);
+        $serving->adjusted = $adjusted;
 
         $ids = $serving->members->pluck('id')->map(fn ($id) => (int) $id)->all();
         $serving->eaters = $adjusted
@@ -166,16 +170,17 @@ class RecipeServing
     public function query(array $override = []): array
     {
         if (! $this->isPortions()) {
-            return array_merge(['quantite' => Units::number($this->total)], $override);
+            return array_merge(['quantite' => self::plain($this->total)], $override);
         }
 
+        // Convives non modifiés : non transmis, le planning appliquera la semaine type du repas choisi
         return array_merge(array_filter([
-            'ajuste' => 1,
-            'qui' => $this->eaters,
+            'ajuste' => $this->adjusted ? 1 : null,
+            'qui' => $this->adjusted ? $this->eaters : null,
             'adultes' => $this->adults ?: null,
             'enfants' => $this->children ?: null,
             'repas' => $this->meals > 1 ? $this->meals : null,
-            'parts' => $this->manual !== null ? Units::number($this->manual) : null,
+            'parts' => $this->manual !== null ? self::plain($this->manual) : null,
         ], fn ($v) => $v !== null), $override);
     }
 
@@ -199,6 +204,12 @@ class RecipeServing
     public static function partsLabel(float $parts): string
     {
         return Units::number($parts).' part'.($parts > 1 ? 's' : '');
+    }
+
+    /** Nombre pour une adresse ou un formulaire : « 2.5 », « 16 ». */
+    private static function plain(float $value): string
+    {
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     }
 
     private static function number(mixed $value): ?float

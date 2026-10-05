@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Household extends Model
 {
     protected $fillable = [
-        'name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'created_by',
+        'name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'meal_slots', 'usual_absences', 'created_by',
         'paperless_url', 'paperless_token', 'paperless_tag', 'paperless_synced_at', 'paperless_last_error',
     ];
 
@@ -20,6 +20,8 @@ class Household extends Model
     {
         return [
             'weekly_budget_cents' => 'integer',
+            'meal_slots' => 'array',
+            'usual_absences' => 'array',
             'paperless_token' => 'encrypted',
             'paperless_synced_at' => 'datetime',
         ];
@@ -69,6 +71,49 @@ class Household extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(HouseholdInvitation::class)->latest();
+    }
+
+    public function mealPlanEntries(): HasMany
+    {
+        return $this->hasMany(MealPlanEntry::class);
+    }
+
+    /** Créneaux affichés dans le planning, dans l'ordre de la journée (tous par défaut). @return array<int, string> */
+    public function mealSlots(): array
+    {
+        $chosen = $this->meal_slots;
+
+        return empty($chosen)
+            ? MealPlanEntry::DEFAULT_SLOTS
+            : array_values(array_filter(MealPlanEntry::slotCodes(), fn ($slot) => in_array($slot, $chosen, true)));
+    }
+
+    /** Créneaux du planning où l'on mange (semaine type). */
+    public function eatingSlots(): array
+    {
+        return array_values(array_intersect($this->mealSlots(), MealPlanEntry::EATING_SLOTS));
+    }
+
+    /** Membre habituellement absent ce jour de la semaine (1 = lundi) à ce repas. */
+    public function isUsuallyAbsent(int $memberId, int $weekday, string $slot): bool
+    {
+        return in_array($memberId, array_map('intval', $this->usual_absences[$slot][(string) $weekday] ?? []), true);
+    }
+
+    /**
+     * Membres présents d'après la semaine type pour ce jour et ce repas :
+     * null = tout le foyer, [] = personne à la maison.
+     *
+     * @return array<int, int>|null
+     */
+    public function usualEaters(\Carbon\CarbonInterface $date, string $slot): ?array
+    {
+        $absent = array_map('intval', $this->usual_absences[$slot][(string) $date->isoWeekday()] ?? []);
+        if ($absent === []) {
+            return null;
+        }
+
+        return $this->members->pluck('id')->map(fn ($id) => (int) $id)->diff($absent)->values()->all();
     }
 
     /** Nombre de parts d'un repas pour tout le foyer (somme des coefficients). */

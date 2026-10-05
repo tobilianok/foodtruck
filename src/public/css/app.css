@@ -397,7 +397,7 @@ input[type=file] { font: inherit; color: var(--muted); }
     .rl-assoc, .rl-action { grid-column: 1 / -1; }
 }
 /* Navigation : 6 entrées tiennent sur une ligne */
-.mainnav a { white-space: nowrap; padding: .4em .6em; }
+.mainnav a { white-space: nowrap; padding: .4em .55em; }
 @media (max-width: 1180px) { .topbar .account-name { display: none; } }
 @media (max-width: 980px) {
     .topbar-inner { flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
@@ -438,3 +438,73 @@ input[type=file] { font: inherit; color: var(--muted); }
     .serving-row legend { float: none; width: 100%; margin-bottom: 2px; }
     .field-inline input[type=number] { width: 4.5em; }
 }
+
+/* ---- v0.7.0 : planning ---- */
+.card-wide { grid-column: 1 / -1; }
+.today-meals { margin: 0 0 8px; padding-left: 1.1em; }
+.planning-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.week-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+.budget-panel { margin-bottom: 14px; }
+.budget-line { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.gauge { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 8px 0 4px; }
+.gauge span { display: block; height: 100%; border-radius: inherit; background: #3d9a5b; }
+.gauge-warn span { background: #e2a33a; }
+.gauge-over span { background: #d2453d; }
+.week-grid { display: grid; grid-template-columns: 110px repeat(7, minmax(0, 1fr)); gap: 6px; margin-bottom: 18px; }
+.wg-corner { grid-column: 1; grid-row: 1; }
+.wg-day { grid-column: var(--c); grid-row: var(--r); display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 10px; }
+.wg-day.is-today { background: var(--accent-soft); }
+.wg-dayname { font-weight: 700; }
+.wg-date { color: var(--muted); font-size: .85rem; }
+.wg-slot { grid-column: 1; grid-row: var(--r); align-self: center; font-weight: 600; font-size: .9rem; color: var(--muted); }
+.wg-cell {
+    grid-column: var(--c); grid-row: var(--r); min-height: 74px; display: flex; flex-direction: column; gap: 6px;
+    padding: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+}
+.wg-cell.is-today { border-color: var(--accent); }
+.wg-cell-slot { display: none; }
+.wg-add {
+    margin-top: auto; align-self: flex-end; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    color: var(--muted); text-decoration: none; border: 1px dashed var(--line); font-weight: 700;
+}
+.wg-add:hover, .wg-add:focus-visible { color: var(--accent); border-color: var(--accent); }
+.wg-cell.is-empty .wg-add { margin: auto; }
+.meal { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-radius: 8px; background: var(--accent-soft); font-size: .88rem; line-height: 1.3; }
+.meal-leftover { background: color-mix(in srgb, var(--muted) 14%, var(--surface)); }
+.meal-out, .meal-note { background: var(--bg); border: 1px dashed var(--line); }
+.meal-title { font-weight: 600; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+a.meal-title:hover { text-decoration: underline; }
+.meal-meta { color: var(--muted); font-size: .8rem; }
+.meal-edit { color: var(--muted); font-size: .76rem; }
+.link-button { color: var(--muted); }
+.link-button { background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+.frozen-list { list-style: none; margin: 0; padding: 0; }
+.frozen-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.recipe-select { width: 100%; margin-top: 6px; }
+.recipe-filter { width: 100%; }
+.kind-block { margin-top: 12px; display: grid; gap: 10px; }
+.kind-block[hidden], [data-mode-block][hidden] { display: none; }
+.plan-add { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+@media (max-width: 1100px) {
+    .week-grid { grid-template-columns: 1fr; }
+    .wg-corner, .wg-slot { display: none; }
+    .wg-day, .wg-cell { grid-column: auto; grid-row: auto; order: var(--o); }
+    .wg-day { flex-direction: row; gap: 8px; justify-content: flex-start; margin-top: 10px; padding: 6px 8px; }
+    .wg-cell { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .wg-cell-slot { display: block; width: 100%; font-size: .78rem; font-weight: 600; color: var(--muted); }
+    .wg-cell .meal { flex: 1 1 220px; }
+    .wg-add, .wg-cell.is-empty .wg-add { margin: 0 0 0 auto; }
+}
+@media (max-width: 1480px) { .topbar .account-name { display: none; } }
+.wrap-wide { max-width: 1440px; }
+
+/* ---- v0.7.0 : semaine type ---- */
+.usual-week-scroll { overflow-x: auto; margin: 8px 0 12px; }
+.usual-week { border-collapse: collapse; min-width: 100%; font-size: .9rem; }
+.usual-week th, .usual-week td { padding: 6px 4px; text-align: center; border-bottom: 1px dashed var(--line); }
+.usual-week tbody th { text-align: left; white-space: nowrap; padding-right: 12px; }
+.usual-week thead th { font-weight: 600; }
+.usual-week .is-weekend { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.usual-week td input { width: 18px; height: 18px; accent-color: var(--accent); }
+.wg-usual { display: block; font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
+.wg-usual.is-nobody { font-style: italic; }

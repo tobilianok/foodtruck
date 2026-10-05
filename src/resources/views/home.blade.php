@@ -14,15 +14,40 @@
 
     @php
         $modules = [
-            ['Recette proratisée', 'Quantités ajustées au nombre de personnes', 'v0.6.0'],
-            ['Planning', 'Repas choisis librement, cumulables', 'v0.7.0'],
             ['Liste de courses', 'Mutualisée, par magasin et par rayon', 'v0.8.0'],
             ['Économies', 'Budget, stock, anti-gaspi', 'v0.9.0'],
         ];
         $portions = rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',');
     @endphp
 
+    @php
+        $todayMeals = $household->mealPlanEntries()->with('recipe', 'source.recipe')
+            ->whereDate('date', now('Europe/Paris')->toDateString())->where('is_frozen', false)->get()
+            ->sortBy(fn ($e) => array_search($e->slot, \App\Models\MealPlanEntry::slotCodes(), true));
+        $weekCount = $household->mealPlanEntries()->where('kind', 'recette')
+            ->whereDate('date', '>=', \App\Support\MealPlanner::weekStart()->toDateString())
+            ->whereDate('date', '<=', \App\Support\MealPlanner::weekStart()->addDays(6)->toDateString())->count();
+    @endphp
+
     <section class="grid">
+        <a class="card card-link card-wide" href="{{ route('planning.index') }}">
+            <h2>Planning · aujourd'hui</h2>
+            @if ($todayMeals->isEmpty())
+                <p>Rien de prévu aujourd'hui. {{ $weekCount }} plat{{ $weekCount > 1 ? 's' : '' }} cette semaine.</p>
+            @else
+                <ul class="today-meals">
+                    @foreach ($todayMeals as $meal)
+                        <li><strong>{{ $meal->slotLabel() }}</strong> :
+                            @if ($meal->kind === 'hors_maison') hors maison{{ $meal->note ? ' ('.$meal->note.')' : '' }}
+                            @elseif ($meal->kind === 'note') {{ $meal->note }}
+                            @elseif ($meal->isLeftover()) restes de {{ $meal->source?->recipe?->title }}
+                            @else {{ $meal->recipe?->title }} @endif
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+            <span class="tag tag-accent">Disponible</span>
+        </a>
         <a class="card card-link" href="{{ route('household.show') }}">
             <h2>Mon foyer</h2>
             <p>

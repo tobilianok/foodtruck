@@ -44,6 +44,15 @@
                     </span>
                 </label>
                 @include('household.store-fields', ['main' => $household->main_store_id, 'produce' => $household->produce_store_id])
+                <fieldset class="field span-2 serving-row">
+                    <legend>Repas du planning</legend>
+                    @foreach (\App\Models\MealPlanEntry::SLOTS as $code => [$label])
+                        <label class="chip-check">
+                            <input type="checkbox" name="meal_slots[]" value="{{ $code }}" @checked(in_array($code, $household->mealSlots(), true))>
+                            <span>{{ $label }}</span>
+                        </label>
+                    @endforeach
+                </fieldset>
                 <div class="actions"><button type="submit" class="btn">Enregistrer</button></div>
             </form>
         @else
@@ -135,6 +144,65 @@
             </details>
         @endif
     </section>
+
+    {{-- Semaine type --}}
+    @php
+        $eatingSlots = $household->eatingSlots();
+        $weekdays = [1 => 'Lun', 2 => 'Mar', 3 => 'Mer', 4 => 'Jeu', 5 => 'Ven', 6 => 'Sam', 7 => 'Dim'];
+    @endphp
+    @if ($household->members->isNotEmpty() && $eatingSlots !== [])
+        <section class="panel" id="semaine-type">
+            <h2>Semaine type</h2>
+            <p class="hint">
+                Qui mange habituellement à la maison ? Décoche les absences régulières (travail, cantine…).
+                Le planning part de ces présences pour chaque repas (modifiable repas par repas) et ne place pas de restes
+                sur un repas où personne n'est là.
+            </p>
+            <form method="post" action="{{ route('household.usual-week') }}">
+                @csrf @method('put')
+                <div class="usual-week-scroll">
+                    <table class="usual-week">
+                        <thead>
+                            <tr>
+                                <th scope="col" rowspan="{{ count($eatingSlots) > 1 ? 2 : 1 }}">Membre</th>
+                                @foreach ($weekdays as $weekday => $label)
+                                    <th scope="colgroup" colspan="{{ count($eatingSlots) }}" @class(['is-weekend' => $weekday >= 6])>{{ $label }}</th>
+                                @endforeach
+                            </tr>
+                            @if (count($eatingSlots) > 1)
+                                <tr>
+                                    @foreach ($weekdays as $weekday => $label)
+                                        @foreach ($eatingSlots as $slot)
+                                            <th scope="col" class="small muted">{{ \App\Models\MealPlanEntry::SLOTS[$slot][1] }}</th>
+                                        @endforeach
+                                    @endforeach
+                                </tr>
+                            @endif
+                        </thead>
+                        <tbody>
+                            @foreach ($household->members as $member)
+                                <tr>
+                                    <th scope="row">{{ $member->name }}</th>
+                                    @foreach ($weekdays as $weekday => $label)
+                                        @foreach ($eatingSlots as $slot)
+                                            <td @class(['is-weekend' => $weekday >= 6])>
+                                                <input type="checkbox" name="presents[{{ $slot }}][{{ $weekday }}][]" value="{{ $member->id }}"
+                                                       aria-label="{{ $member->name }}, {{ mb_strtolower(\App\Models\MealPlanEntry::SLOTS[$slot][0]) }} du {{ $label }}"
+                                                       @checked(! $household->isUsuallyAbsent($member->id, $weekday, $slot)) @disabled(! $canManage)>
+                                            </td>
+                                        @endforeach
+                                    @endforeach
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @if ($canManage)
+                    <div class="actions"><button type="submit" class="btn">Enregistrer la semaine type</button></div>
+                @endif
+            </form>
+        </section>
+    @endif
 
     {{-- Appareils --}}
     <section class="panel">

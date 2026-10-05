@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.7.0 - 2026-09-29 - Planning de la semaine
+
+- Nouvelle page « Planning » : semaine du lundi au dimanche, navigation semaine précédente / suivante, aujourd'hui en évidence ; sur mobile, un jour sous l'autre.
+- Créneaux : déjeuner, dîner et « À préparer » (fournées maison : yaourts, cookies, granola…) ; petit-déjeuner et goûter à activer dans Mon foyer → Réglages.
+- Semaine type (Mon foyer) : qui mange habituellement à la maison, par jour et par repas (ex. midi en semaine : Marina seule). Chaque repas en part ; convives pré-cochés et modifiables repas par repas ; présences rappelées dans la grille (« 👤 Marina », « personne à la maison »).
+- Ajouter un repas : une recette (filtre de recherche, convives, invités, nombre de repas, réglage libre, ou quantité de fournée), un repas hors maison (cantine, chez mamie…) ou une note libre.
+- Restes : un plat pour 2 à 4 repas place ses restes sur les déjeuners/dîners libres suivants où quelqu'un mange à la maison (y compris la semaine suivante) ; restes déplaçables, « au congélateur » (liste « Restes mis de côté », à replanifier plus tard) ou retirés ; recalculés si le nombre de repas change, supprimés avec le plat.
+- Coût estimé de la semaine (restes comptés une seule fois) et jauge du budget : alerte à 80 %, rouge au-delà.
+- Fiche recette : « Ajouter au planning » (jour, repas) avec les réglages en cours.
+- Accueil : repas du jour.
+- 98 tests automatisés.
+
 ## v0.6.0 - 2026-09-29 - Recette proratisée
 
 - Fiche recette : bloc « Pour combien ? ». Par défaut, les parts du foyer (somme des coefficients : 2,5 parts pour Tobilianok 1,5 + Marina 1).

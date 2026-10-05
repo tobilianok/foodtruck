@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.6.0)
+Dernière mise à jour : 2026-09-29 (v0.7.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -134,7 +134,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.5.2 (v0.5.2 installée et validée le 2026-09-29) ; v0.6.0 livrée, à installer puis pousser.
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.6.0 (v0.6.0 validée le 2026-09-29) ; v0.7.0 livrée, à installer puis pousser.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

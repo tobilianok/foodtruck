@@ -5,6 +5,7 @@ use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PlanningController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RecipeController;
@@ -48,6 +49,16 @@ Route::middleware('auth')->group(function () {
         Route::post('/recettes/{recipe:slug}/dupliquer', [RecipeController::class, 'duplicate'])->name('recipes.duplicate');
         Route::post('/recettes/{recipe:slug}/favori', [RecipeController::class, 'favorite'])->name('recipes.favorite');
 
+        // Planning des repas (semaine du lundi au dimanche), partagé par le foyer
+        Route::get('/planning', [PlanningController::class, 'index'])->name('planning.index');
+        Route::get('/planning/repas/nouveau', [PlanningController::class, 'create'])->name('planning.create');
+        Route::post('/planning/repas', [PlanningController::class, 'store'])->name('planning.store');
+        Route::get('/planning/repas/{entry}/modifier', [PlanningController::class, 'edit'])->name('planning.edit');
+        Route::put('/planning/repas/{entry}', [PlanningController::class, 'update'])->name('planning.update');
+        Route::delete('/planning/repas/{entry}', [PlanningController::class, 'destroy'])->name('planning.destroy');
+        Route::post('/planning/repas/{entry}/congeler', [PlanningController::class, 'freeze'])->name('planning.freeze');
+        Route::get('/planning/{week}', [PlanningController::class, 'index'])->where('week', '\d{4}-\d{2}-\d{2}')->name('planning.week');
+
         // Référentiel : ingrédients, conditionnements, prix (tous les membres d'un foyer)
         Route::get('/ingredients', [IngredientController::class, 'index'])->name('ingredients.index');
         Route::get('/ingredients/nouveau', [IngredientController::class, 'create'])->name('ingredients.create');
@@ -78,6 +89,7 @@ Route::middleware('auth')->group(function () {
             Route::put('/membres/{member}', [HouseholdController::class, 'updateMember'])->name('household.members.update');
             Route::delete('/membres/{member}', [HouseholdController::class, 'destroyMember'])->name('household.members.destroy');
             Route::put('/appareils', [HouseholdController::class, 'updateEquipment'])->name('household.equipment');
+            Route::put('/semaine-type', [HouseholdController::class, 'updateUsualWeek'])->name('household.usual-week');
             Route::put('/paperless', [ReceiptController::class, 'settings'])->name('household.paperless');
             Route::put('/comptes/{account}', [HouseholdController::class, 'updateAccount'])->name('household.accounts.update');
             Route::delete('/comptes/{account}', [HouseholdController::class, 'removeAccount'])->name('household.accounts.remove');

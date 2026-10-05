@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.6.0 (étape 7 - recette proratisée, en attente de validation)
+Version du document : v0.7.0 (étape 8 - planning de la semaine, en attente de validation)
 Dernière mise à jour : 2026-09-29
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -19,6 +19,7 @@ Fonctionnel
 - Code : repartir de zéro (pas de reprise de MenuSemaine).
 - Recettes publiques, visibles par tous les comptes ; n'importe quel compte peut en saisir. Modification par l'auteur ou un admin, les autres dupliquent.
 - Recette saisie pour un rendement donné, puis proratisée à la sélection.
+- Planning (décidé le 2026-09-29, v0.7.0) : semaine du lundi au dimanche, partagée par tout le foyer (tous les membres planifient). Créneaux affichés par défaut : déjeuner, dîner et « À préparer » (fournées maison : yaourts, goûters, granola) ; petit-déjeuner et goûter activables dans Mon foyer. Semaine type dans Mon foyer (qui mange habituellement à la maison, par jour et par repas ; seules les absences sont enregistrées) : chaque repas en part, modifiable repas par repas (convives, invités, réglage libre). Plat pour plusieurs repas : restes placés automatiquement sur les déjeuners/dîners libres suivants où quelqu'un mange à la maison, déplaçables, « au congélateur » (liste « Restes mis de côté ») ou retirés ; comptés une seule fois dans le coût et les courses. Repas « hors maison » et notes libres. Coût estimé de la semaine comparé au budget (jauge : alerte à 80 %, rouge au-delà de 100 %). Ajout au planning depuis la fiche recette avec ses réglages.
 - Proratisation (décidée le 2026-09-29, v0.6.0) : recette « pour N personnes » affichée par défaut pour les parts du foyer (somme des coefficients, 2,5 parts chez Louis) ; réglage sur la fiche : qui mange (membres cochés), invités adultes (1 part) et enfants (0,6 part), nombre de repas (1 à 4 : ce soir + demain midi, une part à congeler), ou parts par repas en réglage libre (au ½). Recettes en pots, pièces, parts de gâteau ou grammes : par fournée (×½, ×1, ×2, ×3 ou quantité saisie), indépendamment du foyer. Arrondi pratique : pièces à l'entier (½ sous 1, jamais 0), g/ml à 1, 5, 10 ou 50 près, cl à 1 (½ sous 10), cuillères et verres au ½, pincées à l'unité ; valeur exacte au survol ; quantités d'origine affichées telles quelles au facteur 1.
 - Mutualisation des ingrédients dans la liste de courses (ex. 20 cl + 40 cl de lait = 1 bouteille de 1 L, une seule ligne).
 - Planning libre : on choisit les repas voulus, pas de grille obligatoire (imprévus, restaurant, invités).
@@ -57,7 +58,7 @@ Référentiel
 - Unités (définies dans le code, App\Support\Units, pas en base) : g, kg, pincée (0,5 g), ml, cl, dl, L, c. à café (5 ml), c. à soupe (15 ml), verre (200 ml), pièce ; trois dimensions (masse → g, volume → ml, pièce) ; conversions entre dimensions via la densité et le poids d'une pièce de l'ingrédient
 - ingredients : nom, slug (stable, sert d'URL), rayon, unité de base (g, ml ou pièce, verrouillée dès qu'un conditionnement existe), poids d'une pièce (g), densité (g/ml), mois de saison (null = toute l'année), produit frais, produit de base (listé « à vérifier »), créé par
 - ingredient_packs : conditionnements achetables (libellé, quantité dans l'unité de base, vrac oui/non)
-- aisles : 14 rayons avec ordre par défaut ; stores : 6 magasins (Leclerc Drive, Morin, Lidl, Carrefour, Hyper U, Grand Frais) ; households.main_store_id et produce_store_id ; ordre des rayons propre à chaque magasin : prévu avec la liste de courses (v0.7.0)
+- aisles : 14 rayons avec ordre par défaut ; stores : 6 magasins (Leclerc Drive, Morin, Lidl, Carrefour, Hyper U, Grand Frais) ; households.main_store_id et produce_store_id ; ordre des rayons propre à chaque magasin : prévu avec la liste de courses (v0.8.0)
 - prices : prix par conditionnement et par magasin, historisé (centimes, date du prix, origine estimation/manuel/ticket, promo, saisi par) ; le prix courant est le plus récent par date ; meilleure offre = prix le plus bas ramené au kg / L / pièce
 
 Recettes
@@ -70,9 +71,9 @@ Recettes
 - Coût d'une recette (App\Support\RecipeCost) : quantité utilisée × meilleur prix connu ramené au kg/L/pièce (estimation au prorata, hors « selon goût » et facultatifs) ; par personne, par pot, par pièce ou pour 100 g. « Économique » : ≤ 1,50 € par personne avec des prix complets.
 
 Planning et stock
-- meal_plans : foyer, semaine, statut
-- meal_entries : recette OU libellé libre (restaurant, invités...), date/créneau optionnels, type (cuisiner/dehors/restes), rendement voulu (personnes ou pots/pièces pour les bases et goûters), invités
-- pantry_items : stock du foyer (ingrédient, quantité, date limite optionnelle)
+- meal_plan_entries (v0.7.0) : foyer, date, créneau (petit-dejeuner, dejeuner, gouter, diner, preparation), position, type (recette, restes, hors_maison, note), recette, plat d'origine des restes (source_entry_id, suppression en cascade), convives (null = semaine type), invités adultes/enfants, nombre de repas, parts en réglage libre, quantité de fournée, au congélateur, note, créé par. Pas de table « semaine » : une semaine = les dates du lundi au dimanche.
+- households.meal_slots (créneaux affichés, null = déjeuner, dîner, à préparer) et households.usual_absences (semaine type : membres absents par créneau et jour 1-7)
+- pantry_items : stock du foyer (ingrédient, quantité, date limite optionnelle) - v0.9.0
 
 Courses
 - shopping_lists, shopping_items : quantité nécessaire, conditionnement choisi, nombre de conditionnements, magasin, prix estimé, prix réellement payé, coché par/quand, origine (auto/manuel), recettes à l'origine de la ligne
@@ -109,8 +110,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 4. Référentiel ingrédients, unités, rayons, magasins (dont Lidl), conditionnements, prix (v0.3.0) - VALIDÉ le 2026-09-28
 5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0) - VALIDÉ le 2026-09-29
 6. Tickets de caisse : connexion Paperless, lecture, rapprochement, prix réels (v0.5.0, lecteur Lidl v0.5.1, textes Paperless réels Lidl et Leclerc Drive v0.5.2) - VALIDÉ le 2026-09-29
-7. Affichage d'une recette proratisée (v0.6.0) - LIVRÉ, en attente de validation
-8. Planning libre et repas cumulables (v0.7.0)
+7. Affichage d'une recette proratisée (v0.6.0) - VALIDÉ le 2026-09-29
+8. Planning de la semaine et repas cumulables (v0.7.0) - LIVRÉ, en attente de validation
 9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0)
 10. Économies : budget, stock, anti-gaspi, rapprochement ticket ↔ liste de courses (v0.9.0)
 11. Menu de la semaine proposé automatiquement dans le budget (v0.10.0)
@@ -163,8 +164,10 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.5.2 : lecteur tolérant à l'OCR Lidl et lecteur Leclerc Drive, validés sur les textes Paperless réels (tests/Fixtures/paperless) ; création d'ingrédient depuis un ticket ; ticket à valider tant qu'une ligne reste à associer ; relecture des tickets traités sans doublon de prix ; champ jeton corrigé et erreurs Paperless précises ; 79 tests.
 - v0.5.2 installée et validée par Louis le 2026-09-29 : étape tickets de caisse validée.
 - v0.6.0 : recette proratisée - bloc « Pour combien ? » sur la fiche (qui mange, invités, nombre de repas, réglage libre ; fournée pour pots/pièces/grammes), quantités et équivalences recalculées avec arrondi pratique, coût du repas et par part, économie « fait maison » proratisée, rappel que les quantités des étapes sont celles d'origine, conseil de cuisson au-delà de ×2, lien partageable (réglages dans l'adresse) ; calcul réutilisable par le planning (App\Support\RecipeServing) ; 87 tests.
+- v0.6.0 validée par Louis le 2026-09-29 (feu vert pour la v0.7.0).
+- v0.7.0 : planning livré - grille de la semaine (déjeuner, dîner, à préparer ; petit-déjeuner et goûter en option), semaine type dans Mon foyer, ajout d'un plat / hors maison / note, convives pré-cochés d'après la semaine type, restes automatiques qui évitent les repas où personne n'est à la maison, congélateur, coût de la semaine et jauge de budget, ajout depuis la fiche recette, repas du jour sur l'accueil, entrée « Planning » ; 98 tests.
 
 ## Questions ouvertes
 
 - Autres enseignes (Morin, Carrefour, Hyper U, Grand Frais) : lecteur à ajuster dès réception de tickets réels (texte Paperless).
-- Pour la v0.7.0 (planning) : période (semaine du lundi au dimanche ?), repas par jour (midi / soir, petit-déjeuner et goûters ?), repas pris hors maison, restes planifiés automatiquement (un plat « 2 repas » occupe le créneau suivant).
+- Pour la v0.8.0 (liste de courses) : période couverte (la semaine affichée, ou « du jour des courses au suivant »), répartition entre magasins (tout au magasin principal + fruits et légumes chez Morin, ou au moins cher), produits de base à vérifier, liste partagée cochable en direct dans le magasin, ajouts manuels (hors recettes : café, papier toilette…).

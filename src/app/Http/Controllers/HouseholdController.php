@@ -38,16 +38,61 @@ class HouseholdController extends Controller
             'budget' => ['required', 'numeric', 'min:10', 'max:2000'],
             'main_store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'produce_store_id' => ['nullable', 'integer', 'exists:stores,id'],
-        ], [], ['name' => 'nom du foyer', 'budget' => 'budget hebdomadaire', 'main_store_id' => 'magasin principal', 'produce_store_id' => 'magasin des fruits et légumes']);
+            'meal_slots' => ['nullable', 'array', 'min:1'],
+            'meal_slots.*' => [\Illuminate\Validation\Rule::in(\App\Models\MealPlanEntry::slotCodes())],
+        ], ['meal_slots.min' => 'Garde au moins un repas dans le planning.'], ['name' => 'nom du foyer', 'meal_slots' => 'repas du planning', 'budget' => 'budget hebdomadaire', 'main_store_id' => 'magasin principal', 'produce_store_id' => 'magasin des fruits et légumes']);
 
         $request->user()->household->update([
             'name' => trim($data['name']),
             'weekly_budget_cents' => (int) round($data['budget'] * 100),
             'main_store_id' => $data['main_store_id'] ?? null,
             'produce_store_id' => $data['produce_store_id'] ?? null,
+            // Formulaire sans la case des repas (ancienne page) : réglage inchangé
+            'meal_slots' => isset($data['meal_slots'])
+                ? array_values(array_intersect(\App\Models\MealPlanEntry::slotCodes(), $data['meal_slots']))
+                : $request->user()->household->meal_slots,
         ]);
 
         return back()->with('status', 'Réglages du foyer enregistrés.');
+    }
+
+    /**
+     * Semaine type : qui mange habituellement à la maison, par jour et par repas.
+     * Seules les absences sont enregistrées (par défaut, tout le foyer est là).
+     */
+    public function updateUsualWeek(Request $request)
+    {
+        $household = $request->user()->household->loadMissing('members');
+        $memberIds = $household->members->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $data = $request->validate([
+            'presents' => ['nullable', 'array'],
+            'presents.*' => ['array'],
+            'presents.*.*' => ['array'],
+            'presents.*.*.*' => ['integer'],
+        ]);
+
+        $absences = [];
+        foreach ($household->eatingSlots() as $slot) {
+            foreach (range(1, 7) as $weekday) {
+                $present = array_map('intval', $data['presents'][$slot][$weekday] ?? []);
+                $absent = array_values(array_diff($memberIds, $present));
+                if ($absent !== []) {
+                    $absences[$slot][(string) $weekday] = $absent;
+                }
+            }
+        }
+
+        // Créneaux masqués du planning : leur semaine type est conservée
+        foreach ((array) $household->usual_absences as $slot => $days) {
+            if (! in_array($slot, $household->eatingSlots(), true)) {
+                $absences[$slot] = $days;
+            }
+        }
+
+        $household->update(['usual_absences' => $absences ?: null]);
+
+        return redirect()->to(route('household.show').'#semaine-type')->with('status', 'Semaine type enregistrée : le planning en tient compte pour les nouveaux repas et les restes.');
     }
 
     public function storeMember(Request $request)

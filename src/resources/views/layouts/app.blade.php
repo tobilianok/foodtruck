@@ -18,6 +18,7 @@
             @if (auth()->user()->household_id)
                 <nav class="mainnav" aria-label="Navigation principale">
                     <a href="{{ route('home') }}" @class(['is-active' => request()->routeIs('home')])>Accueil</a>
+                    <a href="{{ route('planning.index') }}" @class(['is-active' => request()->routeIs('planning.*')])>Planning</a>
                     <a href="{{ route('recipes.index') }}" @class(['is-active' => request()->routeIs('recipes.*')])>Recettes</a>
                     <a href="{{ route('ingredients.index') }}" @class(['is-active' => request()->routeIs('ingredients.*')])>Ingrédients</a>
                     <a href="{{ route('receipts.index') }}" @class(['is-active' => request()->routeIs('receipts.*')])>Tickets</a>
@@ -38,7 +39,7 @@
         </div>
     </header>
 
-    <main class="wrap">
+    <main class="wrap @yield('main-class')">
         @include('partials.flash')
         @yield('content')
     </main>
