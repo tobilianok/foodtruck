@@ -76,6 +76,13 @@ class IngredientLineParser
     /** @return array<int, array{raw: string, name: string, quantity: ?float, unit: ?string, note: ?string, optional: bool}> */
     public static function parseLine(string $text): array
     {
+        // « … ⚠ message » : lecture réparée en amont (LayoutComposer), la ligne passe en rouge à la relecture
+        $forced = null;
+        if (preg_match('/\s*⚠\s*(.+)$/u', $text, $w) === 1) {
+            $forced = trim($w[1]);
+            $text = mb_substr($text, 0, mb_strlen($text) - mb_strlen($w[0]));
+        }
+
         $raw = trim($text);
         $text = trim(preg_replace('/\s+/u', ' ', $raw));
         if ($text === '') {
@@ -163,6 +170,7 @@ class IngredientLineParser
             [$quantity, $check] = self::plausible($quantity, $unit, $quantityText);
         }
         $check ??= $misreadUnit ?? null;
+        $check = $forced ?? $check;
 
         $rest = self::stripDe($rest);
 

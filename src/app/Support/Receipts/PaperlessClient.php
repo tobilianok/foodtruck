@@ -84,6 +84,31 @@ class PaperlessClient
         return collect($results)->mapWithKeys(fn ($c) => [(int) $c['id'] => (string) $c['name']])->all();
     }
 
+    /**
+     * Fichier d'un document : la version archivée (PDF redressé par Paperless) si elle existe, sinon l'original.
+     *
+     * @return array{body: string, mime: string}
+     */
+    public function download(int $documentId): array
+    {
+        try {
+            $response = Http::timeout(60)->connectTimeout(5)->withoutRedirecting()
+                ->withHeaders(['Authorization' => 'Token '.$this->token, 'Accept' => '*/*'])
+                ->get(rtrim($this->baseUrl, '/')."/api/documents/{$documentId}/download/");
+        } catch (\Throwable $e) {
+            throw new RuntimeException('Paperless injoignable : '.Str::limit($e->getMessage(), 160));
+        }
+
+        if (in_array($response->status(), [401, 403, 404], true)) {
+            throw new RuntimeException("Le document n° {$documentId} n'a pas pu être téléchargé depuis Paperless (HTTP {$response->status()}).");
+        }
+        if (! $response->successful() || $response->body() === '') {
+            throw new RuntimeException('Téléchargement impossible depuis Paperless (HTTP '.$response->status().').');
+        }
+
+        return ['body' => $response->body(), 'mime' => strtolower(trim(explode(';', (string) $response->header('Content-Type'))[0])) ?: 'application/octet-stream'];
+    }
+
     private function get(string $path, array $query = []): array
     {
         try {

@@ -26,6 +26,7 @@ Dernière mise à jour : 2026-10-05 (v0.12.2)
 - foodtruck-scheduler (v0.5.0) : même image que foodtruck-app, lance « php artisan schedule:work » (synchronisation Paperless toutes les heures).
 - foodtruck-web : nginx:stable-alpine, sert ./src/public, relaie le PHP vers foodtruck-app:9000.
 - foodtruck-db : mariadb:11.4, données dans ./data/mariadb (hors Git), buffer InnoDB limité à 128 Mo.
+- foodtruck-ocr (v0.15.0) : lecture des scans de fiches (Tesseract), réseau interne seulement.
 
 ## Arborescence
 
@@ -187,6 +188,14 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 - Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
 
+## Lecture des scans : service foodtruck-ocr (v0.15.0)
+
+- Nouveau conteneur foodtruck-ocr (image foodtruck-ocr:local construite depuis docker/ocr : Debian bookworm, Tesseract 5 + français + détection d'orientation, Poppler, Python 3 avec la seule bibliothèque standard et Pillow). Réseau foodtruck_internal uniquement, aucun port publié, 1 Go de mémoire au plus, /tmp en mémoire, aucun fichier conservé. foodtruck-app et foodtruck-scheduler le joignent par FOODTRUCK_OCR_URL=http://foodtruck-ocr:8080 (compose.yaml).
+- Le script de mise à jour (foodtruck-update-v0.15.0.sh) exige la v0.14.0 en place et un dépôt Git propre, sauvegarde la base, applique le correctif, construit l'image (accès Internet de la VM nécessaire pour les paquets Debian), lance les tests (retour arrière si échec), migre, (re)crée foodtruck-ocr, foodtruck-app et foodtruck-scheduler (docker compose up -d), attend que le service soit prêt, contrôle, puis relit d'après le scan les fiches encore à relire.
+- Commandes utiles : docker compose ps ocr ; docker compose logs --tail=50 ocr ; ./ft php artisan foodtruck:check (ligne « Lecture des scans ») ; ./ft php artisan foodtruck:lire-fiches (lecture des fiches en attente) et --toutes (relire toutes les fiches à relire).
+- Désactiver la lecture des scans sans rien désinstaller : retirer FOODTRUCK_OCR_URL des services app et scheduler dans compose.yaml puis docker compose up -d app scheduler (le texte de Paperless sert, comme avant).
+- Performance mesurée sur 2 vCPU à 2,1 GHz : 9 s pour une page Leclerc, 21 s pour une carte HelloFresh de deux pages ; un fil de calcul par lecture (OMP_THREAD_LIMIT=1, plus rapide que plusieurs).
+
 ## Fiches à colonnes mélangées (v0.14.0)
 
 - Aucun service, port ni migration en plus. Le script (foodtruck-update-v0.14.0.sh) exige la v0.13.2 en place et un dépôt Git propre, sauvegarde la base, applique un correctif git vérifié, lance les tests (retour arrière par git apply -R si échec), vide les caches, redémarre app et scheduler, puis relit les fiches en attente (foodtruck:relire-recettes).
@@ -224,7 +233,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2 et v0.14.0 livrées le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0 et v0.15.0 livrées le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

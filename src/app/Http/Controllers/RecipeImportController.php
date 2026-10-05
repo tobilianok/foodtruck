@@ -24,6 +24,7 @@ class RecipeImportController extends Controller
         return view('recipes.imports', [
             'household' => $household,
             'pending' => $pending,
+            'reading' => $pending->filter->isReading()->count(),
             'done' => $imports->filter(fn (RecipeImport $i) => $i->status === RecipeImport::STATUS_CREATED && ! self::needsReview($i))->values(),
         ]);
     }
@@ -48,6 +49,10 @@ class RecipeImportController extends Controller
     {
         $this->authorizeImport($request, $recipeImport);
         $recipeImport->loadMissing('recipe');
+
+        if ($recipeImport->isReading()) {
+            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est en cours de lecture (environ une minute par page) : la liste se met à jour toute seule.');
+        }
 
         if ($recipeImport->recipe && $request->user()->can('update', $recipeImport->recipe)) {
             return redirect()->route('recipes.edit', $recipeImport->recipe)
@@ -77,6 +82,7 @@ class RecipeImportController extends Controller
 
         return view('recipes.form', RecipeController::formData($recipe, $form) + [
             'import' => $recipeImport,
+            'importText' => ScanImporter::readText($recipeImport),
             'importIssues' => $recipeImport->issues ?? [],
             'importRows' => $form['ingredients'],
             'selectedTags' => array_map('intval', old('tags', $tagIds)),
@@ -88,6 +94,13 @@ class RecipeImportController extends Controller
     {
         $this->authorizeImport($request, $recipeImport);
         abort_if($recipeImport->recipe_id !== null, 404);
+
+        // Lecture du scan pas encore faite ou impossible : on la relance (en arrière-plan)
+        if (\App\Support\RecipeScan\OcrClient::enabled() && $recipeImport->layout_status !== RecipeImport::LAYOUT_DONE) {
+            $recipeImport->forceFill(['layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null, 'status' => RecipeImport::STATUS_TO_REVIEW])->save();
+
+            return redirect()->route('recipes.imports.index')->with('status', 'Lecture du scan relancée : la fiche revient dans une minute environ.');
+        }
 
         $recipeImport->status = RecipeImport::STATUS_TO_REVIEW;
         $importer->ingest($recipeImport, $request->user()->household);

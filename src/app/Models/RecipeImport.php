@@ -12,9 +12,16 @@ class RecipeImport extends Model
 
     public const STATUS_CREATED = 'cree';
 
+    /** Lecture du scan par foodtruck-ocr : à faire, faite, impossible (le texte de Paperless sert alors). */
+    public const LAYOUT_PENDING = 'attente';
+
+    public const LAYOUT_DONE = 'lu';
+
+    public const LAYOUT_FAILED = 'echec';
+
     protected $fillable = [
         'household_id', 'paperless_document_id', 'paperless_modified_at', 'title', 'raw_text',
-        'parsed', 'issues', 'status', 'recipe_id', 'auto_published',
+        'parsed', 'issues', 'status', 'recipe_id', 'auto_published', 'layout', 'layout_status', 'layout_error',
     ];
 
     protected function casts(): array
@@ -22,6 +29,7 @@ class RecipeImport extends Model
         return [
             'paperless_modified_at' => 'datetime',
             'parsed' => 'array',
+            'layout' => 'array',
             'issues' => 'array',
             'auto_published' => 'boolean',
         ];
@@ -35,6 +43,12 @@ class RecipeImport extends Model
     public function recipe(): BelongsTo
     {
         return $this->belongsTo(Recipe::class);
+    }
+
+    /** Scan en attente de lecture par foodtruck-ocr (si le service est désactivé, la fiche n'attend plus rien). */
+    public function isReading(): bool
+    {
+        return $this->layout_status === self::LAYOUT_PENDING && \App\Support\RecipeScan\OcrClient::enabled();
     }
 
     public function isToReview(): bool

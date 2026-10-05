@@ -173,6 +173,12 @@ class ColumnSplitter
 
     private static function isMarker(string $text): bool
     {
+        return self::isStepMarker($text);
+    }
+
+    /** Repère d'étape seul sur sa ligne, même mal lu : « Etape 3 », « Étape3 », « Etapez ». */
+    public static function isStepMarker(string $text): bool
+    {
         return preg_match('/^'.self::MARKER.'$/u', trim($text)) === 1;
     }
 

@@ -20,6 +20,7 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/Paris
+      FOODTRUCK_OCR_URL: http://foodtruck-ocr:8080
     volumes:
       - ./src:/var/www/html
     depends_on:
@@ -38,11 +39,28 @@ services:
     command: ["php", "artisan", "schedule:work"]
     environment:
       TZ: Europe/Paris
+      FOODTRUCK_OCR_URL: http://foodtruck-ocr:8080
     volumes:
       - ./src:/var/www/html
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - internal
+
+  # Lecture des fiches de recettes scannées (Tesseract + découpage par position), réseau interne seulement
+  ocr:
+    build:
+      context: ./docker/ocr
+    image: foodtruck-ocr:local
+    container_name: foodtruck-ocr
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      OMP_THREAD_LIMIT: "1"
+    tmpfs:
+      - /tmp
+    mem_limit: 1g
     networks:
       - internal
 

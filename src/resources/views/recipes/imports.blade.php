@@ -3,6 +3,10 @@
 @section('title', 'Fiches Paperless')
 
 @section('content')
+    @if ($reading > 0)
+        {{-- Fiches en cours de lecture : la page se recharge toute seule --}}
+        <script>setTimeout(() => window.location.reload(), 20000);</script>
+    @endif
     <x-page-header title="Fiches Paperless" lead="Les recettes scannées dans Paperless sont lues automatiquement. Celles qui sont entièrement reconnues sont publiées toutes seules ; les autres t'attendent ici.">
         @if ($household->hasPaperless())
             <form method="post" action="{{ route('recipes.imports.sync') }}">

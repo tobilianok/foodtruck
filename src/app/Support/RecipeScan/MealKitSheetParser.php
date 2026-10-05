@@ -25,7 +25,7 @@ class MealKitSheetParser
 
     private const GLYPHS = '[e°•·+]';
 
-    private const ROW = '/^(?<name>\p{L}[\p{L}\'’ \-]*?)(?<star>\*)?\s+(?<qty>\d+(?:[.,]\d+)?\s*[½¼¾]?|[½¼¾⅓⅔]|[%#]|Z)\s*(?<unit>kg|g|ml|cl|cm|cs|cc|pi[eè]ces?(?:\(s\))?|sachets?(?:\(s\))?|paquets?(?:\(s\))?|pots?(?:\(s\))?|bo[iî]tes?(?:\(s\))?|gousses?(?:\(s\))?|tranches?(?:\(s\))?)(?![\p{L}])(?<rest>.*)$/u';
+    public const ROW = '/^(?<name>\p{L}[\p{L}\'’ \-]*?)(?<star>\*)?\s+(?<qty>\d+(?:[.,]\d+)?\s*[½¼¾]?|[½¼¾⅓⅔]|[%#]|Z)\s*(?<unit>kg|g|ml|cl|cm|cs|cc|pi[eè]ces?(?:\(s\))?|sachets?(?:\(s\))?|paquets?(?:\(s\))?|pots?(?:\(s\))?|bo[iî]tes?(?:\(s\))?|gousses?(?:\(s\))?|tranches?(?:\(s\))?)(?![\p{L}])(?<rest>.*)$/u';
 
     private const NUTRITION_ROW = '/^(?:[ÉE]nergie|Lipides|Dont|Glucides|Fibres|Prot[ée]ines|Sel)\b[^()\d]*(?:\([^)]*\))?[\s\d,.\/]*/u';
 

@@ -108,6 +108,21 @@ Artisan::command('foodtruck:check', function (OidcClient $oidc) {
         // Table pas encore migrée : rien à vérifier
     }
 
+    if (\App\Support\RecipeScan\OcrClient::enabled()) {
+        try {
+            $health = \App\Support\RecipeScan\OcrClient::make()->health();
+            ($health['ok'] ?? false)
+                ? $ok('Lecture des scans (foodtruck-ocr) : Tesseract '.($health['tesseract'] ?? '?').', langues '.implode(', ', $health['langues'] ?? []))
+                : $ko('Lecture des scans (foodtruck-ocr) : le français n\'est pas installé dans le service');
+            $errors += ($health['ok'] ?? false) ? 0 : 1;
+        } catch (Throwable $e) {
+            $ko('Lecture des scans : '.$e->getMessage());
+            $errors++;
+        }
+    } else {
+        $this->line('  <fg=yellow>INFO</>  Lecture des scans désactivée (FOODTRUCK_OCR_URL vide) : le texte de Paperless sert');
+    }
+
     $this->newLine();
     $errors === 0 ? $this->info('Tout est prêt.') : $this->error("{$errors} point(s) à corriger.");
 
@@ -283,7 +298,10 @@ Artisan::command('foodtruck:recettes', function (RecipeScanSync $sync) {
  * par exemple) : celles qui sont désormais entièrement reconnues deviennent des recettes.
  */
 Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\ScanImporter $importer) {
-    $imports = \App\Models\RecipeImport::where('status', \App\Models\RecipeImport::STATUS_TO_REVIEW)->whereNull('recipe_id')->get();
+    $imports = \App\Models\RecipeImport::where('status', \App\Models\RecipeImport::STATUS_TO_REVIEW)->whereNull('recipe_id')
+        // Fiches dont le scan attend sa lecture : c'est foodtruck:lire-fiches qui s'en charge
+        ->when(\App\Support\RecipeScan\OcrClient::enabled(), fn ($q) => $q->where(fn ($q) => $q->whereNull('layout_status')->orWhere('layout_status', '!=', \App\Models\RecipeImport::LAYOUT_PENDING)))
+        ->get();
 
     foreach ($imports as $import) {
         $importer->ingest($import);
@@ -292,6 +310,37 @@ Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\
     $created = $imports->filter(fn ($i) => $i->fresh()->recipe_id !== null)->count();
     $this->info($imports->count().' fiche(s) relue(s) : '.$created.' recette(s) créée(s), '.($imports->count() - $created).' encore à compléter.');
 })->purpose('Relit les fiches de recettes en attente avec les règles à jour');
+
+/*
+ * ./ft php artisan foodtruck:lire-fiches [--toutes]
+ * Lit les scans des fiches en attente avec le service foodtruck-ocr (lancé chaque minute par le planificateur).
+ * --toutes : relit aussi, d'après le scan, toutes les fiches encore à relire (après l'installation du service).
+ */
+Artisan::command('foodtruck:lire-fiches {--toutes : Remettre en lecture toutes les fiches encore à relire}', function (\App\Support\RecipeScan\RecipeLayoutRunner $runner) {
+    if (! \App\Support\RecipeScan\OcrClient::enabled()) {
+        $this->line('Lecture des scans désactivée (FOODTRUCK_OCR_URL vide).');
+
+        return 0;
+    }
+
+    if ($this->option('toutes')) {
+        $this->line(\App\Support\RecipeScan\RecipeLayoutRunner::queueAllToReview().' fiche(s) remise(s) en lecture.');
+    }
+
+    $counts = $runner->processPending($this->option('toutes') ? null : 50);
+    if ($counts['busy']) {
+        $this->line('Une lecture est déjà en cours.');
+
+        return 0;
+    }
+    if ($counts['read'] + $counts['failed'] + $counts['left'] > 0) {
+        $this->info($counts['read'].' fiche(s) lue(s) d\'après le scan, '.$counts['failed'].' avec le texte de Paperless (lecture du scan impossible), '.$counts['left'].' encore en attente.');
+    }
+
+    return $counts['failed'] > 0 ? 1 : 0;
+})->purpose('Lit les scans des fiches de recettes en attente (service foodtruck-ocr)');
+
+Schedule::command('foodtruck:lire-fiches')->everyMinute()->withoutOverlapping(15)->runInBackground();
 
 Schedule::command('foodtruck:tickets')->hourly()->withoutOverlapping(30);
 Schedule::command('foodtruck:recettes')->hourlyAt(20)->withoutOverlapping(30);

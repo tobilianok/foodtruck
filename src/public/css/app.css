@@ -804,3 +804,7 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .import-discard { margin: 0; flex: none; }
 .panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .panel-head h2 { margin: 0; }
+
+/* ---- v0.15.0 : lecture des scans par foodtruck-ocr ---- */
+.badge-reading { font-size: .75rem; padding: .15em .6em; border-radius: 999px; background: var(--sun-soft); color: var(--sun-ink); font-weight: 700; white-space: nowrap; }
+@media (prefers-color-scheme: dark) { .badge-reading { background: color-mix(in srgb, var(--sun) 22%, var(--surface)); color: var(--sun); } }

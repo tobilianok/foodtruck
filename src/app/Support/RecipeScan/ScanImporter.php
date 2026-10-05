@@ -98,7 +98,7 @@ class ScanImporter
     /** Lit ou relit une fiche et crée la recette si tout est reconnu. */
     public function ingest(RecipeImport $import, ?Household $household = null): RecipeImport
     {
-        $analysis = $this->analyse((string) $import->raw_text, $import->title);
+        $analysis = $this->bestAnalysis($import);
 
         $import->forceFill([
             'parsed' => ['recipe' => Arr::except($analysis['recipe'], ['ingredients']), 'rows' => $analysis['rows']],
@@ -127,6 +127,48 @@ class ScanImporter
         $import->save();
 
         return $import;
+    }
+
+    /**
+     * Texte à lire : la fiche remise en forme d'après le scan (foodtruck-ocr) quand elle existe, sinon le texte de
+     * Paperless. Si la lecture du scan trouve moins de choses (ni ingrédients ni étapes) que le texte de Paperless,
+     * c'est ce dernier qui sert : la nouvelle lecture ne fait jamais moins bien que l'ancienne.
+     */
+    public function bestAnalysis(RecipeImport $import): array
+    {
+        $paperless = fn () => $this->analyse((string) $import->raw_text, $import->title);
+
+        if ($import->layout_status === RecipeImport::LAYOUT_FAILED) {
+            $analysis = $paperless();
+            $analysis['issues'][] = 'Lecture du scan impossible ('.Str::limit((string) $import->layout_error, 120).') : texte de Paperless utilisé, à vérifier. « Relire la fiche » relance la lecture du scan.';
+
+            return $analysis;
+        }
+
+        if ($import->layout_status !== RecipeImport::LAYOUT_DONE || empty($import->layout)) {
+            return $paperless();
+        }
+
+        $fromScan = $this->analyse(LayoutComposer::compose($import->layout), $import->title);
+        $score = fn (array $a) => (count($a['rows']) > 0 ? 2 : 0) + (count($a['recipe']['steps']) > 0 ? 2 : 0);
+        if ($score($fromScan) < 4 && trim((string) $import->raw_text) !== '') {
+            $fallback = $paperless();
+            if ($score($fallback) > $score($fromScan)) {
+                $fallback['issues'][] = 'Le scan a été mal compris : texte de Paperless utilisé, à vérifier.';
+
+                return $fallback;
+            }
+        }
+
+        return $fromScan;
+    }
+
+    /** Texte effectivement lu pour cette fiche (affiché à la relecture). */
+    public static function readText(RecipeImport $import): string
+    {
+        return $import->layout_status === RecipeImport::LAYOUT_DONE && ! empty($import->layout)
+            ? LayoutComposer::compose($import->layout)
+            : (string) $import->raw_text;
     }
 
     /** Données au format attendu par RecipeWriter::save(). */

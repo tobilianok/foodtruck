@@ -6,6 +6,7 @@
     <section class="hero hero-compact">
         <h1>Mettre à jour les prix</h1>
         <p class="lead">Après tes courses : saisis uniquement les prix qui ont changé. Les champs vides sont ignorés, l'historique est conservé. Un prix « estimé » encore juste ? Retape-le pour le confirmer.</p>
+        <p><a href="{{ route('ingredients.index') }}">Tous les ingrédients (modifier un nom, un rayon, une saison, un conditionnement) →</a></p>
     </section>
 
     <nav class="tabs" aria-label="Magasins">

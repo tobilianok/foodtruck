@@ -15,6 +15,8 @@ abstract class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Jamais d'appel au vrai service de lecture des scans (la variable du conteneur ne compte pas)
+        config(['foodtruck.ocr_url' => null]);
 
         config([
             'oidc.issuer' => self::ISSUER,

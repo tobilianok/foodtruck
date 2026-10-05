@@ -28,8 +28,8 @@
         @endif
         <section class="panel">
             <details>
-                <summary class="more-summary">Texte lu dans Paperless</summary>
-                <pre class="raw-text">{{ $import->raw_text }}</pre>
+                <summary class="more-summary">{{ $import->layout_status === 'lu' ? 'Texte lu sur le scan par Foodtruck' : 'Texte lu dans Paperless' }}</summary>
+                <pre class="raw-text">{{ $importText ?? $import->raw_text }}</pre>
             </details>
             <div class="row-actions">
                 <form method="post" action="{{ route('recipes.imports.reanalyse', $import) }}">
@@ -41,7 +41,7 @@
                     <button type="submit" class="btn btn-ghost btn-small" data-confirm="Supprimer cette fiche ? « Chercher dans Paperless » la relira depuis le début tant que le document porte l'étiquette.">Supprimer cette fiche</button>
                 </form>
             </div>
-            <p class="hint small">« Relire la fiche » reprend le texte avec les règles à jour : utile après avoir ajouté un ingrédient manquant au référentiel.</p>
+            <p class="hint small">« Relire la fiche » reprend la lecture avec les règles à jour : utile après avoir ajouté un ingrédient manquant au référentiel{{ $import->layout_status === 'echec' ? ', ou pour relancer la lecture du scan' : '' }}.</p>
         </section>
     @endisset
 

@@ -7,3 +7,6 @@ backups/
 # Divers
 *.log
 .DS_Store
+
+# Python (service foodtruck-ocr)
+__pycache__/

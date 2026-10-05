@@ -59,7 +59,7 @@ class RecipeScanFlowTest extends TestCase
 
         $counts = $this->sync();
 
-        $this->assertSame(['new' => 1, 'updated' => 0, 'published' => 1, 'drafts' => 0, 'to_review' => 0, 'empty' => 0, 'error' => null], $counts);
+        $this->assertSame(['new' => 1, 'updated' => 0, 'published' => 1, 'drafts' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null], $counts);
         $this->assertSame('1 recette publiée automatiquement.', RecipeScanSync::summary($counts));
 
         $recipe = Recipe::firstWhere('title', 'Gratin de courge butternut et mini macaronis');

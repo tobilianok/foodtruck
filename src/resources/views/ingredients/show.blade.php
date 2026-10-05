@@ -11,6 +11,7 @@
     <section class="hero hero-compact">
         <p><a href="{{ route('ingredients.index') }}">← Ingrédients</a></p>
         <h1>{{ $ingredient->name }}</h1>
+        <p><a class="btn btn-small btn-ghost" href="#caracteristiques">Modifier le nom, le rayon, la saison…</a></p>
         <p class="lead">
             {{ $ingredient->aisle->name }} · {{ Str::lower($ingredient->baseUnitLabel()) }} · saison : {{ $ingredient->seasonLabel() }}
             @if ($season === true) <span class="badge-season">de saison</span> @elseif ($season === false) <span class="badge-off">hors saison</span> @endif
@@ -151,7 +152,7 @@
     </section>
 
     {{-- Caractéristiques --}}
-    <section class="panel">
+    <section class="panel" id="caracteristiques">
         <h2>Caractéristiques</h2>
         <form method="post" action="{{ route('ingredients.update', $ingredient) }}" class="stack">
             @csrf @method('put')

@@ -81,7 +81,7 @@ class HomeFlowTest extends TestCase
     public function test_plus_et_aide(): void
     {
         $this->actingAs($this->louis)->get('/plus')->assertOk()
-            ->assertSee('Frigo et placards')->assertSee('Tickets de caisse')->assertSee('Prix et ingrédients')->assertSee('Mon foyer')
+            ->assertSee('Frigo et placards')->assertSee('Tickets de caisse')->assertSee('Ingrédients')->assertSee('Prix par magasin')->assertSee('Mon foyer')
             ->assertSee('Se déconnecter');
         $this->get('/aide')->assertOk()->assertSee('Choisis les repas')->assertSee('Fais le bilan')->assertSee('Questions fréquentes');
     }

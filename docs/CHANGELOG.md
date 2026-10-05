@@ -1,5 +1,18 @@
 # Journal des versions - Foodtruck
 
+## v0.15.0 - 2026-10-05 - Lecture fiable des fiches : le scan est lu par Foodtruck, avec la position des mots
+
+- Demande de Louis : une lecture des fiches fiable, quitte à ajouter des outils à la stack (tout reste local : ni cloud, ni PC de jeu). Constat : les fiches arrivent de la photocopieuse en image sans texte, et le texte « à plat » de Paperless mélange les colonnes (Croziflette, Orzo HelloFresh) ; le lecteur à règles ne pouvait pas rattraper toutes les mises en page.
+- Nouveau conteneur foodtruck-ocr (docker/ocr) : Tesseract 5 en français + Poppler, petit service HTTP interne (bibliothèque standard Python, aucun port publié, réseau foodtruck_internal, 1 Go de mémoire au plus, une lecture à la fois). Il lit chaque page à 300 dpi, redresse les photos et scans tournés, et découpe la page par position (« XY-cut » : bandes puis colonnes) : les colonnes ne sont plus jamais mélangées, chaque paragraphe reste un bloc, les titres « Les ingrédients | La recette » restent au-dessus de leur colonne.
+- Foodtruck télécharge le document dans Paperless (version archivée, sinon l'original), le fait lire par le service, puis remet la fiche en forme (App\Support\RecipeScan\LayoutComposer) : publicité, légendes des photos, valeurs nutritionnelles, allergènes, pied de carte et consignes générales écartés ; tableau d'ingrédients des cartes de kits (« nom puis quantité ») remis dans l'ordre ; étapes titrées (« Faire mijoter ») avec leurs paragraphes ; repères « Étape N » même mal lus ; étapes numérotées ; conseil ; temps et nombre de personnes.
+- Résultats sur les vrais scans : Croziflette (n° 487) lue sans aucune réserve (« 20 cl » et « sel » bien lus, 5 étapes) ; Orzo aux crevettes (n° 483) : 16 vrais ingrédients (plus aucune phrase publicitaire), 4 étapes titrées dans l'ordre, conseil, source hellofresh.fr. Quantités mal lues réparées et signalées en rouge (« 3208 » → 320 g, « 14 sachet » → 1¼, « 22 cs » → 2½).
+- En arrière-plan : « Chercher dans Paperless » enregistre les nouvelles fiches « en cours de lecture » (la liste se recharge toute seule) ; la lecture est faite chaque minute par le planificateur (commande foodtruck:lire-fiches), compter 10 à 40 secondes par page sur la VM.
+- Toujours un filet de sécurité : si le service est arrêté ou le scan illisible, la fiche est lue avec le texte de Paperless comme avant, avec la raison affichée ; « Relire la fiche » relance la lecture du scan. Si la lecture du scan comprend moins de choses que le texte de Paperless, c'est ce dernier qui sert. La relecture humaine reste la règle pour toute ligne douteuse.
+- foodtruck:check contrôle le service ; foodtruck:lire-fiches --toutes relit d'après le scan toutes les fiches encore à relire (lancé par le script de mise à jour).
+- Navigation (corrections promises) : tuile « Ingrédients » dans la page Plus (la tuile des prix devient « Prix par magasin »), lien vers tous les ingrédients depuis la page des prix, bouton « Modifier le nom, le rayon, la saison… » en haut de la fiche d'un ingrédient.
+- Migration : recipe_imports.layout, layout_status, layout_error. Nouvelle image Docker foodtruck-ocr:local (construite par le script, environ 150 Mo).
+- 242 tests automatisés attendus (nouveaux : LayoutComposerTest, 6 ; RecipeScanLayoutTest, 4).
+
 ## v0.14.0 - 2026-10-05 - Tour de tests et corrections, lot 1 : fiches à colonnes mélangées
 
 - Correction signalée par Louis : la fiche Leclerc « Croziflette » (document Paperless n° 487, scan de photocopieuse sans texte, lu par Paperless) remontait sans ingrédients ni étapes (« Liste d'ingrédients introuvable », « Étapes de préparation introuvables »).

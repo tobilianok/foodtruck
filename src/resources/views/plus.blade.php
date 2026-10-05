@@ -10,7 +10,8 @@
         $tiles = [
             ['stock.index', 'fridge', 'Frigo et placards', 'Ce qu\'il te reste à la maison, pour ne rien jeter.', $soon ? $soon.' à consommer vite' : null],
             ['receipts.index', 'receipt', 'Tickets de caisse', 'Tes tickets lus automatiquement pour connaître les vrais prix.', $toReview ? $toReview.' à valider' : null],
-            ['prices.index', 'tag', 'Prix et ingrédients', 'Les prix par magasin, pour acheter au meilleur endroit.', null],
+            ['ingredients.index', 'plate', 'Ingrédients', 'Le référentiel : noms, rayons, saisons, conditionnements et prix de chaque ingrédient.', null],
+            ['prices.index', 'tag', 'Prix par magasin', 'Mettre à jour les prix après les courses, magasin par magasin.', null],
             ['household.show', 'users', 'Mon foyer', 'Les personnes, le budget, les magasins et les invitations.', null],
             ['help', 'help', 'Comment ça marche', 'Les 4 étapes de la semaine et les réponses aux questions courantes.', null],
         ];

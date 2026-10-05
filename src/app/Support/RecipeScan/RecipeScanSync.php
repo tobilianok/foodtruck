@@ -18,10 +18,12 @@ class RecipeScanSync
     {
     }
 
-    /** @return array{new: int, updated: int, published: int, drafts: int, to_review: int, empty: int, error: ?string} */
+    /** @return array{new: int, updated: int, published: int, drafts: int, to_review: int, empty: int, reading: int, error: ?string} */
     public function run(Household $household, ?PaperlessClient $client = null): array
     {
-        $counts = ['new' => 0, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'to_review' => 0, 'empty' => 0, 'error' => null];
+        $counts = ['new' => 0, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null];
+        // Service de lecture des scans présent : les fiches sont lues en arrière-plan d'après le scan (RecipeLayoutRunner)
+        $reading = OcrClient::enabled();
 
         try {
             $client ??= PaperlessClient::for($household);
@@ -33,7 +35,7 @@ class RecipeScanSync
                 $content = trim((string) ($document['content'] ?? ''));
 
                 // Document pas encore passé par la reconnaissance de texte : on réessaiera à la prochaine synchronisation
-                if ($content === '') {
+                if ($content === '' && ! $reading) {
                     $counts['empty']++;
 
                     continue;
@@ -52,6 +54,18 @@ class RecipeScanSync
                     'title' => mb_substr((string) ($document['title'] ?? ''), 0, 200) ?: null,
                     'raw_text' => $content,
                 ]);
+
+                if ($reading) {
+                    $import->forceFill([
+                        'layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null,
+                        'status' => RecipeImport::STATUS_TO_REVIEW, 'parsed' => null, 'issues' => ['Lecture du scan en cours…'],
+                    ])->save();
+                    $isNew ? $counts['new']++ : $counts['updated']++;
+                    $counts['reading']++;
+
+                    continue;
+                }
+
                 $import->save();
 
                 $this->importer->ingest($import, $household);
@@ -88,6 +102,9 @@ class RecipeScanSync
         }
 
         $parts = [];
+        if (($counts['reading'] ?? 0) > 0) {
+            $parts[] = $counts['reading'].' fiche'.($counts['reading'] > 1 ? 's' : '').' en cours de lecture (environ une minute par page, la page se met à jour toute seule)';
+        }
         if ($counts['published']) {
             $parts[] = $counts['published'].' recette'.($counts['published'] > 1 ? 's publiées' : ' publiée').' automatiquement';
         }

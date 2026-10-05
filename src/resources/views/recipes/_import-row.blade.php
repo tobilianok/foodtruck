@@ -11,16 +11,20 @@
                 Paperless n° {{ $import->paperless_document_id }}
                 @if ($recipe)
                     · recette {{ $recipe->isPublished() ? ($import->auto_published ? 'publiée automatiquement' : 'publiée') : 'en brouillon' }}
+                @elseif ($import->isReading())
+                    · lecture du scan en cours
                 @elseif ($problems)
                     · {{ $problems }} ingrédient{{ $problems > 1 ? 's' : '' }} à compléter
                 @endif
             </span>
-            @if (! empty($import->issues) && (! $recipe || ! $recipe->isPublished()))
+            @if (! empty($import->issues) && ! $import->isReading() && (! $recipe || ! $recipe->isPublished()))
                 <span class="muted small">{{ implode(' ', $import->issues) }}</span>
             @endif
         </span>
         <span class="receipt-side">
-            @if ($recipe?->isPublished())
+            @if ($import->isReading())
+                <span class="badge-reading">lecture en cours…</span>
+            @elseif ($recipe?->isPublished())
                 <span class="badge-season">publiée</span>
             @elseif ($recipe)
                 <span class="badge-warn">brouillon</span>
