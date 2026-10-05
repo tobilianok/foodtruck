@@ -14,7 +14,6 @@
 
     @php
         $modules = [
-            ['Liste de courses', 'Mutualisée, par magasin et par rayon', 'v0.8.0'],
             ['Économies', 'Budget, stock, anti-gaspi', 'v0.9.0'],
         ];
         $portions = rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',');
@@ -46,6 +45,23 @@
                     @endforeach
                 </ul>
             @endif
+            <span class="tag tag-accent">Disponible</span>
+        </a>
+        @php
+            $shopping = $household->shoppingLists()->whereNull('archived_at')->first();
+            $shoppingItems = $shopping?->items()->where('section', 'achat');
+        @endphp
+        <a class="card card-link" href="{{ route('shopping.index') }}">
+            <h2>Liste de courses</h2>
+            <p>
+                @if ($shopping)
+                    Courses du {{ $shopping->periodLabel() }}<br>
+                    {{ (clone $shoppingItems)->where('is_checked', true)->count() }} / {{ (clone $shoppingItems)->count() }} articles cochés
+                    · ≈ {{ \App\Models\Price::formatCents((int) (clone $shoppingItems)->sum('estimated_cents')) }}
+                @else
+                    Calculée d'après ton planning, par magasin et par rayon
+                @endif
+            </p>
             <span class="tag tag-accent">Disponible</span>
         </a>
         <a class="card card-link" href="{{ route('household.show') }}">

@@ -9,6 +9,7 @@ use App\Http\Controllers\PlanningController;
 use App\Http\Controllers\PriceController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\ShoppingController;
 use Illuminate\Support\Facades\Route;
 
 // Connexion via Authentik (OIDC)
@@ -58,6 +59,20 @@ Route::middleware('auth')->group(function () {
         Route::delete('/planning/repas/{entry}', [PlanningController::class, 'destroy'])->name('planning.destroy');
         Route::post('/planning/repas/{entry}/congeler', [PlanningController::class, 'freeze'])->name('planning.freeze');
         Route::get('/planning/{week}', [PlanningController::class, 'index'])->where('week', '\d{4}-\d{2}-\d{2}')->name('planning.week');
+
+        // Liste de courses : calculée depuis le planning, partagée et cochable en direct
+        Route::get('/courses', [ShoppingController::class, 'index'])->name('shopping.index');
+        Route::post('/courses', [ShoppingController::class, 'store'])->name('shopping.store');
+        Route::get('/courses/liste/{list}', [ShoppingController::class, 'show'])->name('shopping.show');
+        Route::put('/courses/liste/{list}', [ShoppingController::class, 'update'])->name('shopping.update');
+        Route::post('/courses/liste/{list}/actualiser', [ShoppingController::class, 'refresh'])->name('shopping.refresh');
+        Route::post('/courses/liste/{list}/terminer', [ShoppingController::class, 'archive'])->name('shopping.archive');
+        Route::post('/courses/liste/{list}/rouvrir', [ShoppingController::class, 'reopen'])->name('shopping.reopen');
+        Route::get('/courses/liste/{list}/etat', [ShoppingController::class, 'state'])->middleware('throttle:120,1')->name('shopping.state');
+        Route::post('/courses/liste/{list}/articles', [ShoppingController::class, 'storeItem'])->name('shopping.items.store');
+        Route::post('/courses/articles/{item}/cocher', [ShoppingController::class, 'check'])->middleware('throttle:240,1')->name('shopping.items.check');
+        Route::put('/courses/articles/{item}', [ShoppingController::class, 'updateItem'])->name('shopping.items.update');
+        Route::delete('/courses/articles/{item}', [ShoppingController::class, 'destroyItem'])->name('shopping.items.destroy');
 
         // Référentiel : ingrédients, conditionnements, prix (tous les membres d'un foyer)
         Route::get('/ingredients', [IngredientController::class, 'index'])->name('ingredients.index');

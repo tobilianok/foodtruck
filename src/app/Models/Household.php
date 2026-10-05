@@ -78,6 +78,11 @@ class Household extends Model
         return $this->hasMany(MealPlanEntry::class);
     }
 
+    public function shoppingLists(): HasMany
+    {
+        return $this->hasMany(ShoppingList::class)->latest('id');
+    }
+
     /** Créneaux affichés dans le planning, dans l'ordre de la journée (tous par défaut). @return array<int, string> */
     public function mealSlots(): array
     {

@@ -1,7 +1,7 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.7.0 (étape 8 - planning de la semaine, en attente de validation)
-Dernière mise à jour : 2026-09-29
+Version du document : v0.8.0 (étape 9 - liste de courses, en attente de validation)
+Dernière mise à jour : 2026-10-03
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
 ## Décisions actées
@@ -44,6 +44,13 @@ Fonctionnel
 - Brouillons : une recette en brouillon n'est visible que par son auteur. La duplication crée un brouillon rattaché à l'original (variante).
 - Premier lot : 24 recettes (15 plats d'automne, 3 bases/yaourts, 6 goûters et petit-déjeuner), fichier src/database/data/recipes.php, import idempotent (foodtruck:recipes). Elles n'ont pas d'auteur : seul un admin de l'appli peut les modifier, les autres les dupliquent.
 
+Liste de courses (décisions du 2026-10-03, v0.8.0)
+- Période : au choix (du jour des courses jusqu'aux suivantes, par défaut aujourd'hui + 6 jours) ; des repas peuvent être écartés (invités ailleurs, restaurant). Les restes ne sont jamais recomptés (un plat cuisiné = une fois). Plafond : 31 jours.
+- Magasins : magasin principal (Leclerc Drive) + magasin des fruits et légumes (Morin) pour ce rayon ; à défaut de prix dans ce magasin, le moins cher qui en a un. L'écart avec le magasin le moins cher est affiché, l'article peut être déplacé d'un clic.
+- Liste partagée par le foyer, cochable en direct : les cases cochées par un téléphone apparaissent sur les autres en quelques secondes (interrogation toutes les 6 s, sans service supplémentaire).
+- Produits de base (sel, huile, farine, épices…) : section « À vérifier chez vous », hors budget ; « Il m'en manque » les ajoute aux courses. Ajouts libres possibles (article connu = rayon et prix repris).
+- Budget de la liste : budget hebdomadaire au prorata des jours, comparé au prix en caisse (paquets entiers) ; le surplus d'emballages est chiffré.
+
 ## Modèle de données
 
 Comptes et foyers
@@ -76,18 +83,20 @@ Planning et stock
 - pantry_items : stock du foyer (ingrédient, quantité, date limite optionnelle) - v0.9.0
 
 Courses
-- shopping_lists, shopping_items : quantité nécessaire, conditionnement choisi, nombre de conditionnements, magasin, prix estimé, prix réellement payé, coché par/quand, origine (auto/manuel), recettes à l'origine de la ligne
+- shopping_lists (v0.8.0) : foyer, période (date_from, date_to), repas écartés (excluded_entry_ids), empreinte du planning (signature, détecte un planning modifié depuis), révision (incrémentée quand la liste change de forme, pour prévenir les autres téléphones), classée le (archived_at), créée par. Une seule liste en cours par foyer.
+- shopping_list_items : liste, ingrédient (null = ligne libre), libellé, rayon, origine (recette | manuel), section (achat | verifier) + section_locked, magasin + store_locked, besoin cumulé (unité de base), conditionnements retenus (JSON : pack, nombre, prix), prix en caisse, part réellement utilisée (prorata), magasin le moins cher et son prix, recettes à l'origine (JSON), remarque, coché par / quand. Un recalcul garde cases cochées, magasin et section choisis à la main, et les ajouts manuels.
 - receipts : ticket rattaché à une liste (magasin, date, total, photo), servant à recaler les prix
 
-## Algorithme de la liste de courses
+## Algorithme de la liste de courses (v0.8.0)
 
-1. Facteur par repas = rendement voulu / rendement de base de la recette (personnes pondérées par coefficient, ou pots/pièces) ; quantités multipliées.
-2. Conversion vers l'unité de base de l'ingrédient (densité / poids de pièce si nécessaire).
-3. Somme par ingrédient sur tous les repas de la période.
-4. Déduction du stock ; ingrédients "de base" listés en "à vérifier".
-5. Choix du conditionnement le moins cher couvrant le besoin ; arrondi au vrac pour les fruits et légumes.
-6. Affectation aux magasins selon la stratégie (un magasin / deux magasins / optimisé) avec comparaison des totaux.
-7. Reliquats (ex. 40 cl de lait) proposés en stock et exploités par les suggestions anti-gaspi.
+1. Plats cuisinés de la période (type « recette », hors congélateur, hors repas écartés) ; les restes ne sont jamais recomptés.
+2. Facteur par plat = RecipeServing (parts du repas × nombre de repas / rendement de la recette, ou quantité de fournée) ; ingrédients facultatifs ignorés.
+3. Conversion dans l'unité de base de l'ingrédient (densité / poids de pièce si nécessaire) puis somme par ingrédient sur tous les plats. Unité non convertible : signalée (« Quantité à estimer »), jamais devinée.
+4. Magasin : principal, ou magasin des fruits et légumes pour ce rayon ; à défaut de prix, le moins cher qui en a un.
+5. Conditionnements (App\Support\PackPlanner) : combinaison la moins chère couvrant le besoin, à 2 % près (15 g/ml au plus, jamais sur des pièces) ; à égalité de prix, le moins de reste ; vrac au poids arrondi à 50 g (ou à la pièce).
+6. Produits de base (is_staple) : section « À vérifier chez vous », hors budget ; l'eau et les produits de base sans conditionnement ne figurent pas.
+7. Prix en caisse (paquets entiers), part réellement utilisée, surplus d'emballages, économie possible dans un autre magasin.
+Prévu en v0.9.0 : déduction du stock, reliquats proposés en stock et suggestions anti-gaspi, rapprochement avec le ticket.
 
 ## Prix et tickets de caisse
 
@@ -111,8 +120,8 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 5. Recettes : saisie, édition, étapes, photo, étiquettes, appareils ; premier lot de recettes de saison + goûters, yaourts, bases maison (v0.4.0) - VALIDÉ le 2026-09-29
 6. Tickets de caisse : connexion Paperless, lecture, rapprochement, prix réels (v0.5.0, lecteur Lidl v0.5.1, textes Paperless réels Lidl et Leclerc Drive v0.5.2) - VALIDÉ le 2026-09-29
 7. Affichage d'une recette proratisée (v0.6.0) - VALIDÉ le 2026-09-29
-8. Planning de la semaine et repas cumulables (v0.7.0) - LIVRÉ, en attente de validation
-9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0)
+8. Planning de la semaine et repas cumulables (v0.7.0) - VALIDÉ le 2026-10-03
+9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0) - LIVRÉ, en attente de validation
 10. Économies : budget, stock, anti-gaspi, rapprochement ticket ↔ liste de courses (v0.9.0)
 11. Menu de la semaine proposé automatiquement dans le budget (v0.10.0)
 12. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
@@ -166,8 +175,11 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.6.0 : recette proratisée - bloc « Pour combien ? » sur la fiche (qui mange, invités, nombre de repas, réglage libre ; fournée pour pots/pièces/grammes), quantités et équivalences recalculées avec arrondi pratique, coût du repas et par part, économie « fait maison » proratisée, rappel que les quantités des étapes sont celles d'origine, conseil de cuisson au-delà de ×2, lien partageable (réglages dans l'adresse) ; calcul réutilisable par le planning (App\Support\RecipeServing) ; 87 tests.
 - v0.6.0 validée par Louis le 2026-09-29 (feu vert pour la v0.7.0).
 - v0.7.0 : planning livré - grille de la semaine (déjeuner, dîner, à préparer ; petit-déjeuner et goûter en option), semaine type dans Mon foyer, ajout d'un plat / hors maison / note, convives pré-cochés d'après la semaine type, restes automatiques qui évitent les repas où personne n'est à la maison, congélateur, coût de la semaine et jauge de budget, ajout depuis la fiche recette, repas du jour sur l'accueil, entrée « Planning » ; 98 tests.
+- v0.7.0 installée et validée par Louis le 2026-10-03 (« c'est parfait on continue »).
+- v0.8.0 : liste de courses livrée - création pour une période choisie, quantités cumulées de tous les plats, conditionnements entiers au meilleur prix (60 cl de lait → 1 bouteille de 1 L, il en restera 40 cl), rangement par magasin (principal + fruits et légumes) puis par rayon, prix en caisse et jauge de budget au prorata de la période, surplus d'emballages et économie possible chiffrés, cases partagées en direct, produits de base « à vérifier chez vous », ajouts libres, repas écartables, détection d'un planning modifié, historique des listes, entrée « Courses » et carte sur l'accueil ; 118 tests.
 
 ## Questions ouvertes
 
 - Autres enseignes (Morin, Carrefour, Hyper U, Grand Frais) : lecteur à ajuster dès réception de tickets réels (texte Paperless).
-- Pour la v0.8.0 (liste de courses) : période couverte (la semaine affichée, ou « du jour des courses au suivant »), répartition entre magasins (tout au magasin principal + fruits et légumes chez Morin, ou au moins cher), produits de base à vérifier, liste partagée cochable en direct dans le magasin, ajouts manuels (hors recettes : café, papier toilette…).
+- Pour la v0.9.0 (économies) : stock du foyer (saisie à la main, ou déduit des reliquats des listes), anti-gaspi (recettes proposées pour les restes d'emballages et les produits proches de la date limite), rapprochement ticket ↔ liste (prix payés recalent les prix), et ordre des rayons propre à chaque magasin (parcours en magasin).
+- Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.

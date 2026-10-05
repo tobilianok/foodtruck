@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-09-29 (v0.7.0)
+Dernière mise à jour : 2026-10-03 (v0.8.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -125,6 +125,12 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
       cd /opt/stacks/paperless && docker compose exec -T webserver python3 manage.py shell -c "from documents.models import Document; print(Document.objects.get(pk=ID).content)" 2>/dev/null > ~/paperless-ticket-ID.txt
 - Point d'attention (rapport d'infra) : le mot de passe admin de Paperless est à renforcer.
 
+## Liste de courses (v0.8.0)
+
+- Aucun service ni port en plus : les téléphones interrogent l'application (route /courses/liste/{id}/etat, limitée à 120 requêtes par minute) toutes les 6 secondes tant que la page est visible, et pas du tout en arrière-plan.
+- La migration ajoute shopping_lists et shopping_list_items ; la sauvegarde SQL de backups/ est faite par le script avant de migrer.
+- Les prix utilisés sont ceux du référentiel (estimations puis tickets) : plus il y a de tickets traités, plus les totaux sont justes.
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -134,7 +140,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.6.0 (v0.6.0 validée le 2026-09-29) ; v0.7.0 livrée, à installer puis pousser.
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.7.0 (v0.7.0 validée le 2026-10-03) ; v0.8.0 livrée, à installer puis pousser.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

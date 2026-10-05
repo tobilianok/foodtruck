@@ -1,5 +1,18 @@
 # Journal des versions - Foodtruck
 
+## v0.8.0 - 2026-10-03 - Liste de courses
+
+- Nouvelle page « Courses » : liste calculée d'après le planning pour la période choisie (par défaut aujourd'hui + 6 jours, 31 jours au plus). Une seule liste en cours ; les anciennes sont dans l'historique (rouvrir possible).
+- Quantités additionnées sur tous les plats, traduites en paquets entiers au meilleur prix : 20 cl + 40 cl de lait → 1 bouteille de 1 L (« il en restera 40 cl »), 7 œufs → une boîte de 12 plutôt que deux de 6. Produits au poids (fruits et légumes) achetés à la quantité utile, arrondie à 50 g.
+- Les restes ne sont jamais recomptés ; les repas peuvent être écartés de la liste (invités ailleurs, restaurant).
+- Rangement par magasin (principal, puis fruits et légumes chez Morin, puis les autres) et par rayon ; sous-total par magasin, prix en caisse, jauge de budget au prorata des jours, surplus d'emballages et économie possible en achetant ailleurs. Un article se déplace d'un clic (le prix et les paquets sont recalculés pour le nouveau magasin).
+- Liste partagée et cochable en direct : une case cochée sur un téléphone apparaît sur les autres en quelques secondes, avec le prénom de la personne ; cases de 44 px pour les courses, « masquer les articles cochés », compteur par magasin.
+- Produits de base (sel, huile, farine, épices…) : « À vérifier chez vous », hors budget ; « Il m'en manque » les ajoute aux courses, « Déjà à la maison » fait l'inverse. L'eau n'apparaît pas.
+- Ajouts libres (lessive, croquettes…) : un article connu de Foodtruck reprend son rayon et son prix.
+- Un recalcul conserve les cases cochées, les magasins et sections choisis et les ajouts manuels ; la liste signale quand le planning a changé depuis son calcul.
+- Fiche d'accueil « Liste de courses » et entrée « Courses » dans le menu.
+- 118 tests automatisés (dont le calcul des conditionnements).
+
 ## v0.7.0 - 2026-09-29 - Planning de la semaine
 
 - Nouvelle page « Planning » : semaine du lundi au dimanche, navigation semaine précédente / suivante, aujourd'hui en évidence ; sur mobile, un jour sous l'autre.
