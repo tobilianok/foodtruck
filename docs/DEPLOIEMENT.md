@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-10-05 (v0.11.0)
+Dernière mise à jour : 2026-10-05 (v0.12.1)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -170,6 +170,13 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 - Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
 
+## Fiches de kits repas HelloFresh (v0.12.1)
+
+- Aucun service, port ni migration en plus. Le script de mise à jour exige la v0.12.0 en place (sinon il s'arrête sans rien modifier), applique un correctif git (git apply, vérifié avant), lance les tests et, en cas d'échec, annule le correctif (git apply -R) sans migrer.
+- Dans Paperless : donner l'étiquette « recettes » à la carte scannée ; elle est lue à l'heure suivante ou tout de suite avec Recettes → Fiches Paperless → « Chercher dans Paperless ». Une fiche de ce format attend toujours sa relecture (lignes douteuses en rouge, étapes à comparer au PDF).
+- Correctif de dépôt : le .gitignore contenait « data/ » (tout dossier data), ce qui excluait src/database/data/ (ingredients.php et recipes.php). Il contient maintenant « /data/ » (racine seulement). Ces deux fichiers existent sur la VM : les ajouter au dépôt avec « git add -A » (la commande est dans les instructions de livraison) ; vérifier avec « git status --short » qu'ils apparaissent bien.
+- Texte d'un document Paperless pour ajuster le lecteur : voir la commande de la section Paperless ci-dessus.
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -179,7 +186,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.11.0 ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05 ; v0.12.0 livrée le 2026-10-05, en attente de validation.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 livrée le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

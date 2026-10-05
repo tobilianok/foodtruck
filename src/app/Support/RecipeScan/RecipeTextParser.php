@@ -24,6 +24,12 @@ class RecipeTextParser
     public static function parse(string $raw, ?string $titleHint = null): array
     {
         $clean = TextCleaner::clean($raw);
+
+        // Fiches de kits repas (HelloFresh) : texte à colonnes entrelacées, lu par un lecteur dédié
+        if (MealKitSheetParser::detects($clean['text'])) {
+            return MealKitSheetParser::parse($clean, $titleHint);
+        }
+
         $issues = [];
 
         $meta = ['prep' => null, 'cook' => null, 'rest' => null, 'yield' => null];
@@ -179,7 +185,7 @@ class RecipeTextParser
     }
 
     /** Minuteur d'une étape : seulement si une seule durée y est citée. */
-    private static function timer(string $body): ?int
+    public static function timer(string $body): ?int
     {
         preg_match_all('/(\d+)\s*(?:min(?:utes?)?|mn)\b/iu', $body, $m);
         if (count($m[1]) !== 1) {
@@ -265,14 +271,14 @@ class RecipeTextParser
         return trim(preg_replace('/\s+/', ' ', $key));
     }
 
-    private static function sentence(string $text): string
+    public static function sentence(string $text): string
     {
         $text = trim($text, " .:");
 
         return mb_strtoupper(mb_substr($text, 0, 1)).mb_strtolower(mb_substr($text, 1));
     }
 
-    private static function category(string $haystack): string
+    public static function category(string $haystack): string
     {
         $haystack = Str::ascii($haystack);
 
@@ -287,7 +293,7 @@ class RecipeTextParser
     }
 
     /** @return array<int, string> */
-    private static function tags(string $haystack): array
+    public static function tags(string $haystack): array
     {
         $haystack = Str::ascii($haystack);
         $tags = [];

@@ -1,7 +1,7 @@
 # Secrets de la stack (mots de passe base de données)
 .env
-# Données MariaDB
-data/
+# Données MariaDB (à la racine seulement : src/database/data contient le jeu de départ et doit rester versionné)
+/data/
 # Sauvegardes SQL
 backups/
 # Divers

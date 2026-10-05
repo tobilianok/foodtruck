@@ -119,6 +119,32 @@ class RecipeScanFlowTest extends TestCase
             ->assertSee('Pâtes (spaghetti, penne…)');
     }
 
+    public function test_fiche_kit_repas_attend_la_relecture_avec_les_lignes_douteuses_en_rouge(): void
+    {
+        $this->fakePaperless(RecipeScanParserTest::fixture('hellofresh-curry-thai-crevettes'), 481, 'Curry thaïléger aux crevettes & coco');
+
+        $counts = $this->sync();
+
+        // Jamais publiée toute seule : fractions perdues par la reconnaissance de texte et étapes à colonnes mélangées
+        $this->assertSame([1, 0, 0, 1], [$counts['new'], $counts['published'], $counts['drafts'], $counts['to_review']]);
+        $this->assertSame(0, Recipe::where('title', 'Curry thaïléger aux crevettes & coco')->count());
+
+        $import = RecipeImport::firstWhere('paperless_document_id', 481);
+        $this->assertSame([RecipeImport::STATUS_TO_REVIEW, null], [$import->status, $import->recipe_id]);
+        $this->assertNotEmpty(array_filter($import->issues, fn ($i) => str_contains($i, 'Fiche à colonnes (kit repas)')));
+
+        $flagged = collect($import->parsed['rows'])->whereNotNull('problem');
+        $this->assertGreaterThanOrEqual(6, $flagged->count());
+        $this->assertCount(6, $import->parsed['recipe']['steps']);
+        $this->assertSame('HelloFresh (semaine 33, 2025)', $import->parsed['recipe']['source']);
+
+        $this->actingAs($this->user)->get("/recettes/importees/{$import->id}")->assertOk()
+            ->assertSee('Relire la fiche Paperless n° 481')
+            ->assertSee('Chop, chop, chop')
+            ->assertSee('Tout baigne')
+            ->assertSee('Texte lu dans Paperless');
+    }
+
     public function test_relecture_manuelle_cree_la_recette_et_apprend_le_rapprochement(): void
     {
         $text = str_replace('4 FEUILLES DE SAUGE (OU DE ROMARIN)', '4 FEUILLES DE MIXTURE VERTE', RecipeScanParserTest::fixture('julie-andrieu-gratin-courge'));

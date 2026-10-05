@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.12.1 - 2026-10-05 - Fiches de kits repas (HelloFresh) scannées dans Paperless
+
+- Nouveau lecteur dédié aux cartes de kits repas HelloFresh (App\Support\RecipeScan\MealKitSheetParser), reconnues à « Ingrédients pour N personnes » avec « Mes ustensiles » et « C'est parti ! » (ou la mention HelloFresh). Réglé sur un exemple réel : Curry thaï léger aux crevettes & coco (document Paperless n° 481, semaine 33 de 2025). Le lecteur des autres formats (Julie Andrieu…) est inchangé : sa sortie est identique.
+- Ce que le texte de Paperless a de particulier sur ces cartes : les colonnes de la page sont mélangées (tableau des ingrédients, valeurs nutritionnelles et étapes imprimés côte à côte), les numéros d'étapes sont sur les photos, les fractions (½, ¼) sont perdues. Le lecteur retire le tableau et les valeurs nutritionnelles des lignes d'étapes, sépare les colonnes entrelacées (repère de puce, fin de phrase, sinon équilibre des longueurs), remet les 6 étapes dans l'ordre de la carte avec leur titre (« Chop, chop, chop », « Tout baigne »…) et range « L'astuce du chef » et « Zoom nutrition » à part.
+- Ingrédients « nom puis quantité » (Riz 150 g, Échalote 1 pièce(s), Gingembre frais 1 cm) ; sachets et paquets comptés en pièces avec la précision (« sachet », « paquet ») ; bloc « À ajouter vous-même » (huile, sel, poivre) rangé dans son groupe ; ingrédient annoncé dans la légende des photos mais absent du tableau (ligne absorbée par la mise en page : « Lait de coco ») retrouvé avec sa quantité d'après les étapes.
+- Fractions perdues réparées et signalées : « % », « # », « Z » devant sachet ou pièce lus ½ ; « 12 cs » lu 1½ cs ; « 4 sachet » lu ¼ sachet ; « avec cc de curry » lu « avec ½ cc de curry » ; mots collés redécoupés (« avecunpetitfilet », « Servezlerizet ») avec un petit lexique. Toute lecture douteuse met la ligne en rouge à la relecture : une fiche de ce format n'est jamais publiée toute seule.
+- Temps : « À table dans : 35 - 45 Min » est un temps total, rangé en préparation (45 min). Source : « HelloFresh (semaine 33, 2025) ». Description : sous-titre, temps, ustensiles, conseils.
+- Reste à vérifier à la main sur le PDF : une fraction lue comme un chiffre (« 2 cc de curry par personne » au lieu de ½), signalée par une réserve.
+- Correctif : le .gitignore excluait tout dossier nommé data/, donc src/database/data/ (138 ingrédients et 24 recettes de départ) n'était pas versionné. Seul /data/ (données MariaDB à la racine) est maintenant exclu ; src/database/data/ est à ajouter au dépôt (git add -A).
+- Aucune migration, aucun service ni port en plus.
+- 193 tests automatisés (nouveaux : MealKitSheetParserTest, et le flux « fiche de kit repas » dans RecipeScanFlowTest).
+
 ## v0.12.0 - 2026-10-05 - Recettes scannées dans Paperless
 
 - Les fiches de recettes déposées dans Paperless avec l'étiquette « recettes » sont lues automatiquement (toutes les heures, ou avec « Chercher dans Paperless ») et transformées en recettes : titre, nombre de personnes, temps, ingrédients (quantité, unité, précision), étapes, conseil, source.

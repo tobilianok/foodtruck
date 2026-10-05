@@ -67,6 +67,11 @@ class ScanImporter
                 $row = self::checkQuantity($row, $ingredient);
             }
 
+            // Lecture douteuse signalée par le lecteur (fraction perdue, ligne absorbée par la mise en page)
+            if ($row['problem'] === null && ! empty($line['check'])) {
+                $row['problem'] = $line['check'];
+            }
+
             $rows[] = $row;
         }
 
