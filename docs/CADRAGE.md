@@ -102,6 +102,14 @@ Fiches imprimées et bruit de reconnaissance de texte (décision du 2026-10-05, 
 - Principe inchangé : tout ce qui est corrigé ou douteux met la ligne en rouge et la fiche attend la relecture de Louis (jamais de publication automatique sur une lecture supposée).
 - Temps d'une carte (« 20 mn ») : rangé en préparation (la carte ne distingue pas préparation et cuisson).
 
+Menu automatique (décisions du 2026-10-05, v0.13.0)
+- Réponses de Louis : repas remplis = dîners et déjeuners, restes comptés ; règles = pas deux fois la même protéine de suite, au moins N repas végétariens par semaine, plats rapides (moins de 30 minutes) en semaine, recettes de saison en priorité ; priorité « Équilibre : budget, stock, variété » ; usage « Semaine entière à valider ».
+- Fonctionnement : MenuScorer (classe pure, sans base de données, testée) note chaque recette pour chaque repas ; MenuGenerator parcourt la semaine dans l'ordre, retient la meilleure, place les restes (MealPlanner::placeLeftovers) et recompte budget, protéines et végétarien après chaque choix. MenuController gère proposer, garder, autre idée, valider, effacer.
+- Une proposition est un repas du planning marqué proposed_at (avec proposal_reason). Tant qu'il est marqué, il est exclu de la liste de courses (scope MealPlanEntry::confirmed), de l'accueil et de « Que faire maintenant ? », mais visible et compté dans le coût du planning. « Garder » ou « Valider » retire la marque ; modifier le repas la retire aussi.
+- Réglage : households.menu_veggy_min (repas végétariens minimum par semaine, 2 par défaut), choisi dans le bloc du planning.
+- Hors périmètre de cette version : goûters et petits-déjeuners, plats d'une autre catégorie que « plat », rendements autres que « personnes », préférences par membre (aliments exclus, allergies), équilibre nutritionnel (étape bonus).
+- Recettes éligibles : publiées, catégorie plat, rendement en personnes, appareils du foyer disponibles. Il faut assez de recettes différentes pour remplir la semaine (8 plats différents pour 14 repas) : plus le catalogue est riche, meilleure est la proposition.
+
 Lecture des fiches : tout reste local (décision du 2026-10-05)
 - Louis aura beaucoup de fiches, de formats très différents (cartes de kits repas, photos prises sur Internet, photos de pages de livres).
 - Contrainte ferme : aucune API cloud (pas d'API Claude ni autre) et RIEN d'installé sur son PC de jeu. Tout tourne sur la VM Docker.
@@ -202,7 +210,7 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 11. Âge des membres : date de naissance et coefficients automatiques (v0.10.0) - VALIDÉ le 2026-10-05
 12. Refonte de l'interface : plus simple et ergonomique pour un nouvel utilisateur (v0.11.0) - VALIDÉ le 2026-10-05
 13. Recettes scannées dans Paperless récupérées automatiquement (v0.12.0, cartes HelloFresh v0.12.1, fiches imprimées v0.12.2) - livrées le 2026-10-05, à valider ; le lecteur sera affiné avec les autres fiches de Louis
-14. Menu de la semaine proposé automatiquement dans le budget (v0.13.0)
+14. Menu de la semaine proposé automatiquement dans le budget (v0.13.0) - livré le 2026-10-05, à valider ; l'affinage du lecteur de fiches est mis de côté à la demande de Louis
 15. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
 
 Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé en v0.2.0 pour que la première mise en ligne ne teste que l'infrastructure et la connexion.
@@ -267,7 +275,7 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.12.0 livrée : lecteur de fiches Paperless (premier exemple : Gratin de courge butternut, Julie Andrieu), création automatique des recettes, relecture, apprentissage des rapprochements ; migration 2026_10_05_960001 ; 183 tests. En attente de validation et de nouvelles fiches (formats différents).
 - v0.12.2 livrée : fiches imprimées Leclerc (puces mal lues, quantité démesurée signalée, étape finale isolée, source depuis le pied de page) ; aucune migration ; 203 tests ; en attente de validation.
 - v0.12.1 livrée : lecteur dédié aux cartes de kits repas HelloFresh (exemple : Curry thaï léger aux crevettes & coco), fractions perdues réparées et signalées, correctif .gitignore (src/database/data/ non versionné jusque-là) ; aucune migration ; 193 tests. En attente de validation (application sur la VM, push GitHub avec le tag v0.12.1, essai sur le vrai document) et de nouvelles fiches.
-- Demandes de Louis du 2026-10-05 : âges (livré en v0.10.0), refonte de l'interface (livrée en v0.11.0), recettes scannées via Paperless (v0.12.0). La v0.13.0 (menu automatique) passe après.
+- Demandes de Louis du 2026-10-05 : âges (livré en v0.10.0), refonte de l'interface (livrée en v0.11.0), recettes scannées via Paperless (v0.12.0). La v0.13.0 (menu automatique) est livrée.
 
 ## Questions ouvertes
 
@@ -278,23 +286,25 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - Cartes HelloFresh : sachets et paquets comptés en pièces ; à décider avec Louis : (1) donner un poids à chaque sachet ou paquet par ingrédient (lu sur les emballages), ou (2) garder la quantité telle quelle, marquée « à estimer ». (3) Lecture avec coordonnées (Tesseract dans l'image PHP, PDF téléchargé depuis Paperless) : option mise de côté, à rouvrir seulement si les cartes à colonnes deviennent trop nombreuses.
 - Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.
 
-## Pour reprendre dans une nouvelle conversation (état au 2026-10-05, 15 h 45)
+## Pour reprendre dans une nouvelle conversation (état au 2026-10-05, après la livraison de la v0.13.0)
 
 État
 - v0.12.0 (recettes scannées dans Paperless) : livrée et poussée sur GitHub (tag v0.12.0).
 - v0.12.1 (cartes de kits repas HelloFresh) : appliquée sur la VM par Louis le 2026-10-05 ; le commit Git (git add -A, tag v0.12.1, push) est à sa charge (le dépôt GitHub est en lecture seule pour Claude).
 - v0.12.2 (fiches imprimées Leclerc) : livrée, script foodtruck-update-v0.12.2.sh fourni, EN ATTENTE de validation de Louis (application sur la VM, commit, tag v0.12.2, push, essai avec le vrai document Paperless n° 484). 203 tests automatisés.
 - v0.11.0 et antérieures : validées.
-- Prochaine étape après validation : v0.13.0, menu de la semaine proposé automatiquement dans le budget (100 EUR par semaine, ingrédients seulement). Idées en réserve : import de recette par URL, sauvegardes automatiques vers archive-nas, supervision, équilibre nutritionnel, ordre des rayons par magasin, lecteurs de tickets d'autres enseignes.
+- v0.13.0 (menu automatique) : livrée, script foodtruck-update-v0.13.0.sh fourni, EN ATTENTE de validation de Louis (exige la v0.12.2 en place ; une migration). 222 tests automatisés. Louis a demandé de mettre de côté les fiches de recettes pour avancer sur le reste du projet.
+- Prochaine étape après validation : étape bonus au choix de Louis. Idées en réserve : import de recette par URL, sauvegardes automatiques vers archive-nas, supervision, équilibre nutritionnel, ordre des rayons par magasin, lecteurs de tickets d'autres enseignes.
 - Louis fera un point complet sur l'ensemble une fois tout terminé.
 
 Ce que Louis doit encore fournir
-- D'autres fiches scannées, UNE PAR UNE, dans des formats différents (texte du document Paperless, plus le PDF et une capture si possible). Chacune devient un test automatique et affine le lecteur. Traitées : Gratin de courge butternut (Julie Andrieu, document n° 480, fixture julie-andrieu-gratin-courge.txt) ; Curry thaï léger aux crevettes & coco (HelloFresh, document n° 481, fixture hellofresh-curry-thai-crevettes.txt) ; Pâtes carbonara (Leclerc, document n° 484, fixture leclerc-pates-carbonara.txt).
+- (Mis de côté le 2026-10-05, à reprendre quand Louis le demandera) D'autres fiches scannées, UNE PAR UNE, dans des formats différents (texte du document Paperless, plus le PDF et une capture si possible). Chacune devient un test automatique et affine le lecteur. Traitées : Gratin de courge butternut (Julie Andrieu, document n° 480, fixture julie-andrieu-gratin-courge.txt) ; Curry thaï léger aux crevettes & coco (HelloFresh, document n° 481, fixture hellofresh-curry-thai-crevettes.txt) ; Pâtes carbonara (Leclerc, document n° 484, fixture leclerc-pates-carbonara.txt).
 - Réponse sur les sachets et paquets des cartes HelloFresh (voir Questions ouvertes).
 
 Où est le code (dépôt git@github.com:tobilianok/foodtruck.git, branche main, public depuis le 2026-10-05)
 - Lecteur : src/app/Support/RecipeScan/ : TextCleaner (nettoyage), IngredientLineParser (lignes d'ingrédients), StepExtractor (5 mises en page d'étapes), MealKitSheetParser (cartes HelloFresh, v0.12.1 ; les règles de v0.12.2 sont dans les autres classes), RecipeTextParser (assemblage, aiguille vers MealKitSheetParser), IngredientMatcher (rapprochement, table SYNONYMS à enrichir), ScanImporter (analyse, création, apprentissage ; la clé « check » d'une ligne devient « problem »), RecipeScanSync (synchronisation Paperless).
 - Écrans et contrôleur : RecipeImportController, vues resources/views/recipes/imports.blade.php et _import-row.blade.php, relecture dans recipes/form.blade.php (variable $import). Commandes dans routes/console.php (foodtruck:recettes, foodtruck:relire-recettes).
+- Menu automatique (v0.13.0) : src/app/Support/MenuScorer.php (notes, constantes de poids en tête de classe), MenuGenerator.php (semaine, restes, garder, autre idée, valider, effacer), app/Http/Controllers/MenuController.php, bloc dans resources/views/planning/index.blade.php et _entry.blade.php ; tests : tests/Unit/MenuScorerTest.php (sans base de données) et tests/Feature/MenuAutomatiqueTest.php.
 - Tests : tests/Feature/RecipeScanParserTest.php, RecipeScanFlowTest.php, tests/Unit/MealKitSheetParserTest.php et PrintedSheetParserTest.php (sans base de données, exécutable avec PHP 8.3 : vendor/bin/phpunit --no-configuration --bootstrap vendor/autoload.php tests/Unit/MealKitSheetParserTest.php). Pour un nouveau format : ajouter la fixture .txt, puis un test de lecture (titre, ingrédients, étapes) et corriger le lecteur sans casser les tests existants.
 - Dans le bac à sable de Claude (PHP 8.3), Laravel 13 ne démarre pas (Symfony 8 exige PHP 8.4) : seuls les tests unitaires du lecteur s'y exécutent ; les tests de flux tournent sur la VM via le script de mise à jour (retour arrière en cas d'échec).
 

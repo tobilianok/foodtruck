@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.13.0 - 2026-10-05 - Menu automatique : la semaine proposée dans le budget
+
+- Nouveau bloc « Menu automatique » en haut du planning : « Proposer la semaine » remplit les déjeuners et les dîners libres de la semaine affichée. Les repas déjà prévus (plats, hors maison, notes) sont conservés et comptent dans le budget, les protéines et le quota végétarien. Les jours passés ne sont pas touchés ; les repas où personne n'est à la maison d'après la semaine type sont sautés.
+- Restes comptés : un dîner est prévu pour deux repas quand le déjeuner du lendemain est libre (et dans la semaine), les restes sont placés par les règles habituelles du planning (déjeuner du lendemain). Résultat typique : lundi midi + un dîner par soir = 8 plats pour 14 repas.
+- Règles de choix (note par recette et par repas, la meilleure l'emporte) : jamais la même protéine deux repas de suite et pas plus de deux fois dans la semaine ; au moins N repas végétariens (réglable, 2 par défaut, mémorisé dans le foyer) atteints avant la fin de la semaine ; plats prêts en 30 minutes ou moins du lundi au vendredi (plats de plus de 45 minutes écartés en semaine, plats difficiles pénalisés) ; recettes de saison favorisées ; pas de plat déjà cuisiné dans les 4 dernières semaines (plus fort sur la dernière semaine) ; favoris légèrement avantagés ; un petit aléa reproductible pour que deux propositions successives ne soient pas identiques.
+- Priorité « Équilibre : budget, stock, variété » : chaque repas vise sa part du budget restant de la semaine (budget du foyer moins repas déjà prévus moins plats déjà proposés), les recettes qui utilisent des produits à consommer vite du stock passent en premier, puis celles que le stock couvre déjà. Dépasser le budget est fortement pénalisé ; une recette sans prix connu aussi. Le message de résultat indique le coût estimé et signale un dépassement.
+- Semaine à valider, pas imposée : les plats proposés apparaissent en jaune avec la mention « Proposition » et la raison du choix (« 4,20 € pour ce repas · de saison · prêt en 25 min »). Pour chacun : « Garder » (il devient un vrai repas, avec ses restes) ou « Autre idée » (nouvelle recette, restes compris, sans doublon dans la semaine). Pour la semaine : « Valider le menu », « Tout reproposer » (remplace seulement les plats non gardés) et « Effacer ». Modifier un plat proposé avec « modifier » le garde.
+- Les propositions n'entrent dans aucune liste de courses, ni dans l'accueil ni dans la suite « Que faire maintenant ? » tant qu'elles ne sont pas gardées ou validées. Elles comptent dans le coût estimé affiché sur le planning.
+- Migration : meal_plan_entries.proposed_at et proposal_reason, households.menu_veggy_min (2 par défaut). Aucun service ni port en plus.
+- Mises de côté sur demande de Louis : l'affinage du lecteur de fiches Paperless (la v0.12.2 reste à valider).
+- 222 tests automatisés attendus (nouveaux : MenuScorerTest, 11 ; MenuAutomatiqueTest, 8).
+
 ## v0.12.2 - 2026-10-05 - Fiches imprimées (Leclerc « Pâtes carbonara ») : bruit de reconnaissance de texte
 
 - Troisième format lu, réglé sur un texte Paperless réel : fiche imprimée Leclerc « Pâtes carbonara » (document n° 484, deux colonnes ingrédients / recette, « Etape 1 » à « Etape 6 »).

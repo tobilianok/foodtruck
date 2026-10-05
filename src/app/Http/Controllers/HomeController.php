@@ -22,7 +22,7 @@ class HomeController extends Controller
 
         $week = $household->mealPlanEntries()
             ->with([...PlanningController::COST_RELATIONS, 'source.recipe'])
-            ->where('is_frozen', false)
+            ->where('is_frozen', false)->confirmed()
             ->whereDate('date', '>=', $start->toDateString())->whereDate('date', '<=', $start->copy()->addDays(6)->toDateString())
             ->get();
         foreach ($week as $entry) {

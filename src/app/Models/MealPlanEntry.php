@@ -41,6 +41,7 @@ class MealPlanEntry extends Model
     protected $fillable = [
         'household_id', 'date', 'slot', 'position', 'kind', 'recipe_id', 'source_entry_id', 'eaters', 'guest_adults',
         'guest_children', 'meals', 'parts_manual', 'batch_quantity', 'is_frozen', 'note', 'created_by',
+        'proposed_at', 'proposal_reason',
     ];
 
     protected function casts(): array
@@ -54,7 +55,20 @@ class MealPlanEntry extends Model
             'parts_manual' => 'float',
             'batch_quantity' => 'float',
             'is_frozen' => 'boolean',
+            'proposed_at' => 'datetime',
         ];
+    }
+
+    /** Repas confirmés : ceux que Foodtruck a seulement proposés (menu automatique) sont exclus. */
+    public function scopeConfirmed($query)
+    {
+        return $query->whereNull('proposed_at');
+    }
+
+    /** Repas proposé par le menu automatique, pas encore gardé ni validé. */
+    public function isProposal(): bool
+    {
+        return $this->proposed_at !== null;
     }
 
     public function household(): BelongsTo

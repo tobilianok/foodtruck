@@ -96,6 +96,8 @@ class MealPlanner
                     'recipe_id' => $entry->recipe_id,
                     'source_entry_id' => $entry->id,
                     'created_by' => $entry->created_by,
+                    'proposed_at' => $entry->proposed_at,
+                    'proposal_reason' => $entry->proposal_reason,
                 ]);
 
                 if (--$toPlace === 0) {
@@ -118,6 +120,8 @@ class MealPlanner
                 'source_entry_id' => $entry->id,
                 'is_frozen' => true,
                 'created_by' => $entry->created_by,
+                'proposed_at' => $entry->proposed_at,
+                'proposal_reason' => $entry->proposal_reason,
             ]);
         }
 

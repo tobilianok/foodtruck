@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Household extends Model
 {
     protected $fillable = [
-        'name', 'weekly_budget_cents', 'main_store_id', 'produce_store_id', 'meal_slots', 'usual_absences', 'created_by',
+        'name', 'weekly_budget_cents', 'menu_veggy_min', 'main_store_id', 'produce_store_id', 'meal_slots', 'usual_absences', 'created_by',
         'paperless_url', 'paperless_token', 'paperless_tag', 'paperless_recipe_tag', 'paperless_synced_at', 'paperless_last_error',
     ];
 
@@ -20,6 +20,7 @@ class Household extends Model
     {
         return [
             'weekly_budget_cents' => 'integer',
+            'menu_veggy_min' => 'integer',
             'meal_slots' => 'array',
             'usual_absences' => 'array',
             'paperless_token' => 'encrypted',

@@ -135,7 +135,8 @@ class PlanningController extends Controller
 
         $data = $this->validated($request);
         $unplaced = DB::transaction(function () use ($entry, $data) {
-            $entry->update($data);
+            // Modifier un plat proposé par le menu automatique, c'est le garder
+            $entry->update($data + ['proposed_at' => null, 'proposal_reason' => null]);
 
             return MealPlanner::placeLeftovers($entry->fresh());
         });

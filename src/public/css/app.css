@@ -785,3 +785,15 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .row-warning { grid-column: 1 / -1; margin: 0; font-size: .85rem; color: var(--tomato-ink); }
 .row-warning a { margin-left: .25em; }
 @media (prefers-color-scheme: dark) { .row-warning { color: #ef9a8e; } }
+
+/* ---- v0.13.0 : menu automatique ---- */
+.menu-panel { margin-bottom: 14px; }
+.menu-panel h2 { margin-top: 0; }
+.menu-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.menu-form label { display: grid; gap: 4px; font-weight: 600; }
+.meal-proposal { background: var(--sun-soft); border: 1px dashed var(--sun); }
+.proposal-badge { align-self: flex-start; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: .1em .55em; border-radius: 999px; background: var(--sun); color: var(--sun-ink); }
+.meal-reason { color: var(--muted); font-size: .78rem; }
+.meal-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.meal-actions form { margin: 0; }
+@media (prefers-color-scheme: dark) { .meal-proposal { background: color-mix(in srgb, var(--sun) 14%, var(--surface)); } }

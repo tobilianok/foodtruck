@@ -48,7 +48,7 @@ class WeekFlow
         $start = MealPlanner::weekStart();
         $end = $start->copy()->addDays(6);
 
-        $flow->planned = $household->mealPlanEntries()->where('kind', 'recette')->where('is_frozen', false)
+        $flow->planned = $household->mealPlanEntries()->where('kind', 'recette')->where('is_frozen', false)->confirmed()
             ->whereDate('date', '>=', $start->toDateString())->whereDate('date', '<=', $end->toDateString())->count();
 
         $active = $household->shoppingLists()->whereNull('archived_at')->first();

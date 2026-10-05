@@ -23,6 +23,36 @@
         </nav>
     </x-page-header>
 
+    @php
+        $proposalCount = $entries->filter(fn ($e) => $e->isProposal() && $e->isRecipe())->count();
+    @endphp
+    <section class="panel menu-panel" id="menu-auto">
+        @if ($proposalCount > 0)
+            <h2>Menu proposé pour la semaine</h2>
+            <p class="hint">{{ $proposalCount }} plat{{ $proposalCount > 1 ? 's' : '' }} proposé{{ $proposalCount > 1 ? 's' : '' }} : garde ceux qui te plaisent, change les autres (« Autre idée »), puis valide. Tant que le menu n'est pas validé, il n'entre pas dans la liste de courses.</p>
+            <div class="row-actions">
+                <form method="post" action="{{ route('menu.accept') }}">@csrf <input type="hidden" name="semaine" value="{{ $start->toDateString() }}"><button type="submit" class="btn">Valider le menu</button></form>
+                <form method="post" action="{{ route('menu.generate') }}">@csrf <input type="hidden" name="semaine" value="{{ $start->toDateString() }}"><button type="submit" class="btn btn-ghost" data-confirm="Tout reproposer ? Les plats proposés sont remplacés (ceux déjà gardés ne bougent pas).">Tout reproposer</button></form>
+                <form method="post" action="{{ route('menu.clear') }}">@csrf <input type="hidden" name="semaine" value="{{ $start->toDateString() }}"><button type="submit" class="btn btn-ghost btn-danger" data-confirm="Effacer toutes les propositions de la semaine ?">Effacer</button></form>
+            </div>
+        @else
+            <h2>Menu automatique</h2>
+            <p class="hint">Foodtruck propose les déjeuners et dîners libres de la semaine : budget respecté, produits à finir du stock, recettes de saison, plats rapides en semaine, protéines variées. Les repas déjà prévus sont conservés.</p>
+            <form method="post" action="{{ route('menu.generate') }}" class="menu-form">
+                @csrf
+                <input type="hidden" name="semaine" value="{{ $start->toDateString() }}">
+                <label>Repas végétariens au moins
+                    <select name="vegetarien">
+                        @foreach (range(0, 5) as $n)
+                            <option value="{{ $n }}" @selected((int) $household->menu_veggy_min === $n)>{{ $n }} par semaine</option>
+                        @endforeach
+                    </select>
+                </label>
+                <button type="submit" class="btn">Proposer la semaine</button>
+            </form>
+        @endif
+    </section>
+
     @if ($entries->where('kind', 'recette')->isEmpty())
         <section class="empty">
             <span class="empty-icon">@include('partials.icon', ['name' => 'plate'])</span>

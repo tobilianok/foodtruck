@@ -33,7 +33,7 @@ class ShoppingListBuilder
 
         $entries = $household->mealPlanEntries()
             ->with(self::RELATIONS)
-            ->where('kind', MealPlanEntry::KIND_RECIPE)->whereNotNull('recipe_id')->where('is_frozen', false)
+            ->where('kind', MealPlanEntry::KIND_RECIPE)->whereNotNull('recipe_id')->where('is_frozen', false)->confirmed()
             ->whereDate('date', '>=', $list->date_from->toDateString())->whereDate('date', '<=', $list->date_to->toDateString())
             ->orderBy('date')->orderBy('position')->orderBy('id')
             ->get();

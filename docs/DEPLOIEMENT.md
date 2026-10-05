@@ -187,6 +187,12 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 - Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
 
+## Menu automatique (v0.13.0)
+
+- Aucun service ni port en plus. Une migration : meal_plan_entries.proposed_at et proposal_reason, households.menu_veggy_min. Le script de mise à jour (foodtruck-update-v0.13.0.sh) exige la v0.12.2 en place, un dépôt Git propre, sauvegarde la base, applique un correctif git vérifié, lance les tests (retour arrière par git apply -R si échec, avant toute migration), puis migre (./ft php artisan migrate --force), vide les caches et redémarre app et scheduler.
+- Retour arrière après migration (si besoin) : restaurer la sauvegarde backups/foodtruck-avant-v0.13.0-*.sql.gz et revenir à la v0.12.2 (git checkout v0.12.2 si le commit a été fait, sinon git apply -R du correctif).
+- Se tester : Planning → « Proposer la semaine ». Les propositions (en jaune) n'apparaissent pas dans les courses tant qu'on n'a pas fait « Garder » ou « Valider le menu ». Il faut au moins 8 recettes de plat publiées, différentes, pour remplir une semaine complète.
+
 ## Fiches imprimées, bruit de reconnaissance de texte (v0.12.2)
 
 - Aucun service, port ni migration en plus. Le script de mise à jour (foodtruck-update-v0.12.2.sh) exige la v0.12.1 en place, sauvegarde la base, applique un correctif git vérifié (git apply), lance les tests et, en cas d'échec, annule le correctif (git apply -R) sans rien migrer.
@@ -209,7 +215,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2 livrée le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2 et v0.13.0 livrées le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

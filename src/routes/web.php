@@ -5,6 +5,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvitationController;
+use App\Http\Controllers\MenuController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanningController;
 use App\Http\Controllers\PriceController;
@@ -70,6 +71,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/planning/repas/{entry}/remplacer', [PlanningController::class, 'replace'])->name('planning.replace');
         Route::delete('/planning/repas/{entry}', [PlanningController::class, 'destroy'])->name('planning.destroy');
         Route::post('/planning/repas/{entry}/congeler', [PlanningController::class, 'freeze'])->name('planning.freeze');
+        // Menu automatique : proposer la semaine, garder / changer un plat, valider ou effacer les propositions
+        Route::post('/planning/menu/proposer', [MenuController::class, 'generate'])->name('menu.generate');
+        Route::post('/planning/menu/valider', [MenuController::class, 'accept'])->name('menu.accept');
+        Route::post('/planning/menu/effacer', [MenuController::class, 'clear'])->name('menu.clear');
+        Route::post('/planning/repas/{entry}/garder', [MenuController::class, 'keep'])->name('menu.keep');
+        Route::post('/planning/repas/{entry}/autre-idee', [MenuController::class, 'another'])->name('menu.another');
         Route::get('/planning/{week}', [PlanningController::class, 'index'])->where('week', '\d{4}-\d{2}-\d{2}')->name('planning.week');
 
         // Liste de courses : calculée depuis le planning, partagée et cochable en direct
