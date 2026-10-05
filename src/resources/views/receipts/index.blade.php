@@ -3,21 +3,15 @@
 @section('title', 'Tickets de caisse')
 
 @section('content')
-    <section class="hero hero-compact">
-        <div class="hero-row">
-            <div>
-                <h1>Tickets de caisse</h1>
-                <p class="lead">Les prix réellement payés, lus sur vos tickets. Chaque libellé validé est mémorisé : les tickets suivants sont traités tout seuls.</p>
-            </div>
-            <div class="hero-actions">
-                @if ($household->hasPaperless())
-                    <form method="post" action="{{ route('receipts.sync') }}">
-                        @csrf
-                        <button type="submit" class="btn">Synchroniser Paperless</button>
-                    </form>
-                @endif
-            </div>
-        </div>
+    <x-page-header title="Tickets de caisse" lead="Les prix réellement payés, lus sur tes tickets. Chaque libellé validé est mémorisé : les tickets suivants sont traités tout seuls.">
+        @if ($household->hasPaperless())
+            <form method="post" action="{{ route('receipts.sync') }}">
+                @csrf
+                <button type="submit" class="btn">Synchroniser Paperless</button>
+            </form>
+        @endif
+    </x-page-header>
+    <section class="hero hero-compact" style="padding-top:0">
         @if ($household->hasPaperless())
             <p class="hint small">
                 Paperless : étiquette « {{ $household->paperlessTag() }} »,
@@ -34,7 +28,7 @@
             <div class="alert alert-info">
                 Paperless n'est pas encore relié.
                 @if ($canManage)
-                    <a href="{{ route('household.show') }}#paperless">Le configurer dans « Mon foyer »</a>.
+                    <a href="{{ route('household.show') }}#avance">Le configurer dans « Mon foyer »</a>.
                 @else
                     Un administrateur du foyer peut le configurer dans « Mon foyer ».
                 @endif

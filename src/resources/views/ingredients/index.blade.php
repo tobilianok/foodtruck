@@ -3,18 +3,10 @@
 @section('title', 'Ingrédients')
 
 @section('content')
-    <section class="hero hero-compact">
-        <div class="hero-row">
-            <div>
-                <h1>Ingrédients</h1>
-                <p class="lead">{{ $total }} ingrédients, avec leurs conditionnements et les prix connus par magasin.</p>
-            </div>
-            <div class="hero-actions">
-                <a class="btn btn-ghost" href="{{ route('prices.index') }}">Mettre à jour les prix</a>
-                <a class="btn" href="{{ route('ingredients.create') }}">+ Nouvel ingrédient</a>
-            </div>
-        </div>
-    </section>
+    <x-page-header title="Ingrédients et prix" :lead="$total.' ingrédients, avec leurs conditionnements et les prix connus par magasin.'">
+        <a class="btn btn-ghost" href="{{ route('prices.index') }}">Mettre à jour les prix</a>
+        <a class="btn" href="{{ route('ingredients.create') }}">Nouvel ingrédient</a>
+    </x-page-header>
 
     <form method="get" action="{{ route('ingredients.index') }}" class="panel filters">
         <label class="field">

@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-10-05 (v0.10.0)
+Dernière mise à jour : 2026-10-05 (v0.11.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -154,6 +154,12 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Les membres existants gardent leur coefficient actuel. Pour activer le calcul automatique : Mon foyer, saisir la date de naissance (laisser « Régler à la main » décoché), Enregistrer.
 - Le script de mise à jour exige la v0.9.1 en place (sinon il s'arrête sans rien modifier).
 
+## Interface (v0.11.0)
+
+- Aucun service, port ni migration en plus. Le script de mise à jour exige la v0.10.0 en place (sinon il s'arrête sans rien modifier).
+- Nouveaux fichiers statiques : src/public/fonts (polices Bricolage Grotesque et Figtree, licence SIL OFL, voir LICENCES.txt) servies par le conteneur web, sans appel externe. Le style et les scripts sont versionnés par l'adresse (?v=), un rechargement du navigateur suffit après la mise à jour.
+- Nouvelles adresses : /plus et /aide. Rien à changer dans Nginx Proxy Manager ni dans Authentik.
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -163,7 +169,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.9.0 (v0.9.0 validée le 2026-10-05) ; v0.9.1 et v0.10.0 livrées, à installer puis pousser (v0.9.1 d'abord).
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.10.0 ; v0.9.1 et v0.10.0 validées le 2026-10-05 ; v0.11.0 livrée, en attente de validation (à pousser avec le tag v0.11.0 après installation).
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

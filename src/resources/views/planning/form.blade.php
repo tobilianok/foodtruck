@@ -11,17 +11,9 @@
         $on = \Illuminate\Support\Carbon::parse($date ?: now('Europe/Paris'));
     @endphp
 
-    <section class="hero hero-compact">
-        <p><a href="{{ route('planning.week', \App\Support\MealPlanner::weekStart($date)->toDateString()) }}">← Planning</a></p>
-        <h1>
-            @if ($isLeftover) Planifier les restes
-            @elseif ($entry->exists) Modifier le repas
-            @else Ajouter un repas @endif
-        </h1>
-        @if ($isLeftover && $source?->recipe)
-            <p class="lead">↩ {{ $source->recipe->title }} · {{ $entry->partsLabel($household) }}, cuisiné le {{ $source->date->locale('fr')->isoFormat('dddd D MMMM') }} ({{ mb_strtolower($source->slotLabel()) }}).</p>
-        @endif
-    </section>
+    <p class="back"><a href="{{ route('planning.week', \App\Support\MealPlanner::weekStart($date)->toDateString()) }}">← Retour au planning</a></p>
+    <x-page-header :title="$isLeftover ? 'Planifier les restes' : ($entry->exists ? 'Modifier le repas' : 'Ajouter un repas')"
+                   :lead="$isLeftover && $source?->recipe ? '↩ '.$source->recipe->title.' · '.$entry->partsLabel($household).', cuisiné le '.$source->date->locale('fr')->isoFormat('dddd D MMMM') : ($entry->exists ? null : 'Choisis le moment, puis ce que tu manges. Foodtruck adapte les quantités à ton foyer.')" />
 
     <form method="post" action="{{ $entry->exists ? route('planning.update', $entry) : route('planning.store') }}" class="stack planning-form"
           data-usual='@json($usualMap)' data-all='@json($allMembers)' data-follow-usual="{{ $followsUsual || ! $entry->exists ? 1 : 0 }}">
@@ -29,6 +21,7 @@
         @if ($entry->exists) @method('put') @endif
 
         <section class="panel">
+            <h2>Quand ?</h2>
             <div class="grid-2">
                 <label class="field">
                     <span>Jour</span>
@@ -50,10 +43,14 @@
                 $kind = old('kind', $entry->kind ?? 'recette');
                 $recipeId = (int) old('recipe_id', $entry->recipe_id);
             @endphp
+            @php
+                $custom = $entry->exists && ($entry->eaters !== null || $entry->guest_adults || $entry->guest_children || $entry->meals > 1 || $entry->parts_manual !== null);
+            @endphp
             <section class="panel">
+                <h2>Quoi ?</h2>
                 <fieldset class="serving-row">
-                    <legend>Quoi</legend>
-                    @foreach (['recette' => 'Une recette', 'hors_maison' => 'Hors maison (cantine, restaurant…)', 'note' => 'Autre (note libre)'] as $value => $label)
+                    <legend class="sr-only">Type de repas</legend>
+                    @foreach (['recette' => 'Une recette', 'hors_maison' => 'Hors maison', 'note' => 'Note libre'] as $value => $label)
                         <label class="chip-check">
                             <input type="radio" name="kind" value="{{ $value }}" @checked($kind === $value) data-kind>
                             <span>{{ $label }}</span>
@@ -80,9 +77,12 @@
 
                     <div class="serving-form" data-mode-block="parts">
                         <input type="hidden" name="ajuste" value="1">
+                        <details class="more" @if ($custom || old('qui') !== null || old('adultes') || old('repas')) open @endif>
+                        <summary>Pour qui et combien de repas ?</summary>
+                        <p class="hint">Par défaut : les personnes présentes d'après ta semaine type, pour un seul repas.</p>
                         @if ($household->members->isNotEmpty())
                             <fieldset class="serving-row eaters">
-                                <legend>Qui mange</legend>
+                                <legend>Qui mange ?</legend>
                                 @foreach ($household->members as $member)
                                     <label class="chip-check">
                                         <input type="checkbox" name="qui[]" value="{{ $member->id }}" @checked(in_array($member->id, old('qui', $eaters)))>
@@ -106,10 +106,11 @@
                                     <span>{{ $value }} repas</span>
                                 </label>
                             @endforeach
-                            <small class="muted">les restes vont sur les déjeuners et dîners libres suivants où quelqu'un mange à la maison</small>
+                            <small class="muted">Les restes vont sur les prochains déjeuners et dîners libres.</small>
                         </fieldset>
                         <label class="field-inline"><span>Parts par repas <small class="muted">(réglage libre)</small></span>
                             <input type="number" name="parts" min="0.5" max="50" step="0.5" value="{{ old('parts', $entry->parts_manual) }}" placeholder="{{ $U::number($household->members->whereIn('id', $eaters)->sum(fn ($m) => $m->coefficientOn($on))) }}" inputmode="decimal"></label>
+                        </details>
                     </div>
 
                     <div class="serving-form" data-mode-block="fournee">

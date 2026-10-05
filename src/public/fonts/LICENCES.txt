@@ -1,0 +1,4 @@
+Polices auto-hébergées (aucun appel à un service externe) :
+- Bricolage Grotesque (titres) : SIL Open Font License 1.1 - https://github.com/ateliertriay/bricolage
+- Figtree (texte) : SIL Open Font License 1.1 - https://github.com/erikdkennedy/figtree
+Fichiers issus des paquets @fontsource-variable (sous-ensemble latin).

@@ -59,7 +59,8 @@ class OnboardingTest extends TestCase
         $this->assertEqualsCanonicalizing(['four', 'cookeo', 'thermomix'], $household->equipment->pluck('slug')->all());
         $this->assertFalse(Equipment::firstWhere('slug', 'thermomix')->is_default);
 
-        $this->get('/')->assertOk()->assertSee('2 parts par repas');
+        $this->get('/foyer')->assertOk()->assertSee('2 parts par repas');
+        $this->get('/')->assertOk()->assertSee('Choisis les repas de la semaine');
     }
 
     public function test_validation_en_francais(): void

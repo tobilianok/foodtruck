@@ -54,7 +54,7 @@
         </section>
 
         <section class="panel">
-            <h2><span class="step">3</span> Les appareils de la cuisine</h2>
+            <h2><span class="step">3</span> Les appareils de la cuisine <small class="muted">(facultatif)</small></h2>
             <p class="hint">Les recettes qui demandent un appareil que tu n'as pas seront signalées.</p>
             @include('household.equipment-fields', ['equipment' => $equipment, 'owned' => old('equipment', [])])
         </section>

@@ -12,11 +12,8 @@
         $slotIndex = array_flip($slots);
     @endphp
 
-    <section class="hero hero-compact planning-head">
-        <div>
-            <p class="eyebrow">Planning</p>
-            <h1>Semaine du {{ $start->locale('fr')->isoFormat('D MMMM') }} au {{ $end->locale('fr')->isoFormat('D MMMM YYYY') }}</h1>
-        </div>
+    <x-page-header :title="'Semaine du '.$start->locale('fr')->isoFormat('D MMMM').' au '.$end->locale('fr')->isoFormat('D MMMM YYYY')"
+                   lead="Touche un + pour ajouter un plat, un repas hors maison ou une note.">
         <nav class="week-nav" aria-label="Semaines">
             <a class="btn btn-small btn-ghost" href="{{ route('planning.week', $start->copy()->subWeek()->toDateString()) }}">← Semaine précédente</a>
             @unless ($today >= $start->toDateString() && $today <= $end->toDateString())
@@ -24,7 +21,16 @@
             @endunless
             <a class="btn btn-small btn-ghost" href="{{ route('planning.week', $start->copy()->addWeek()->toDateString()) }}">Semaine suivante →</a>
         </nav>
-    </section>
+    </x-page-header>
+
+    @if ($entries->where('kind', 'recette')->isEmpty())
+        <section class="empty">
+            <span class="empty-icon">@include('partials.icon', ['name' => 'plate'])</span>
+            <h2>Cette semaine est encore vide</h2>
+            <p>Ajoute un premier repas : Foodtruck calcule les quantités pour ton foyer, puis prépare la liste de courses.</p>
+            <a class="btn" href="{{ route('planning.create') }}">Ajouter un repas</a>
+        </section>
+    @endif
 
     <section class="panel budget-panel">
         <div class="budget-line">
@@ -132,5 +138,8 @@
         </section>
     @endif
 
-    <p class="hint small">Clique sur « + » pour ajouter un plat, un repas hors maison ou une note. Un plat prévu pour plusieurs repas place ses restes sur les déjeuners et dîners libres suivants où quelqu'un mange à la maison. Les présences habituelles se règlent dans <a href="{{ route('household.show') }}#semaine-type">Mon foyer → Semaine type</a>.</p>
+    <details class="more">
+        <summary>Bon à savoir</summary>
+        <p class="hint">Un plat prévu pour plusieurs repas place ses restes sur les déjeuners et dîners libres suivants où quelqu'un mange à la maison. Les présences habituelles se règlent dans <a href="{{ route('household.show') }}#semaine-type">Mon foyer → Semaine type</a>.</p>
+    </details>
 @endsection

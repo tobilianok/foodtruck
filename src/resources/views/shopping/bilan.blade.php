@@ -16,7 +16,6 @@
 
     <section class="hero hero-compact">
         <p><a href="{{ route('shopping.show', $list) }}">← Courses du {{ $list->periodLabel() }}</a></p>
-        <p class="eyebrow">Bilan</p>
         <h1>Bilan des courses du {{ $list->periodLabel() }}</h1>
         <p class="lead">Ce qui a été payé, comparé à ce qui était prévu.</p>
     </section>

@@ -329,14 +329,15 @@ class StockTest extends TestCase
         $this->assertSame(['Flan test'], AntiWaste::suggestions($household, $this->louis)->pluck('recipe.title')->all());
 
         $this->actingAs($this->louis)->get('/stock/recettes')->assertSee('Flan test');
-        $this->get('/')->assertSee('à consommer vite');
+        $this->get('/')->assertSee('À consommer vite');
     }
 
     public function test_menu_et_accueil(): void
     {
-        $this->actingAs($this->louis)->get('/')->assertOk()->assertSee('Rien en stock pour l\'instant', false)->assertSee('>Stock<', false);
+        $this->actingAs($this->louis)->get('/plus')->assertOk()->assertSee('Frigo et placards')->assertDontSee('à consommer vite');
         $this->stock('lait-entier', 1000, '2026-09-30');
-        $this->get('/')->assertSee('1 ligne en stock')->assertSee('1 à consommer vite');
+        $this->get('/plus')->assertSee('1 à consommer vite');
+        $this->get('/')->assertSee('À consommer vite');
         $this->get('/stock/recettes')->assertOk();
     }
 }

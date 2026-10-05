@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\OidcController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvitationController;
@@ -36,7 +37,9 @@ Route::middleware('auth')->group(function () {
 
     // Espace du foyer
     Route::middleware('household')->group(function () {
-        Route::view('/', 'home')->name('home');
+        Route::get('/', HomeController::class)->name('home');
+        Route::view('/plus', 'plus')->name('plus');
+        Route::view('/aide', 'help')->name('help');
         Route::get('/foyer', [HouseholdController::class, 'show'])->name('household.show');
         Route::post('/foyer/quitter', [HouseholdController::class, 'leave'])->name('household.leave');
 

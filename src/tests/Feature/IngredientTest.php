@@ -185,7 +185,7 @@ class IngredientTest extends TestCase
         $household = $admin->household->fresh();
         $this->assertSame($leclerc->id, $household->main_store_id);
         $this->assertSame($morin->id, $household->produce_store_id);
-        $this->get('/')->assertOk()->assertSee('Magasin principal : Leclerc Drive');
+        $this->get('/foyer')->assertOk()->assertSee('Leclerc Drive');
     }
 
     public function test_acces_reserve_aux_comptes_avec_foyer(): void

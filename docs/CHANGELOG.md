@@ -1,5 +1,19 @@
 # Journal des versions - Foodtruck
 
+## v0.11.0 - 2026-10-05 - Refonte de l'interface
+
+- Nouvelle identité visuelle : fond papier, vert feuille, jaune beurre, rouge tomate ; polices Bricolage Grotesque et Figtree auto-hébergées (dossier public/fonts, aucun appel externe) ; mode sombre automatique.
+- Navigation à 5 onglets : Accueil, Menus, Courses, Recettes, Plus. Sur mobile, barre d'onglets en bas. La page « Plus » range Frigo et placards, Tickets de caisse, Prix et ingrédients, Mon foyer, Comment ça marche et Se déconnecter.
+- Accueil guidé : « la semaine en 4 étapes » (choisir les repas, préparer la liste, faire les courses, faire le bilan) avec un camion sur l'étape en cours et un gros bouton pour la suivante. Repas du jour, budget de la semaine, dernier bilan et produits à consommer vite en dessous.
+- Nouvelle page « Comment ça marche » (/aide) : les 4 étapes et les questions fréquentes.
+- Titre et phrase d'explication sur chaque page ; états vides qui expliquent quoi faire (semaine vide, aucune recette trouvée).
+- Planning : « Ajouter un repas » demande d'abord quand et quoi ; « Pour qui et combien de repas ? » est replié (par défaut : la semaine type, un repas).
+- Courses : « Courses terminées » bien visible, « Options » (recalculer, bilan), ajout d'un article oublié replié.
+- Recettes : recherche et filtres rapides (de saison, rapide, favoris), le reste sous « Plus de filtres » ; fiche : « Ajouter au planning » en premier, « Changer les personnes » replié ; liste en lignes compactes sur mobile.
+- Mon foyer : personnes en premier, menu de sections en haut, Paperless rangé sous « Avancé ».
+- Aucune migration, aucune nouvelle dépendance. Les adresses et les noms de champs existants sont inchangés.
+- 162 tests automatisés (nouveau : HomeFlowTest).
+
 ## v0.10.0 - 2026-10-05 - Âge des membres
 
 - Chaque personne du foyer peut avoir une date de naissance (Mon foyer et assistant de première connexion) ; facultative pour un adulte.

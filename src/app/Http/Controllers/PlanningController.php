@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
  */
 class PlanningController extends Controller
 {
-    private const COST_RELATIONS = ['recipe.ingredients.ingredient.packs.prices'];
+    public const COST_RELATIONS = ['recipe.ingredients.ingredient.packs.prices'];
 
     public function index(Request $request, ?string $week = null)
     {

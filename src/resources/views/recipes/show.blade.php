@@ -19,7 +19,6 @@
                 @endif
             </div>
             <div class="recipe-head-text">
-                <p class="eyebrow">{{ $recipe->categoryLabel() }}@if ($recipe->protein) · {{ \App\Models\Recipe::PROTEINS[$recipe->protein] ?? '' }}@endif</p>
                 <h1>{{ $recipe->title }}</h1>
                 @if ($recipe->description)
                     <p class="lead">{{ $recipe->description }}</p>
@@ -43,6 +42,7 @@
                 </dl>
 
                 <div class="badges">
+                    <span class="tag tag-accent">{{ $recipe->categoryLabel() }}@if ($recipe->protein) · {{ \App\Models\Recipe::PROTEINS[$recipe->protein] ?? '' }}@endif</span>
                     @unless ($recipe->isPublished()) <span class="badge-off">brouillon (visible par toi seul)</span> @endunless
                     @if ($season === true) <span class="badge-season">de saison</span> @elseif ($season === false) <span class="badge-off">hors saison</span> @endif
                     @if ($cheap) <span class="badge-cheap">économique</span> @endif
@@ -66,7 +66,7 @@
                     @if ($canEdit)
                         <form method="post" action="{{ route('recipes.destroy', $recipe) }}">
                             @csrf @method('delete')
-                            <button type="submit" class="btn btn-small btn-danger" data-confirm="Supprimer définitivement « {{ $recipe->title }} » ?">Supprimer</button>
+                            <button type="submit" class="btn btn-small btn-ghost btn-danger" data-confirm="Supprimer définitivement « {{ $recipe->title }} » ?">Supprimer</button>
                         </form>
                     @endif
                 </div>
@@ -96,17 +96,68 @@
 
         {{-- Pour combien cuisiner --}}
         <section class="panel serving" id="pour-combien">
-            <form method="get" action="{{ route('recipes.show', $recipe) }}#pour-combien" class="serving-form" data-autosubmit>
-                <h2>Pour combien ?</h2>
+            <h2>Pour combien ?</h2>
+                <p class="serving-result">
+                    <strong>Pour {{ $serving->totalLabel() }}</strong>
+                    @if ($serving->detailLabel() !== '') <span class="muted">· {{ $serving->detailLabel() }}</span> @endif
+                    @if ($serving->isScaled() && $serving->isPortions()) <span class="muted small">(recette d'origine : {{ $recipe->yieldLabel() }})</span> @endif
+                </p>
+                @foreach ($serving->warnings as $warning)
+                    <p class="hint small">{{ $warning }}</p>
+                @endforeach
+
+{{-- Ajouter au planning avec ces réglages --}}
+            <form method="post" action="{{ route('planning.store') }}" class="serving-row plan-add">
+                @csrf
+                <input type="hidden" name="kind" value="recette">
+                <input type="hidden" name="recipe_id" value="{{ $recipe->id }}">
+                @foreach ($serving->query() as $key => $value)
+                    @if (is_array($value))
+                        @foreach ($value as $item) <input type="hidden" name="{{ $key }}[]" value="{{ $item }}"> @endforeach
+                    @else
+                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                    @endif
+                @endforeach
+                <span class="serving-title"><strong>Ajouter au planning</strong></span>
+                <label class="field-inline">
+                    <span class="sr-only">Jour</span>
+                    <select name="date">
+                        @for ($i = 0; $i < 14; $i++)
+                            @php $day = now('Europe/Paris')->addDays($i); @endphp
+                            <option value="{{ $day->toDateString() }}">{{ $i === 0 ? 'Aujourd\'hui' : ($i === 1 ? 'Demain' : ucfirst($day->locale('fr')->isoFormat('dddd D MMM'))) }}</option>
+                        @endfor
+                    </select>
+                </label>
+                <label class="field-inline">
+                    <span class="sr-only">Repas</span>
+                    <select name="slot">
+                        @php
+                            $planSlots = auth()->user()->household->mealSlots();
+                            // Créneau proposé : goûter ou petit-déjeuner s'ils sont affichés, fournées à préparer, sinon dîner
+                            $preferred = in_array($recipe->category, ['gouter', 'petit-dejeuner'], true) && in_array($recipe->category, $planSlots, true)
+                                ? $recipe->category
+                                : ($recipe->category === 'base' || ! $serving->isPortions() ? 'preparation' : 'diner');
+                        @endphp
+                        @foreach ($planSlots as $slot)
+                            <option value="{{ $slot }}" @selected($slot === $preferred)>{{ \App\Models\MealPlanEntry::SLOTS[$slot][0] }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <button type="submit" class="btn">Ajouter au planning</button>
+            </form>
+
+            <details class="more" @if (request()->query()) open @endif>
+                <summary>{{ $serving->isPortions() ? 'Changer les personnes ou le nombre de repas' : 'Changer la quantité' }}</summary>
+                <form method="get" action="{{ route('recipes.show', $recipe) }}#pour-combien" class="serving-form" data-autosubmit>
                 @if ($serving->isPortions())
                     <input type="hidden" name="ajuste" value="1">
                     @if ($serving->members->isNotEmpty())
                         <fieldset class="serving-row">
-                            <legend>Qui mange</legend>
+                            <legend>Qui mange ?</legend>
                             @foreach ($serving->members as $member)
                                 <label class="chip-check">
                                     <input type="checkbox" name="qui[]" value="{{ $member->id }}" @checked(in_array($member->id, $serving->eaters, true))>
-                                    <span>{{ $member->name }} <small>{{ $U::number($member->portion_coefficient) }}</small></span>
+                                    <span>{{ $member->name }} <small>{{ $U::number($member->coefficientOn()) }}</small></span>
                                 </label>
                             @endforeach
                         </fieldset>
@@ -158,55 +209,8 @@
                     </div>
                 @endif
 
-                <p class="serving-result">
-                    <strong>Pour {{ $serving->totalLabel() }}</strong>
-                    @if ($serving->detailLabel() !== '') <span class="muted">· {{ $serving->detailLabel() }}</span> @endif
-                    @if ($serving->isScaled() && $serving->isPortions()) <span class="muted small">(recette d'origine : {{ $recipe->yieldLabel() }})</span> @endif
-                </p>
-                @foreach ($serving->warnings as $warning)
-                    <p class="hint small">{{ $warning }}</p>
-                @endforeach
             </form>
-
-            {{-- Ajouter au planning avec ces réglages --}}
-            <form method="post" action="{{ route('planning.store') }}" class="serving-row plan-add">
-                @csrf
-                <input type="hidden" name="kind" value="recette">
-                <input type="hidden" name="recipe_id" value="{{ $recipe->id }}">
-                @foreach ($serving->query() as $key => $value)
-                    @if (is_array($value))
-                        @foreach ($value as $item) <input type="hidden" name="{{ $key }}[]" value="{{ $item }}"> @endforeach
-                    @else
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endif
-                @endforeach
-                <span class="serving-title"><strong>Au planning</strong></span>
-                <label class="field-inline">
-                    <span class="sr-only">Jour</span>
-                    <select name="date">
-                        @for ($i = 0; $i < 14; $i++)
-                            @php $day = now('Europe/Paris')->addDays($i); @endphp
-                            <option value="{{ $day->toDateString() }}">{{ $i === 0 ? 'Aujourd\'hui' : ($i === 1 ? 'Demain' : ucfirst($day->locale('fr')->isoFormat('dddd D MMM'))) }}</option>
-                        @endfor
-                    </select>
-                </label>
-                <label class="field-inline">
-                    <span class="sr-only">Repas</span>
-                    <select name="slot">
-                        @php
-                            $planSlots = auth()->user()->household->mealSlots();
-                            // Créneau proposé : goûter ou petit-déjeuner s'ils sont affichés, fournées à préparer, sinon dîner
-                            $preferred = in_array($recipe->category, ['gouter', 'petit-dejeuner'], true) && in_array($recipe->category, $planSlots, true)
-                                ? $recipe->category
-                                : ($recipe->category === 'base' || ! $serving->isPortions() ? 'preparation' : 'diner');
-                        @endphp
-                        @foreach ($planSlots as $slot)
-                            <option value="{{ $slot }}" @selected($slot === $preferred)>{{ \App\Models\MealPlanEntry::SLOTS[$slot][0] }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <button type="submit" class="btn btn-small">Ajouter au planning</button>
-            </form>
+            </details>
         </section>
 
         <div class="recipe-body">

@@ -208,7 +208,7 @@ class ReconciliationTest extends TestCase
 
     public function test_accueil_et_fin_des_courses(): void
     {
-        $this->actingAs($this->louis)->get('/')->assertOk()->assertSee('Économies')->assertSee('alertes de prix');
+        $this->actingAs($this->louis)->get('/')->assertOk()->assertSee('Fais tes courses');
 
         $receipt = $this->receipt('2026-09-30', [['lait-entier', 130], ['oeuf', 290]]);
         (new ReceiptProcessor)->apply($receipt, $this->louis);

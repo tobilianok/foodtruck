@@ -12,21 +12,22 @@
 
     <div data-shopping data-state-url="{{ route('shopping.state', $list) }}" data-revision="{{ $list->revision }}" data-me="{{ auth()->user()->firstName() }}" @class(['is-archived' => $archived])>
 
-        <section class="hero hero-compact planning-head">
-            <div>
-                <p class="eyebrow">Courses{{ $archived ? ' · terminées' : '' }}</p>
-                <h1>Courses du {{ $list->periodLabel() }}</h1>
-            </div>
-            <div class="week-nav">
-                <a href="{{ route('shopping.bilan', $list) }}" class="btn btn-small btn-ghost">Bilan</a>
-                @if ($archived)
-                    <form method="post" action="{{ route('shopping.reopen', $list) }}">@csrf <button type="submit" class="btn btn-small">Rouvrir cette liste</button></form>
-                @else
-                    <form method="post" action="{{ route('shopping.refresh', $list) }}">@csrf <button type="submit" class="btn btn-small btn-ghost">Recalculer d'après le planning</button></form>
-                    <form method="post" action="{{ route('shopping.archive', $list) }}">@csrf <button type="submit" class="btn btn-small btn-ghost" data-confirm="Les courses sont faites ? La liste sera classée et ton stock mis à jour (restes d'emballages ajoutés, produits utilisés retirés).">Courses terminées</button></form>
-                @endif
-            </div>
-        </section>
+        <x-page-header :title="'Courses du '.$list->periodLabel()"
+                       :lead="$archived ? 'Courses terminées. Tu peux rouvrir la liste ou voir le bilan.' : 'Coche les articles au fur et à mesure. Toute la famille voit la liste en direct.'">
+            @if ($archived)
+                <a href="{{ route('shopping.bilan', $list) }}" class="btn btn-ghost">Voir le bilan</a>
+                <form method="post" action="{{ route('shopping.reopen', $list) }}">@csrf <button type="submit" class="btn">Rouvrir cette liste</button></form>
+            @else
+                <details class="menu">
+                    <summary class="btn btn-ghost">Options</summary>
+                    <div class="menu-list">
+                        <form method="post" action="{{ route('shopping.refresh', $list) }}">@csrf <button type="submit" class="btn btn-small btn-ghost">Recalculer d'après le planning</button></form>
+                        <a href="{{ route('shopping.bilan', $list) }}" class="btn btn-small btn-ghost">Voir le bilan</a>
+                    </div>
+                </details>
+                <form method="post" action="{{ route('shopping.archive', $list) }}">@csrf <button type="submit" @class(['btn', 'btn-ghost' => $done < $count]) data-confirm="Les courses sont faites ? La liste sera classée et ton stock mis à jour (restes d'emballages ajoutés, produits utilisés retirés).">Courses terminées</button></form>
+            @endif
+        </x-page-header>
 
         <div class="alert alert-info" data-stale-note @if (! $stale) hidden @endif>
             Le planning a changé depuis le calcul de cette liste.
@@ -80,7 +81,7 @@
 
         @if ($covered->isNotEmpty())
             <details class="panel sl-store sl-check-block" data-store-block-skip>
-                <summary><strong>Déjà en stock</strong> <span class="muted small">{{ $covered->count() }} article{{ $covered->count() > 1 ? 's' : '' }} couvert{{ $covered->count() > 1 ? 's' : '' }} par ton <a href="{{ route('stock.index') }}">stock</a>, rien à acheter</span></summary>
+                <summary class="more-summary"><strong>Déjà en stock</strong> <span class="muted small">{{ $covered->count() }} article{{ $covered->count() > 1 ? 's' : '' }} couvert{{ $covered->count() > 1 ? 's' : '' }} par ton <a href="{{ route('stock.index') }}">stock</a>, rien à acheter</span></summary>
                 <ul class="sl-items">
                     @foreach ($covered as $item)
                         @include('shopping._item', ['item' => $item])
@@ -105,8 +106,8 @@
         @endif
 
         @unless ($archived)
-            <section class="panel">
-                <h2>Ajouter un article</h2>
+            <details class="panel more-panel" @if ($errors->has('label')) open @endif>
+                <summary class="more-summary">Ajouter un article oublié</summary>
                 <form method="post" action="{{ route('shopping.items.store', $list) }}" class="sl-add">
                     @csrf
                     <label class="field">Article
@@ -127,10 +128,10 @@
                     @foreach (\App\Models\Ingredient::orderBy('name')->pluck('name') as $name)<option value="{{ $name }}">@endforeach
                 </datalist>
                 <p class="hint small">Un article déjà connu de Foodtruck (lait, beurre…) reprend son rayon et son prix ; sinon c'est une ligne libre.</p>
-            </section>
+            </details>
 
             <details class="panel" @if ($errors->has('date_from') || $errors->has('date_to')) open @endif>
-                <summary><strong>Période et repas pris en compte</strong> <span class="muted small">({{ $entries->count() - count($excluded) }} plat{{ $entries->count() - count($excluded) > 1 ? 's' : '' }})</span></summary>
+                <summary class="more-summary"><strong>Période et repas pris en compte</strong> <span class="muted small">({{ $entries->count() - count($excluded) }} plat{{ $entries->count() - count($excluded) > 1 ? 's' : '' }})</span></summary>
                 <form method="post" action="{{ route('shopping.update', $list) }}" class="sl-period-form">
                     @csrf @method('put')
                     <div class="sl-period">

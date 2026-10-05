@@ -3,58 +3,62 @@
 @section('title', 'Recettes')
 
 @section('content')
-    <section class="hero hero-compact">
-        <div class="hero-row">
-            <div>
-                <h1>Recettes</h1>
-                <p class="lead">{{ $total }} recettes partagées par tous les comptes. Le coût est estimé au meilleur prix connu.</p>
-            </div>
-            <div class="hero-actions">
-                <a class="btn" href="{{ route('recipes.create') }}">+ Nouvelle recette</a>
-            </div>
-        </div>
-    </section>
+    <x-page-header title="Recettes" :lead="$total.' recettes partagées par tous les comptes. Touche-en une pour voir les étapes et l\'ajouter à ton planning.'">
+        <a class="btn" href="{{ route('recipes.create') }}">Nouvelle recette</a>
+    </x-page-header>
 
-    <form method="get" action="{{ route('recipes.index') }}" class="panel filters filters-recipes">
-        <label class="field">
-            <span>Rechercher</span>
-            <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="potimarron, lentilles, cookies…">
-        </label>
-        <label class="field">
-            <span>Catégorie</span>
-            <select name="categorie">
-                <option value="">Toutes</option>
-                @foreach (\App\Models\Recipe::CATEGORIES as $value => [$label, $icon])
-                    <option value="{{ $value }}" @selected(($filters['categorie'] ?? '') === $value)>{{ $icon }} {{ $label }}</option>
-                @endforeach
-            </select>
-        </label>
-        <label class="field">
-            <span>Étiquette</span>
-            <select name="etiquette">
-                <option value="">Toutes</option>
-                @foreach ($tags as $tag)
-                    <option value="{{ $tag->slug }}" @selected(($filters['etiquette'] ?? '') === $tag->slug)>{{ $tag->name }}</option>
-                @endforeach
-            </select>
-        </label>
-        <div class="filter-checks">
-            <label class="check"><input type="checkbox" name="saison" value="1" @checked(! empty($filters['saison']))><span>De saison</span></label>
-            <label class="check"><input type="checkbox" name="rapide" value="1" @checked(! empty($filters['rapide']))><span>30 min max</span></label>
-            <label class="check"><input type="checkbox" name="appareils" value="1" @checked(! empty($filters['appareils']))><span>Faisable avec mes appareils</span></label>
-            <label class="check"><input type="checkbox" name="favoris" value="1" @checked(! empty($filters['favoris']))><span>Mes favoris</span></label>
-            <label class="check"><input type="checkbox" name="brouillons" value="1" @checked(! empty($filters['brouillons']))><span>Mes brouillons</span></label>
+    <form method="get" action="{{ route('recipes.index') }}" class="panel filters-recipes" data-autofilter>
+        <div class="search-row">
+            <label class="field">
+                <span class="sr-only">Rechercher</span>
+                <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Rechercher : potimarron, lentilles, cookies…">
+            </label>
+            <button type="submit" class="btn">Chercher</button>
         </div>
-        <div class="row-actions">
-            <button type="submit" class="btn btn-small">Filtrer</button>
-            @if (array_filter($filters))
-                <a class="btn btn-small btn-ghost" href="{{ route('recipes.index') }}">Tout afficher</a>
-            @endif
+        <div class="chips quick-filters">
+            <label class="chip"><input type="checkbox" name="saison" value="1" @checked(! empty($filters['saison']))><span>De saison</span></label>
+            <label class="chip"><input type="checkbox" name="rapide" value="1" @checked(! empty($filters['rapide']))><span>Rapide (30 min max)</span></label>
+            <label class="chip"><input type="checkbox" name="favoris" value="1" @checked(! empty($filters['favoris']))><span>Mes favoris</span></label>
         </div>
+        <details class="more" @if (! empty($filters['categorie']) || ! empty($filters['etiquette']) || ! empty($filters['appareils']) || ! empty($filters['brouillons'])) open @endif>
+            <summary>Plus de filtres</summary>
+            <div class="grid-2">
+                <label class="field">
+                    <span>Type de plat</span>
+                    <select name="categorie">
+                        <option value="">Tous</option>
+                        @foreach (\App\Models\Recipe::CATEGORIES as $value => [$label, $icon])
+                            <option value="{{ $value }}" @selected(($filters['categorie'] ?? '') === $value)>{{ $icon }} {{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="field">
+                    <span>Étiquette</span>
+                    <select name="etiquette">
+                        <option value="">Toutes</option>
+                        @foreach ($tags as $tag)
+                            <option value="{{ $tag->slug }}" @selected(($filters['etiquette'] ?? '') === $tag->slug)>{{ $tag->name }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            </div>
+            <div class="checks">
+                <label class="check"><input type="checkbox" name="appareils" value="1" @checked(! empty($filters['appareils']))><span>Faisable avec mes appareils</span></label>
+                <label class="check"><input type="checkbox" name="brouillons" value="1" @checked(! empty($filters['brouillons']))><span>Mes brouillons</span></label>
+            </div>
+        </details>
+        @if (array_filter($filters))
+            <p><a href="{{ route('recipes.index') }}">Tout afficher</a></p>
+        @endif
     </form>
 
     @if ($recipes->isEmpty())
-        <div class="panel"><p>Aucune recette ne correspond. <a href="{{ route('recipes.create') }}">En saisir une ?</a></p></div>
+        <div class="empty">
+            <span class="empty-icon">@include('partials.icon', ['name' => 'book'])</span>
+            <h2>Aucune recette ne correspond</h2>
+            <p>Essaie avec moins de filtres, ou ajoute la tienne avec toutes ses étapes.</p>
+            <a class="btn" href="{{ route('recipes.create') }}">Saisir une recette</a>
+        </div>
     @else
         <p class="muted">{{ $recipes->count() }} recette{{ $recipes->count() > 1 ? 's' : '' }}</p>
         <div class="recipe-grid">

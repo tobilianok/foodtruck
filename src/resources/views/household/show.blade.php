@@ -3,17 +3,20 @@
 @section('title', 'Mon foyer')
 
 @section('content')
-    <section class="hero hero-compact">
-        <h1>{{ $household->name }}</h1>
-        <p class="lead">
-            {{ $household->members->count() }} personne{{ $household->members->count() > 1 ? 's' : '' }}
-            · {{ rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',') }} parts par repas
-            · budget {{ number_format($household->budgetEuros(), 0, ',', ' ') }} € par semaine
-        </p>
-        @unless ($canManage)
-            <p class="hint">Seuls les administrateurs du foyer peuvent modifier ces informations.</p>
-        @endunless
-    </section>
+    <x-page-header :title="$household->name"
+        :lead="$household->members->count().' personne'.($household->members->count() > 1 ? 's' : '').' · '.rtrim(rtrim(number_format($household->totalPortions(), 2, ',', ' '), '0'), ',').' parts par repas · budget '.number_format($household->budgetEuros(), 0, ',', ' ').' € par semaine'" />
+    @unless ($canManage)
+        <p class="hint">Seuls les administrateurs du foyer peuvent modifier ces informations.</p>
+    @endunless
+
+    <nav class="jump" aria-label="Sections">
+        <a class="chip is-static" href="#personnes">Personnes</a>
+        <a class="chip is-static" href="#reglages">Budget et magasins</a>
+        <a class="chip is-static" href="#semaine-type">Semaine type</a>
+        <a class="chip is-static" href="#appareils">Appareils</a>
+        <a class="chip is-static" href="#comptes">Comptes</a>
+        @if ($canManage) <a class="chip is-static" href="#avance">Avancé</a> @endif
+    </nav>
 
     @if (session('invitation_link'))
         <div class="alert alert-ok invitation-link">
@@ -26,46 +29,11 @@
         </div>
     @endif
 
-    {{-- Réglages --}}
-    <section class="panel">
-        <h2>Réglages</h2>
-        @if ($canManage)
-            <form method="post" action="{{ route('household.settings') }}" class="grid-2 align-end">
-                @csrf @method('put')
-                <label class="field">
-                    <span>Nom du foyer</span>
-                    <input type="text" name="name" value="{{ $household->name }}" maxlength="60" required>
-                </label>
-                <label class="field">
-                    <span>Budget courses par semaine</span>
-                    <span class="input-suffix">
-                        <input type="number" name="budget" value="{{ $household->budgetEuros() }}" min="10" max="2000" step="1" required>
-                        <span>€</span>
-                    </span>
-                </label>
-                @include('household.store-fields', ['main' => $household->main_store_id, 'produce' => $household->produce_store_id])
-                <fieldset class="field span-2 serving-row">
-                    <legend>Repas du planning</legend>
-                    @foreach (\App\Models\MealPlanEntry::SLOTS as $code => [$label])
-                        <label class="chip-check">
-                            <input type="checkbox" name="meal_slots[]" value="{{ $code }}" @checked(in_array($code, $household->mealSlots(), true))>
-                            <span>{{ $label }}</span>
-                        </label>
-                    @endforeach
-                </fieldset>
-                <div class="actions"><button type="submit" class="btn">Enregistrer</button></div>
-            </form>
-        @else
-            <p>Budget : {{ number_format($household->budgetEuros(), 0, ',', ' ') }} € par semaine.</p>
-            <p>Magasin principal : {{ $household->mainStore->name ?? 'non défini' }} · fruits et légumes : {{ $household->produceStore->name ?? 'non défini' }}.</p>
-        @endif
-    </section>
-
     {{-- Membres --}}
-    <section class="panel">
-        <h2>Membres et portions</h2>
-        <p class="hint">Avec la date de naissance, le coefficient suit l'âge tout seul, à la date de chaque repas : {{ \App\Models\HouseholdMember::gridSummary() }}.
-            Sans date de naissance, le coefficient saisi reste fixe ; « Régler à la main » le fixe aussi (ex. gros mangeur : 1,5).</p>
+    <section class="panel" id="personnes">
+        <h2>Les personnes du foyer</h2>
+        <details class="more"><summary>Comment sont calculées les parts ?</summary><p class="hint">        Avec la date de naissance, le coefficient suit l'âge tout seul, à la date de chaque repas : {{ \App\Models\HouseholdMember::gridSummary() }}.
+            Sans date de naissance, le coefficient saisi reste fixe ; « Régler à la main » le fixe aussi (ex. gros mangeur : 1,5).</p></details>
 
         <div class="list">
             @foreach ($household->members as $member)
@@ -106,13 +74,48 @@
 
         @if ($canManage)
             <details class="add-block">
-                <summary>+ Ajouter une personne</summary>
+                <summary>Ajouter une personne</summary>
                 <form method="post" action="{{ route('household.members.store') }}" class="member-row">
                     @csrf
                     @include('household._member-fields', ['prefix' => '', 'member' => ['name' => '', 'coefficient' => 1]])
                     <div class="row-actions"><button type="submit" class="btn btn-small">Ajouter</button></div>
                 </form>
             </details>
+        @endif
+    </section>
+
+    {{-- Réglages --}}
+    <section class="panel" id="reglages">
+        <h2>Budget et magasins</h2>
+        @if ($canManage)
+            <form method="post" action="{{ route('household.settings') }}" class="grid-2 align-end">
+                @csrf @method('put')
+                <label class="field">
+                    <span>Nom du foyer</span>
+                    <input type="text" name="name" value="{{ $household->name }}" maxlength="60" required>
+                </label>
+                <label class="field">
+                    <span>Budget courses par semaine</span>
+                    <span class="input-suffix">
+                        <input type="number" name="budget" value="{{ $household->budgetEuros() }}" min="10" max="2000" step="1" required>
+                        <span>€</span>
+                    </span>
+                </label>
+                @include('household.store-fields', ['main' => $household->main_store_id, 'produce' => $household->produce_store_id])
+                <fieldset class="field span-2 serving-row">
+                    <legend>Repas du planning</legend>
+                    @foreach (\App\Models\MealPlanEntry::SLOTS as $code => [$label])
+                        <label class="chip-check">
+                            <input type="checkbox" name="meal_slots[]" value="{{ $code }}" @checked(in_array($code, $household->mealSlots(), true))>
+                            <span>{{ $label }}</span>
+                        </label>
+                    @endforeach
+                </fieldset>
+                <div class="actions"><button type="submit" class="btn">Enregistrer</button></div>
+            </form>
+        @else
+            <p>Budget : {{ number_format($household->budgetEuros(), 0, ',', ' ') }} € par semaine.</p>
+            <p>Magasin principal : {{ $household->mainStore->name ?? 'non défini' }} · fruits et légumes : {{ $household->produceStore->name ?? 'non défini' }}.</p>
         @endif
     </section>
 
@@ -176,7 +179,7 @@
     @endif
 
     {{-- Appareils --}}
-    <section class="panel">
+    <section class="panel" id="appareils">
         <h2>Appareils de cuisine</h2>
         @if ($canManage)
             <form method="post" action="{{ route('household.equipment') }}" class="stack">
@@ -195,48 +198,8 @@
         @endif
     </section>
 
-    {{-- Paperless --}}
-    @if ($canManage)
-        <section class="panel" id="paperless">
-            <h2>Tickets de caisse : Paperless</h2>
-            <p class="hint">
-                Foodtruck lit les documents Paperless portant l'étiquette choisie et en tire les prix réellement payés.
-                Utilise un compte Paperless dédié, en lecture seule, qui ne voit que ces documents.
-            </p>
-            <form method="post" action="{{ route('household.paperless') }}" class="grid-2 align-end">
-                @csrf @method('put')
-                <label class="field">
-                    <span>Adresse de Paperless</span>
-                    <input type="url" name="paperless_url" value="{{ old('paperless_url', $household->paperless_url) }}" placeholder="http://192.168.1.14:8010">
-                </label>
-                <label class="field">
-                    <span>Étiquette des tickets</span>
-                    <input type="text" name="paperless_tag" value="{{ old('paperless_tag', $household->paperlessTag()) }}" maxlength="80">
-                </label>
-                <label class="field span-2">
-                    <span>Jeton d'API</span>
-                    {{-- Champ texte masqué (pas un mot de passe) : les gestionnaires de mots de passe ne le remplissent pas --}}
-                    <input type="text" name="paperless_token" value="" class="mono secret-field" autocomplete="off" autocapitalize="off" spellcheck="false"
-                           data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" maxlength="200"
-                           placeholder="{{ $household->paperless_token ? 'laisser vide pour conserver le jeton enregistré' : 'colle ici les 40 caractères du jeton' }}">
-                    @if ($household->paperless_token)
-                        <small>Jeton enregistré, se termine par « …{{ \Illuminate\Support\Str::substr($household->paperless_token, -6) }} ».</small>
-                    @else
-                        <small>Uniquement le jeton : « Token » devant ou des espaces sont retirés automatiquement.</small>
-                    @endif
-                </label>
-                <div class="actions span-2">
-                    @if ($household->hasPaperless())
-                        <button type="submit" name="disconnect" value="1" class="btn btn-ghost" data-confirm="Déconnecter Paperless ?">Déconnecter</button>
-                    @endif
-                    <button type="submit" class="btn">Tester et enregistrer</button>
-                </div>
-            </form>
-        </section>
-    @endif
-
     {{-- Comptes --}}
-    <section class="panel">
+    <section class="panel" id="comptes">
         <h2>Comptes du foyer</h2>
         <div class="list">
             @foreach ($household->users as $account)
@@ -309,4 +272,44 @@
             @endif
         </section>
     @endif
+    {{-- Paperless --}}
+    @if ($canManage)
+        <details class="panel" id="avance" @if ($errors->has('paperless_url') || $errors->has('paperless_token')) open @endif>
+            <summary class="more-summary">Avancé : relier Paperless pour les tickets de caisse</summary>
+            <p class="hint">
+                Foodtruck lit les documents Paperless portant l'étiquette choisie et en tire les prix réellement payés.
+                Utilise un compte Paperless dédié, en lecture seule, qui ne voit que ces documents.
+            </p>
+            <form method="post" action="{{ route('household.paperless') }}" class="grid-2 align-end">
+                @csrf @method('put')
+                <label class="field">
+                    <span>Adresse de Paperless</span>
+                    <input type="url" name="paperless_url" value="{{ old('paperless_url', $household->paperless_url) }}" placeholder="http://192.168.1.14:8010">
+                </label>
+                <label class="field">
+                    <span>Étiquette des tickets</span>
+                    <input type="text" name="paperless_tag" value="{{ old('paperless_tag', $household->paperlessTag()) }}" maxlength="80">
+                </label>
+                <label class="field span-2">
+                    <span>Jeton d'API</span>
+                    {{-- Champ texte masqué (pas un mot de passe) : les gestionnaires de mots de passe ne le remplissent pas --}}
+                    <input type="text" name="paperless_token" value="" class="mono secret-field" autocomplete="off" autocapitalize="off" spellcheck="false"
+                           data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" maxlength="200"
+                           placeholder="{{ $household->paperless_token ? 'laisser vide pour conserver le jeton enregistré' : 'colle ici les 40 caractères du jeton' }}">
+                    @if ($household->paperless_token)
+                        <small>Jeton enregistré, se termine par « …{{ \Illuminate\Support\Str::substr($household->paperless_token, -6) }} ».</small>
+                    @else
+                        <small>Uniquement le jeton : « Token » devant ou des espaces sont retirés automatiquement.</small>
+                    @endif
+                </label>
+                <div class="actions span-2">
+                    @if ($household->hasPaperless())
+                        <button type="submit" name="disconnect" value="1" class="btn btn-ghost" data-confirm="Déconnecter Paperless ?">Déconnecter</button>
+                    @endif
+                    <button type="submit" class="btn">Tester et enregistrer</button>
+                </div>
+            </form>
+        </details>
+    @endif
+
 @endsection

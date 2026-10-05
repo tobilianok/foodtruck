@@ -93,9 +93,9 @@ class ShoppingListTest extends TestCase
     public function test_sans_liste_on_propose_de_la_creer(): void
     {
         $this->actingAs($this->louis)->get('/courses')->assertOk()
-            ->assertSee('Une liste de courses d\'après ton planning', false)->assertSee('Calculer la liste')
+            ->assertSee('Ta liste de courses')->assertSee('Calculer la liste')
             ->assertSee('value="2026-09-29"', false)->assertSee('value="2026-10-05"', false);
-        $this->get('/')->assertSee('Liste de courses')->assertSee('Calculée d\'après ton planning', false);
+        $this->get('/')->assertSee('Choisis les repas de la semaine');
         $this->assertStringContainsString('>Courses<', $this->get('/')->getContent());
     }
 

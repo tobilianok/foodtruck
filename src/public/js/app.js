@@ -10,6 +10,20 @@
         }
     });
 
+    // Filtres : la liste se met à jour dès qu'on coche ou choisit : <form data-autofilter>
+    document.addEventListener('change', function (event) {
+        var form = event.target.closest('form[data-autofilter]');
+        if (form && event.target.type !== 'search') form.submit();
+    });
+
+    // Un lien vers une section repliée l'ouvre : <a href="#avance">
+    function openTarget() {
+        var el = location.hash.length > 1 ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+        if (el && el.tagName === 'DETAILS') el.open = true;
+    }
+    window.addEventListener('hashchange', openTarget);
+    openTarget();
+
     // Copier un lien : <input data-copy-source> + <button data-copy>
     document.addEventListener('click', function (event) {
         var button = event.target.closest('[data-copy]');

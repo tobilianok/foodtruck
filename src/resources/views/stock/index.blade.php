@@ -7,15 +7,9 @@
         $locations = \App\Models\PantryItem::LOCATIONS;
     @endphp
 
-    <section class="hero hero-compact planning-head">
-        <div>
-            <p class="eyebrow">Stock</p>
-            <h1>Ce qu'il y a déjà à la maison</h1>
-        </div>
-        <div class="week-nav">
-            <a class="btn btn-small" href="{{ route('stock.recipes') }}">Que cuisiner ?</a>
-        </div>
-    </section>
+    <x-page-header title="Frigo et placards" lead="Ce qu'il y a déjà à la maison. Foodtruck le retire de tes courses et t'aide à tout consommer à temps.">
+        <a class="btn" href="{{ route('stock.recipes') }}">Que cuisiner ?</a>
+    </x-page-header>
 
     @if ($soon->isNotEmpty())
         <section class="panel stock-soon">

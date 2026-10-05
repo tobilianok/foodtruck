@@ -5,13 +5,9 @@
 @section('content')
     @php $Price = \App\Models\Price::class; @endphp
 
-    <section class="hero hero-compact planning-head">
-        <div>
-            <p class="eyebrow">Anti-gaspi</p>
-            <h1>Que cuisiner ?</h1>
-        </div>
-        <div class="week-nav"><a class="btn btn-small btn-ghost" href="{{ route('stock.index') }}">← Mon stock</a></div>
-    </section>
+    <x-page-header title="Que cuisiner ?" lead="Des idées de plats avec ce que tu as déjà, en commençant par ce qui périme bientôt.">
+        <a class="btn btn-ghost" href="{{ route('stock.index') }}">← Frigo et placards</a>
+    </x-page-header>
 
     @if ($soon->isNotEmpty())
         <section class="panel stock-soon">
