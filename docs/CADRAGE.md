@@ -102,9 +102,10 @@ Fiches imprimées et bruit de reconnaissance de texte (décision du 2026-10-05, 
 - Principe inchangé : tout ce qui est corrigé ou douteux met la ligne en rouge et la fiche attend la relecture de Louis (jamais de publication automatique sur une lecture supposée).
 - Temps d'une carte (« 20 mn ») : rangé en préparation (la carte ne distingue pas préparation et cuisson).
 
-Suppression des fiches Paperless à relire (décision du 2026-10-05, v0.13.1)
-- Demande de Louis : pouvoir supprimer les fiches qui arrivent dans « À relire », sans que « Chercher dans Paperless » les ramène.
-- Choix : « Supprimer » met la fiche de côté (statut « ignorée », conservée en base) au lieu de l'effacer, parce que le document reste dans Paperless et serait relu sinon. La synchronisation ignore les fiches de ce statut. « Fiches supprimées » permet de les reprendre. Brouillon de recette issu de la fiche : supprimé avec elle (sauf s'il est au planning). Recette publiée : jamais supprimée par ce bouton.
+Suppression des fiches Paperless à relire (décision du 2026-10-05, v0.13.1 puis v0.13.2)
+- Demande de Louis : pouvoir supprimer les fiches qui arrivent dans « À relire ». Réglage final (v0.13.2) : « Supprimer » efface la fiche complètement, pour que « Chercher dans Paperless » la retraite depuis zéro si le document porte toujours l'étiquette « recettes ». (La v0.13.1 mettait les fiches de côté sans jamais les relire : abandonné à la demande de Louis.)
+- Conséquence assumée : un document supprimé mais toujours étiqueté « recettes » revient à la prochaine recherche (manuelle ou horaire). Pour qu'il ne revienne plus : retirer l'étiquette dans Paperless.
+- Brouillon de recette issu de la fiche : supprimé avec elle (sauf s'il est au planning). Recette publiée : jamais supprimée par ce bouton. Rapprochements d'ingrédients appris : conservés.
 
 Menu automatique (décisions du 2026-10-05, v0.13.0)
 - Réponses de Louis : repas remplis = dîners et déjeuners, restes comptés ; règles = pas deux fois la même protéine de suite, au moins N repas végétariens par semaine, plats rapides (moins de 30 minutes) en semaine, recettes de saison en priorité ; priorité « Équilibre : budget, stock, variété » ; usage « Semaine entière à valider ».
@@ -297,7 +298,8 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.12.1 (cartes de kits repas HelloFresh) : appliquée sur la VM par Louis le 2026-10-05 ; le commit Git (git add -A, tag v0.12.1, push) est à sa charge (le dépôt GitHub est en lecture seule pour Claude).
 - v0.12.2 (fiches imprimées Leclerc) : livrée, script foodtruck-update-v0.12.2.sh fourni, EN ATTENTE de validation de Louis (application sur la VM, commit, tag v0.12.2, push, essai avec le vrai document Paperless n° 484). 203 tests automatisés.
 - v0.11.0 et antérieures : validées.
-- v0.13.1 (suppression des fiches Paperless à relire) : livrée, script foodtruck-update-v0.13.1.sh fourni (exige la v0.13.0 en place), en attente de validation de Louis. 226 tests automatisés.
+- v0.13.2 (supprimer une fiche Paperless l'efface complètement, elle est retraitée à la recherche suivante) : livrée, script foodtruck-update-v0.13.2.sh fourni (exige la v0.13.1 en place, une migration de nettoyage), en attente de validation de Louis. 226 tests automatisés.
+- v0.13.1 (boutons Supprimer / Tout supprimer, fiches mises de côté) : appliquée par Louis le 2026-10-05, remplacée par la v0.13.2.
 - v0.13.0 (menu automatique) : livrée, script foodtruck-update-v0.13.0.sh fourni, EN ATTENTE de validation de Louis (exige la v0.12.2 en place ; une migration). 222 tests automatisés. Louis a demandé de mettre de côté les fiches de recettes pour avancer sur le reste du projet.
 - Prochaine étape après validation : étape bonus au choix de Louis. Idées en réserve : import de recette par URL, sauvegardes automatiques vers archive-nas, supervision, équilibre nutritionnel, ordre des rayons par magasin, lecteurs de tickets d'autres enseignes.
 - Louis fera un point complet sur l'ensemble une fois tout terminé.

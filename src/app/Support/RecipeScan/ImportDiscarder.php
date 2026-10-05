@@ -10,9 +10,10 @@ use App\Support\RecipePhoto;
 /**
  * « Supprimer » une fiche Paperless qui attend sa relecture.
  *
- * La fiche n'est pas effacée : elle est mise de côté (statut « ignorée »), donc « Chercher dans Paperless » et la
- * synchronisation horaire ne la recréent pas, même si le document reste dans Paperless. Elle peut être reprise.
- * Si elle avait déjà donné un brouillon de recette, ce brouillon est supprimé. Une recette publiée, ou un brouillon
+ * La fiche est effacée complètement (texte lu, analyse, relecture). Tant que le document porte l'étiquette de
+ * recettes dans Paperless, « Chercher dans Paperless » (ou la synchronisation horaire) le relit depuis zéro.
+ * Les rapprochements d'ingrédients déjà appris (choix faits à la main) sont conservés.
+ * Si la fiche avait donné un brouillon de recette, ce brouillon est supprimé. Une recette publiée, ou un brouillon
  * déjà au planning, n'est jamais supprimé ici.
  */
 class ImportDiscarder
@@ -37,7 +38,7 @@ class ImportDiscarder
             $recipe->delete();
         }
 
-        $import->update(['status' => RecipeImport::STATUS_IGNORED, 'recipe_id' => null]);
+        $import->delete();
 
         return null;
     }

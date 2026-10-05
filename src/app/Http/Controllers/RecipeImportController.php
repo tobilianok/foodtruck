@@ -10,7 +10,7 @@ use App\Support\RecipeScan\ScanImporter;
 use Illuminate\Http\Request;
 
 /**
- * Fiches de recettes venues de Paperless : liste, relecture avant création, relecture automatique, mise de côté.
+ * Fiches de recettes venues de Paperless : liste, relecture avant création, relecture automatique, suppression.
  */
 class RecipeImportController extends Controller
 {
@@ -25,7 +25,6 @@ class RecipeImportController extends Controller
             'household' => $household,
             'pending' => $pending,
             'done' => $imports->filter(fn (RecipeImport $i) => $i->status === RecipeImport::STATUS_CREATED && ! self::needsReview($i))->values(),
-            'ignored' => $imports->where('status', RecipeImport::STATUS_IGNORED)->values(),
         ]);
     }
 
@@ -105,7 +104,7 @@ class RecipeImportController extends Controller
         return redirect()->route('recipes.imports.show', $recipeImport)->with('status', 'Fiche relue : il reste des ingrédients à compléter.');
     }
 
-    /** « Supprimer » : la fiche est mise de côté (jamais recréée par la synchronisation) et son brouillon éventuel est supprimé. */
+    /** « Supprimer » : la fiche est effacée ; « Chercher dans Paperless » la relira depuis zéro tant que le document porte l'étiquette. */
     public function ignore(Request $request, RecipeImport $recipeImport)
     {
         $this->authorizeImport($request, $recipeImport);
@@ -114,7 +113,7 @@ class RecipeImportController extends Controller
         $reason = ImportDiscarder::discard($recipeImport, $request->user());
 
         return $reason === null
-            ? redirect()->route('recipes.imports.index')->with('status', 'Fiche supprimée. Elle ne sera plus relue ni recréée par la synchronisation (le document reste dans Paperless). Tu peux la reprendre depuis « Fiches supprimées ».')
+            ? redirect()->route('recipes.imports.index')->with('status', 'Fiche supprimée. « Chercher dans Paperless » la relira depuis le début tant que le document porte l\'étiquette « '.$request->user()->household->paperlessRecipeTag().' ».')
             : redirect()->route('recipes.imports.index')->withErrors(['paperless' => $reason]);
     }
 
@@ -132,21 +131,11 @@ class RecipeImportController extends Controller
 
         $message = $removed === 0
             ? 'Aucune fiche à supprimer.'
-            : $removed.' fiche'.($removed > 1 ? 's' : '').' supprimée'.($removed > 1 ? 's' : '').' : elles ne seront plus relues ni recréées par la synchronisation (les documents restent dans Paperless).';
+            : $removed.' fiche'.($removed > 1 ? 's' : '').' supprimée'.($removed > 1 ? 's' : '').' : « Chercher dans Paperless » les relira depuis le début tant que leurs documents portent l\'étiquette.';
 
         return $kept === []
             ? redirect()->route('recipes.imports.index')->with('status', $message)
             : redirect()->route('recipes.imports.index')->with('status', $message)->withErrors(['paperless' => count($kept).' fiche'.(count($kept) > 1 ? 's' : '').' conservée'.(count($kept) > 1 ? 's' : '').' : '.implode(' ', $kept)]);
-    }
-
-    public function restore(Request $request, RecipeImport $recipeImport)
-    {
-        $this->authorizeImport($request, $recipeImport);
-        abort_unless($recipeImport->status === RecipeImport::STATUS_IGNORED, 404);
-
-        $recipeImport->update(['status' => RecipeImport::STATUS_TO_REVIEW]);
-
-        return redirect()->route('recipes.imports.show', $recipeImport);
     }
 
     /** À relire : pas encore de recette, ou recette encore en brouillon. */

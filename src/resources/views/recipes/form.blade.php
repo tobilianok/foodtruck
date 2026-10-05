@@ -38,7 +38,7 @@
                 </form>
                 <form method="post" action="{{ route('recipes.imports.ignore', $import) }}">
                     @csrf
-                    <button type="submit" class="btn btn-ghost btn-small" data-confirm="Supprimer cette fiche ? Elle ne sera plus relue ni recréée par la synchronisation (le document reste dans Paperless).">Supprimer cette fiche</button>
+                    <button type="submit" class="btn btn-ghost btn-small" data-confirm="Supprimer cette fiche ? « Chercher dans Paperless » la relira depuis le début tant que le document porte l'étiquette.">Supprimer cette fiche</button>
                 </form>
             </div>
             <p class="hint small">« Relire la fiche » reprend le texte avec les règles à jour : utile après avoir ajouté un ingrédient manquant au référentiel.</p>

@@ -1,5 +1,15 @@
 # Journal des versions - Foodtruck
 
+## v0.13.2 - 2026-10-05 - Supprimer une fiche Paperless l'efface complètement
+
+- Demande de Louis : après « Supprimer », « Chercher dans Paperless » doit relire la fiche depuis zéro. La v0.13.1 mettait les fiches de côté (elles n'étaient jamais retraitées) : ce n'est plus le cas.
+- « Supprimer » (et « Tout supprimer ») efface maintenant la fiche complètement : texte lu, analyse, relecture. Tant que le document porte l'étiquette « recettes » dans Paperless, « Chercher dans Paperless » (ou la synchronisation horaire) la relit depuis le début et elle revient dans « À relire ». Pour qu'un document ne revienne plus, lui retirer l'étiquette « recettes » dans Paperless.
+- Les rapprochements d'ingrédients appris (choix faits à la main à la relecture) sont conservés : la fiche relue en profite.
+- Toujours refusés avec la raison affichée : recette publiée (à supprimer depuis sa fiche) et brouillon déjà au planning. Un brouillon de recette issu de la fiche est supprimé avec elle.
+- Plus de section « Fiches supprimées » ni de bouton « Reprendre » : la migration efface les fiches mises de côté avant cette version, pour qu'elles soient relues à la prochaine recherche.
+- Migration : suppression des lignes recipe_imports au statut « ignorée » (aucune colonne modifiée). Aucun service ni port en plus.
+- 226 tests automatisés attendus (la v0.13.1 en comptait 226 : un test remplacé, un test de migration ajouté).
+
 ## v0.13.1 - 2026-10-05 - Supprimer une fiche Paperless à relire
 
 - Fiches Paperless → « À relire » : chaque fiche a maintenant un bouton « Supprimer », et un bouton « Tout supprimer » vide toute la liste d'un coup (confirmation demandée).

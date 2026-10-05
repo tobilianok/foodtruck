@@ -34,7 +34,7 @@
             @if ($pending->count() > 1)
                 <form method="post" action="{{ route('recipes.imports.discard-all') }}">
                     @csrf
-                    <button type="submit" class="btn btn-ghost btn-small btn-danger" data-confirm="Supprimer les {{ $pending->count() }} fiches à relire ? Elles ne seront plus relues ni recréées par « Chercher dans Paperless » (les documents restent dans Paperless).">Tout supprimer</button>
+                    <button type="submit" class="btn btn-ghost btn-small btn-danger" data-confirm="Supprimer les {{ $pending->count() }} fiches à relire ? « Chercher dans Paperless » les relira depuis le début tant que leurs documents portent l'étiquette.">Tout supprimer</button>
                 </form>
             @endif
         </div>
@@ -60,28 +60,4 @@
         </section>
     @endif
 
-    @if ($ignored->isNotEmpty())
-        <details class="panel">
-            <summary class="more-summary">Fiches supprimées ({{ $ignored->count() }})</summary>
-            <p class="hint small">Ces fiches ne sont plus relues, même si le document reste dans Paperless. « Reprendre » les remet dans « À relire ».</p>
-            <ul class="receipt-list">
-                @foreach ($ignored as $import)
-                    <li>
-                        <span class="receipt-link">
-                            <span class="receipt-main">
-                                <strong>{{ $import->title ?? 'Document n° '.$import->paperless_document_id }}</strong>
-                                <span class="muted">Paperless n° {{ $import->paperless_document_id }}</span>
-                            </span>
-                            <span class="receipt-side">
-                                <form method="post" action="{{ route('recipes.imports.restore', $import) }}">
-                                    @csrf
-                                    <button type="submit" class="btn btn-ghost btn-small">Reprendre</button>
-                                </form>
-                            </span>
-                        </span>
-                    </li>
-                @endforeach
-            </ul>
-        </details>
-    @endif
 @endsection

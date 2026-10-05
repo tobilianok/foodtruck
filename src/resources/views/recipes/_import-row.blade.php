@@ -32,7 +32,7 @@
     @if (! empty($discard))
         <form method="post" action="{{ route('recipes.imports.ignore', $import) }}" class="import-discard">
             @csrf
-            <button type="submit" class="btn btn-ghost btn-small btn-danger" data-confirm="Supprimer cette fiche ? Elle ne sera plus relue ni recréée par « Chercher dans Paperless » (le document reste dans Paperless){{ $recipe ? ', et son brouillon de recette sera supprimé' : '' }}.">Supprimer</button>
+            <button type="submit" class="btn btn-ghost btn-small btn-danger" data-confirm="Supprimer cette fiche ? « Chercher dans Paperless » la relira depuis le début tant que le document porte l'étiquette{{ $recipe ? ' ; son brouillon de recette sera supprimé' : '' }}.">Supprimer</button>
         </form>
     @endif
 </li>

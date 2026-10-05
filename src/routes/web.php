@@ -55,7 +55,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/recettes/importees/{recipeImport}', [RecipeImportController::class, 'show'])->name('recipes.imports.show');
         Route::post('/recettes/importees/{recipeImport}/relire', [RecipeImportController::class, 'reanalyse'])->name('recipes.imports.reanalyse');
         Route::post('/recettes/importees/{recipeImport}/ignorer', [RecipeImportController::class, 'ignore'])->name('recipes.imports.ignore');
-        Route::post('/recettes/importees/{recipeImport}/restaurer', [RecipeImportController::class, 'restore'])->name('recipes.imports.restore');
         Route::get('/recettes/{recipe:slug}', [RecipeController::class, 'show'])->name('recipes.show');
         Route::get('/recettes/{recipe:slug}/modifier', [RecipeController::class, 'edit'])->name('recipes.edit');
         Route::put('/recettes/{recipe:slug}', [RecipeController::class, 'update'])->name('recipes.update');

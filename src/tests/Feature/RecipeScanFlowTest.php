@@ -237,25 +237,7 @@ class RecipeScanFlowTest extends TestCase
         $this->assertTrue(Recipe::firstWhere('title', 'Gratin de courge butternut et mini macaronis')->isPublished());
     }
 
-    public function test_ignorer_et_reprendre_une_fiche(): void
-    {
-        $this->fakePaperless("Ticket de caisse\nTotal 12,50");
-        $counts = $this->sync();
-        $this->assertSame(1, $counts['to_review']);
-        $import = RecipeImport::firstWhere('paperless_document_id', 480);
-
-        $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/ignorer")->assertRedirect('/recettes/importees');
-        $this->assertSame(RecipeImport::STATUS_IGNORED, $import->fresh()->status);
-
-        // Une fiche ignorée n'est plus relue, même si Paperless la modifie
-        $this->fakePaperless("Ticket de caisse\nTotal 12,50 EUR");
-        $this->assertSame(0, $this->sync()['updated']);
-
-        $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/restaurer")->assertRedirect();
-        $this->assertSame(RecipeImport::STATUS_TO_REVIEW, $import->fresh()->status);
-    }
-
-    public function test_supprimer_une_fiche_a_relire_ne_la_recree_pas_a_la_synchronisation(): void
+    public function test_supprimer_une_fiche_a_relire_l_efface_et_la_synchronisation_la_retraite(): void
     {
         $this->fakePaperless("Ticket de caisse\nTotal 12,50");
         $this->sync();
@@ -267,16 +249,17 @@ class RecipeScanFlowTest extends TestCase
         $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/ignorer")
             ->assertRedirect('/recettes/importees')
             ->assertSessionHas('status', fn ($s) => str_contains($s, 'Fiche supprimée'));
-        $this->assertSame(RecipeImport::STATUS_IGNORED, $import->fresh()->status);
+        $this->assertSame(0, RecipeImport::count(), 'La fiche est effacée, pas mise de côté');
 
-        // « Chercher dans Paperless » (même document, même texte) ne la ramène pas
+        // « Chercher dans Paperless » : le document porte toujours l'étiquette, il est relu depuis zéro
         $this->fakePaperless("Ticket de caisse\nTotal 12,50");
         $counts = $this->sync();
-        $this->assertSame([0, 0], [$counts['new'], $counts['updated']]);
-        $this->assertSame(1, RecipeImport::count(), 'Aucun doublon');
-        $this->assertSame(RecipeImport::STATUS_IGNORED, $import->fresh()->status);
+        $this->assertSame([1, 0], [$counts['new'], $counts['updated']]);
 
-        $this->actingAs($this->user)->get('/recettes/importees')->assertOk()->assertSee('Fiches supprimées (1)');
+        $again = RecipeImport::firstWhere('paperless_document_id', 480);
+        $this->assertNotNull($again);
+        $this->assertSame(RecipeImport::STATUS_TO_REVIEW, $again->status);
+        $this->assertSame(1, RecipeImport::count(), 'Aucun doublon');
     }
 
     public function test_supprimer_une_fiche_avec_brouillon_supprime_le_brouillon(): void
@@ -288,7 +271,7 @@ class RecipeScanFlowTest extends TestCase
         $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/ignorer")->assertRedirect('/recettes/importees');
 
         $this->assertNull(Recipe::find($draft->id));
-        $this->assertSame([RecipeImport::STATUS_IGNORED, null], [$import->fresh()->status, $import->fresh()->recipe_id]);
+        $this->assertNull(RecipeImport::find($import->id));
     }
 
     public function test_un_brouillon_au_planning_ou_une_recette_publiee_ne_sont_pas_supprimes(): void
@@ -305,8 +288,8 @@ class RecipeScanFlowTest extends TestCase
 
         $this->assertNotNull(Recipe::find($planned->id));
         $this->assertNotNull(Recipe::find($published->id));
-        $this->assertSame(RecipeImport::STATUS_CREATED, $a->fresh()->status);
-        $this->assertSame(RecipeImport::STATUS_CREATED, $b->fresh()->status);
+        $this->assertNotNull(RecipeImport::find($a->id));
+        $this->assertNotNull(RecipeImport::find($b->id));
     }
 
     public function test_tout_supprimer_vide_la_liste_a_relire_sans_toucher_aux_recettes_publiees(): void
@@ -322,15 +305,26 @@ class RecipeScanFlowTest extends TestCase
             ->assertRedirect('/recettes/importees')
             ->assertSessionHas('status', fn ($s) => str_contains($s, '2 fiches supprimées'));
 
-        $this->assertSame(2, RecipeImport::where('status', RecipeImport::STATUS_IGNORED)->count());
-        $this->assertSame(RecipeImport::STATUS_CREATED, $done->fresh()->status);
+        $this->assertSame(0, RecipeImport::where('status', RecipeImport::STATUS_TO_REVIEW)->count());
+        $this->assertNotNull(RecipeImport::find($done->id));
         $this->assertNotNull(Recipe::find($published->id));
 
         // Un autre foyer ne supprime rien chez nous
+        $other = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 496, 'title' => 'Encore une', 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_TO_REVIEW]);
         $stranger = $this->householdUser();
-        RecipeImport::where('status', RecipeImport::STATUS_IGNORED)->update(['status' => RecipeImport::STATUS_TO_REVIEW]);
         $this->actingAs($stranger)->post('/recettes/importees/tout-supprimer')->assertRedirect('/recettes/importees');
-        $this->assertSame(2, RecipeImport::where('status', RecipeImport::STATUS_TO_REVIEW)->count());
+        $this->assertNotNull(RecipeImport::find($other->id));
+    }
+
+    public function test_la_migration_efface_les_fiches_deja_mises_de_cote(): void
+    {
+        $old = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 497, 'title' => 'Ancienne', 'raw_text' => 'texte', 'status' => 'ignoree']);
+        $keep = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 498, 'title' => 'A relire', 'raw_text' => 'texte', 'status' => RecipeImport::STATUS_TO_REVIEW]);
+
+        (include database_path('migrations/2026_10_05_980001_forget_ignored_recipe_imports.php'))->up();
+
+        $this->assertNull(RecipeImport::find($old->id));
+        $this->assertNotNull(RecipeImport::find($keep->id));
     }
 
     public function test_document_sans_texte_est_reessaye_plus_tard(): void
