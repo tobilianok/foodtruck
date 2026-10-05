@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-10-05 (v0.12.1)
+Dernière mise à jour : 2026-10-05 (v0.12.2)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -167,8 +167,31 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Aucun service ni port en plus. La migration 2026_10_05_960001 ajoute households.paperless_recipe_tag et les tables recipe_imports (une ligne par document Paperless lu) et recipe_aliases (rapprochements appris) ; la sauvegarde SQL de backups/ est faite par le script avant de migrer. Le script exige la v0.11.0 en place et importe les nouveaux ingrédients (./ft php artisan foodtruck:reference).
 - Dans Paperless : créer l'étiquette « recettes » (ou un autre nom, à indiquer dans Mon foyer → Avancé) et la donner au compte Paperless dédié en lecture (le même que pour les tickets : il doit voir ces documents). Déposer ou scanner une fiche, lui donner l'étiquette : elle est lue à l'heure suivante (tâche planifiée du conteneur scheduler, 20 minutes après les tickets) ou tout de suite avec Recettes → Fiches Paperless → « Chercher dans Paperless ».
 - Le texte lu est celui de la reconnaissance de Paperless : un document dont le texte est vide est réessayé plus tard.
+- Droit de lecture sur les fiches « recettes » : l'étiquette appartient au compte tobilianok, donc le compte foodtruck ne la voit pas sans droit explicite (message « Étiquette « recettes » introuvable dans Paperless (ou invisible pour ce compte) »). Réglé le 2026-10-05 par un workflow Paperless (Paramètres → Workflows) « Foodtruck - lecture des recettes » : déclencheur 1 « Document ajouté » et déclencheur 2 « Document mis à jour », chacun avec le filtre « A l'un de ces tags » = recettes ; action « Assignation » avec « Affecter des autorisations de consultation » → utilisateur foodtruck (aucun droit d'édition, ni propriétaire, ni étiquette). Le second déclencheur est indispensable quand l'étiquette est ajoutée après l'import du document.
+- Documents déjà étiquetés avant la création du workflow (à lancer une fois, sans risque de doublon) :
+
+      cd /opt/stacks/paperless && docker compose exec -T webserver python3 manage.py shell -c "
+      NOM = 'recettes'
+      from django.contrib.auth.models import User
+      from documents.models import Tag, Document
+      from guardian.shortcuts import assign_perm
+      u = User.objects.get(username='foodtruck')
+      t = Tag.objects.filter(name__iexact=NOM).first()
+      assign_perm('view_tag', u, t)
+      docs = Document.objects.filter(tags=t)
+      for d in docs:
+          assign_perm('view_document', u, d)
+      print('OK :', t.name, '|', docs.count(), 'document(s) rendus visibles pour foodtruck')
+      "
+
 - Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 - Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
+
+## Fiches imprimées, bruit de reconnaissance de texte (v0.12.2)
+
+- Aucun service, port ni migration en plus. Le script de mise à jour (foodtruck-update-v0.12.2.sh) exige la v0.12.1 en place, sauvegarde la base, applique un correctif git vérifié (git apply), lance les tests et, en cas d'échec, annule le correctif (git apply -R) sans rien migrer.
+- Le script exige un dépôt Git propre : si des fichiers de la VM ne sont pas validés (git status --short), faire d'abord le commit de la v0.12.1 et celui de src/database/data/.
+- Pour voir la lecture d'une fiche déjà lue avec l'ancienne version : une fiche encore « à relire » est relue automatiquement quand son document est modifié dans Paperless ; sinon ./ft php artisan foodtruck:relire-recettes la relit tout de suite.
 
 ## Fiches de kits repas HelloFresh (v0.12.1)
 
@@ -186,7 +209,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 livrée le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2 livrée le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

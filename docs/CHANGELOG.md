@@ -1,5 +1,18 @@
 # Journal des versions - Foodtruck
 
+## v0.12.2 - 2026-10-05 - Fiches imprimées (Leclerc « Pâtes carbonara ») : bruit de reconnaissance de texte
+
+- Troisième format lu, réglé sur un texte Paperless réel : fiche imprimée Leclerc « Pâtes carbonara » (document n° 484, deux colonnes ingrédients / recette, « Etape 1 » à « Etape 6 »).
+- Puces mal lues : « e 400 g de spaghetti », « ??Sel », « e ??Poivre » et les « e » ou « | » isolés ne polluent plus les ingrédients ; chaque puce commence un nouvel ingrédient, et une ligne qui commence par une quantité en commence toujours un aussi. Le préfixe « ?? » des lignes d'étapes est retiré.
+- Quantité démesurée : « 227100 g de parmesan » (la puce « ?? » lue comme des chiffres) est ramenée à 100 g, et la ligne passe en rouge à la relecture (« le début est sans doute une puce mal lue »). Toute quantité hors normes (plus de 5000 g ou ml, 20 kg ou l, 100 pièces…) est signalée sans être modifiée. Une fiche avec une telle ligne n'est jamais publiée toute seule.
+- Bandeau « 4 pers 20 mn » (pictogrammes mal lus autour) : nombre de personnes et temps lus (le temps est rangé en préparation). Le titre qui revient après la liste (page à deux colonnes) et les traits isolés sont ignorés.
+- « Etape 6 » seule sur sa ligne, texte après une ligne vide : l'étape n'est plus perdue (c'était la dernière étape de la carte).
+- Pied de page « Retrouvez toutes nos recettes sur www.mesrecettes.leclerc » (même en lien markdown) : retiré du texte, l'adresse devient la source de la recette (« mesrecettes.leclerc »).
+- Rapprochement : « jaunes d'œufs » et « blancs d'œufs » donnent l'ingrédient « Oeufs » (si le référentiel l'a sous ce nom ; sinon à choisir à la relecture, le choix est appris).
+- Les fiches Julie Andrieu et HelloFresh donnent exactement la même lecture qu'avant (comparaison avant/après sur les textes de test).
+- Aucune migration, aucun service ni port en plus.
+- 203 tests automatisés attendus (nouveaux : PrintedSheetParserTest, et le flux « fiche imprimée avec quantité démesurée » dans RecipeScanFlowTest).
+
 ## v0.12.1 - 2026-10-05 - Fiches de kits repas (HelloFresh) scannées dans Paperless
 
 - Nouveau lecteur dédié aux cartes de kits repas HelloFresh (App\Support\RecipeScan\MealKitSheetParser), reconnues à « Ingrédients pour N personnes » avec « Mes ustensiles » et « C'est parti ! » (ou la mention HelloFresh). Réglé sur un exemple réel : Curry thaï léger aux crevettes & coco (document Paperless n° 481, semaine 33 de 2025). Le lecteur des autres formats (Julie Andrieu…) est inchangé : sa sortie est identique.

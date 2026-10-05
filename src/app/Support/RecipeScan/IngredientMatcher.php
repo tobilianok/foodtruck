@@ -32,6 +32,8 @@ class IngredientMatcher
         'farine' => 'Farine de blé T55',
         'sucre' => 'Sucre en poudre',
         'riz' => 'Riz long',
+        'jaune oeuf' => 'Oeufs',
+        'blanc oeuf' => 'Oeufs',
         'emmental' => 'Emmental râpé',
         'lardons' => 'Lardons fumés',
         'tomates pelees' => 'Tomates pelées en conserve',

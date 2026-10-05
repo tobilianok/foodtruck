@@ -145,6 +145,31 @@ class RecipeScanFlowTest extends TestCase
             ->assertSee('Texte lu dans Paperless');
     }
 
+    public function test_fiche_imprimee_avec_quantite_demesuree_attend_la_relecture(): void
+    {
+        $this->fakePaperless(RecipeScanParserTest::fixture('leclerc-pates-carbonara'), 484, 'Pâtes carbonara');
+
+        $counts = $this->sync();
+
+        // « 227100 g de parmesan » : puce lue comme des chiffres, corrigée en 100 g mais à vérifier par une personne
+        $this->assertSame([1, 0, 0, 1], [$counts['new'], $counts['published'], $counts['drafts'], $counts['to_review']]);
+        $this->assertSame(0, Recipe::where('source', 'mesrecettes.leclerc')->count());
+
+        $import = RecipeImport::firstWhere('paperless_document_id', 484);
+        $this->assertSame(RecipeImport::STATUS_TO_REVIEW, $import->status);
+        $this->assertCount(6, $import->parsed['recipe']['steps']);
+        $this->assertSame('mesrecettes.leclerc', $import->parsed['recipe']['source']);
+        $this->assertEquals(4, $import->parsed['recipe']['yield_quantity']);
+
+        $parmesan = collect($import->parsed['rows'])->firstWhere('label', 'parmesan rapé');
+        $this->assertEquals(100, $parmesan['quantity']);
+        $this->assertNotNull($parmesan['problem']);
+
+        $this->actingAs($this->user)->get("/recettes/importees/{$import->id}")->assertOk()
+            ->assertSee('Relire la fiche Paperless n° 484')
+            ->assertSee('Incorporer ensuite la préparation');
+    }
+
     public function test_relecture_manuelle_cree_la_recette_et_apprend_le_rapprochement(): void
     {
         $text = str_replace('4 FEUILLES DE SAUGE (OU DE ROMARIN)', '4 FEUILLES DE MIXTURE VERTE', RecipeScanParserTest::fixture('julie-andrieu-gratin-courge'));

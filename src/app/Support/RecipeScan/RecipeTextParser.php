@@ -42,10 +42,30 @@ class RecipeTextParser
         $foundIngredients = false;
         $foundSteps = false;
 
+        $titleKey = self::key(trim((string) $titleHint));
+
         $lines = explode("\n", $clean['text']);
         for ($i = 0; $i < count($lines); $i++) {
             $line = trim($lines[$i]);
             $key = self::key($line);
+
+            // Traits, puces seules : rien à lire
+            if ($line !== '' && preg_match('/^[^\p{L}\p{N}]{1,3}$/u', $line) === 1) {
+                continue;
+            }
+
+            // Le titre revient dans le texte (page à deux colonnes) : déjà connu par le nom du document Paperless
+            if ($line !== '' && $state !== 'head' && $titleKey !== '' && $key === $titleKey) {
+                continue;
+            }
+
+            // « 4 pers  20 mn » : bandeau des personnes et du temps, souvent entouré de pictogrammes mal lus
+            if ($line !== '' && $state !== 'steps' && ($band = self::band($line)) !== null) {
+                $meta['yield'] ??= $band['yield'];
+                $meta['prep'] ??= $band['minutes'];
+
+                continue;
+            }
 
             if ($line !== '' && $state !== 'steps' && ($m = self::metadata($line, $lines, $i)) !== null) {
                 [$name, $value, $consumed] = $m;
@@ -80,7 +100,7 @@ class RecipeTextParser
             match ($state) {
                 'head' => $head[] = $line,
                 'ingredients' => $ingredientLines[] = $line,
-                'steps' => $stepLines[] = $line,
+                'steps' => $stepLines[] = preg_replace('/^\?\?\s*/u', '', $line),
                 'tip' => $tipLines[] = $line,
             };
         }
@@ -141,7 +161,8 @@ class RecipeTextParser
         $author = $clean['author'];
         $source = null;
         if ($author || $clean['domain']) {
-            $source = trim(($author ?: '').($author && $clean['domain'] ? ' ('.$clean['domain'].')' : ($clean['domain'] ?: '')));
+            $domain = $clean['domain'] ? preg_replace('/^www\./i', '', $clean['domain']) : null;
+            $source = trim(($author ?: '').($author && $domain ? ' ('.$domain.')' : ($domain ?: '')));
         }
 
         $haystack = Str::lower($title.' '.($clean['title'] ?? ''));
@@ -240,6 +261,29 @@ class RecipeTextParser
         }
 
         return null;
+    }
+
+    /**
+     * Bandeau « 4 pers 20 mn » : nombre de personnes et durée sur la même ligne (le reste de la ligne est du bruit).
+     *
+     * @return array{yield: ?float, minutes: ?int}|null
+     */
+    private static function band(string $line): ?array
+    {
+        if (mb_strlen($line) > 60 || ! preg_match('/(?<![\d.,])(\d{1,2})\s*(?:pers\b|personnes?\b|parts?\b|portions?\b|couverts?\b)/iu', $line, $y)) {
+            return null;
+        }
+
+        $minutes = preg_match('/(?<![\d.,])\d+\s*(?:h(?:eures?)?\s*\d{0,2}|min(?:utes?)?\b|mn\b)/iu', $line, $d) ? self::duration($d[0]) : null;
+
+        // Une vraie phrase (« Pour 4 personnes, faire cuire… ») n'est pas un bandeau : il ne doit rester que du bruit
+        $rest = preg_replace(['/\d{1,2}\s*(?:pers\b|personnes?\b|parts?\b|portions?\b|couverts?\b)/iu', '/\d+\s*(?:h(?:eures?)?\s*\d{0,2}|min(?:utes?)?\b|mn\b)/iu'], ' ', $line);
+        $words = preg_split('/[^\p{L}]+/u', $rest, -1, PREG_SPLIT_NO_EMPTY);
+        if (count(array_filter($words, fn ($w) => mb_strlen($w) > 2)) > 0) {
+            return null;
+        }
+
+        return ['yield' => (float) $y[1], 'minutes' => $minutes];
     }
 
     private static function yieldNumber(string $text): ?float

@@ -20,6 +20,9 @@ class TextCleaner
         $text = strtr($text, ['ﬁ' => 'fi', 'ﬂ' => 'fl', 'ﬀ' => 'ff', 'ﬃ' => 'ffi', 'ﬄ' => 'ffl', '’' => "'", '‘' => "'", '`' => "'"]);
         $text = self::restoreLigatures($text);
 
+        // Lien markdown en ligne : « sur [www.site.fr](https://www.site.fr) » → « sur www.site.fr »
+        $text = preg_replace('~\[([^\]\n]*)\]\(https?://[^)\s]*\)~u', '$1', $text);
+
         $meta = ['title' => null, 'author' => null, 'domain' => null];
         $header = null;
         $out = [];
@@ -39,6 +42,13 @@ class TextCleaner
                     $header = $line;
                     $meta = ['title' => trim($m['title']), 'author' => trim($m['author']) ?: null, 'domain' => $m['domain'] ?? null];
                 }
+
+                continue;
+            }
+
+            // Pied de page « Retrouvez toutes nos recettes sur www.site.fr » : on garde l'adresse comme source
+            if (preg_match('~^(?:retrouvez|d[eé]couvrez|plus de recettes|toutes (?:nos|les) recettes|rendez-vous|rdv)\b.*?(?:https?://)?(?:www\.)?(?<domain>[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,})\s*[.!]?$~iu', $line, $m)) {
+                $meta['domain'] ??= mb_strtolower($m['domain']);
 
                 continue;
             }

@@ -222,8 +222,10 @@ class StepExtractor
 
             for ($i = $index + 1; $i < $end; $i++) {
                 if ($flow[$i] === '') {
-                    $blankSeen = true;
-                    if ($isLast) {
+                    // « Étape 6 » seule sur sa ligne, suivie d'une ligne vide : le texte de l'étape vient après
+                    if ($isLast && trim(implode('', $parts)) !== '') {
+                        $blankSeen = true;
+
                         break;
                     }
 

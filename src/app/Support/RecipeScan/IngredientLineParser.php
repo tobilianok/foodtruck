@@ -12,6 +12,9 @@ class IngredientLineParser
 {
     private const BULLET = '/^[•·▪●■◦\-–—*]\s*/u';
 
+    /** Puce que la reconnaissance de texte a lue comme « e » ou « ?? » (« e 400 g de spaghetti », « ??Sel »). */
+    private const OCR_BULLET = '/^(?:e\s+(?=\S)|\?\?\s*)(?:e\s+(?=\S)|\?\?\s*)?/u';
+
     private const FRACTIONS = ['½' => 0.5, '¼' => 0.25, '¾' => 0.75, '⅓' => 1 / 3, '⅔' => 2 / 3, '⅛' => 0.125];
 
     /** Mots qui comptent des éléments : l'unité devient « pièce » et le mot est gardé en précision. */
@@ -25,18 +28,22 @@ class IngredientLineParser
      */
     public static function parseSection(array $lines): array
     {
-        $bulletsUsed = collect($lines)->contains(fn ($l) => preg_match(self::BULLET, trim($l)) === 1);
+        $bulletsUsed = collect($lines)->contains(fn ($l) => preg_match(self::BULLET, trim($l)) === 1 || preg_match(self::OCR_BULLET, trim($l)) === 1);
         $logical = [];
         $group = null;
 
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '') {
+            // Reste d'une puce seule (« e », « | »…) : rien à lire
+            if ($line === '' || preg_match('/^[e|©@°•·\-–—*.]$/u', $line) === 1) {
                 continue;
             }
 
-            $isBullet = preg_match(self::BULLET, $line) === 1;
-            $text = trim(preg_replace(self::BULLET, '', $line));
+            $isBullet = preg_match(self::BULLET, $line) === 1 || preg_match(self::OCR_BULLET, $line) === 1;
+            $text = trim(preg_replace(self::OCR_BULLET, '', preg_replace(self::BULLET, '', $line)));
+            if ($text === '') {
+                continue;
+            }
 
             if (! $isBullet && self::isGroupHeading($text)) {
                 $group = mb_substr(self::ucfirst(rtrim($text, " :\u{00A0}")), 0, 60);
@@ -46,7 +53,7 @@ class IngredientLineParser
 
             $continues = false;
             if ($logical !== [] && ! $isBullet) {
-                $continues = $bulletsUsed || (preg_match('/^\p{Ll}/u', $text) === 1 && ! self::startsWithQuantity($text));
+                $continues = ($bulletsUsed && ! self::startsWithQuantity($text)) || (preg_match('/^\p{Ll}/u', $text) === 1 && ! self::startsWithQuantity($text));
             }
 
             if ($continues) {
@@ -107,9 +114,12 @@ class IngredientLineParser
         $unit = null;
         $rest = $text;
         $hadQuantity = false;
+        $quantityText = '';
+        $check = null;
 
         if (preg_match('/^(?<q>\d+\s+\d\s*\/\s*\d|\d+\s*\/\s*\d+|\d+(?:[.,]\d+)?\s*[½¼¾⅓⅔⅛]?|[½¼¾⅓⅔⅛])\s*(?<range>(?:à|-|–)\s*(?<q2>\d+(?:[.,]\d+)?)\s+)?/u', $text, $m)) {
             $quantity = self::number($m['q']);
+            $quantityText = trim($m['q']);
             $rest = trim(mb_substr($text, mb_strlen($m[0])));
             $hadQuantity = true;
 
@@ -140,6 +150,10 @@ class IngredientLineParser
                     $rest = $q[2];
                 }
             }
+        }
+
+        if ($hadQuantity && $quantity !== null) {
+            [$quantity, $check] = self::plausible($quantity, $unit, $quantityText);
         }
 
         $rest = self::stripDe($rest);
@@ -175,10 +189,10 @@ class IngredientLineParser
             return [];
         }
 
-        return [self::item($raw, $rest, $quantity, $unit, $notes, $optional)];
+        return [self::item($raw, $rest, $quantity, $unit, $notes, $optional, $check)];
     }
 
-    private static function item(string $raw, string $name, ?float $quantity, ?string $unit, array $notes, bool $optional): array
+    private static function item(string $raw, string $name, ?float $quantity, ?string $unit, array $notes, bool $optional, ?string $check = null): array
     {
         $notes = array_values(array_unique(array_filter(array_map(fn ($n) => trim((string) $n, " ,;"), $notes))));
 
@@ -189,7 +203,43 @@ class IngredientLineParser
             'unit' => $unit,
             'note' => $notes === [] ? null : mb_substr(implode(', ', $notes), 0, 120),
             'optional' => $optional,
-        ];
+        ] + ($check === null ? [] : ['check' => $check]);
+    }
+
+    /**
+     * Une quantité démesurée (« 227100 g de parmesan ») vient presque toujours d'une puce lue comme des chiffres :
+     * on enlève le début, et la ligne est signalée pour être vérifiée.
+     *
+     * @return array{0: float, 1: ?string}
+     */
+    private static function plausible(float $quantity, ?string $unit, string $text): array
+    {
+        $max = match ($unit) {
+            'g', 'ml' => 5000,
+            'kg', 'l' => 20,
+            'cl' => 500,
+            'dl' => 50,
+            'cas', 'cac' => 50,
+            'piece' => 100,
+            'pincee', 'verre' => 20,
+            default => null,
+        };
+
+        if ($max === null || $quantity <= $max) {
+            return [$quantity, null];
+        }
+
+        $digits = preg_replace('/\D/', '', $text);
+        if (in_array($unit, ['g', 'ml', 'piece'], true) && strlen($digits) > 2 && $quantity === (float) $digits) {
+            for ($i = 1; $i < strlen($digits); $i++) {
+                $cut = substr($digits, $i);
+                if ($cut[0] !== '0' && (float) $cut <= $max) {
+                    return [(float) $cut, "Quantité lue « {$digits} » : le début est sans doute une puce mal lue, corrigée en {$cut}. À vérifier avec la fiche."];
+                }
+            }
+        }
+
+        return [$quantity, "Quantité inhabituelle (« {$text} »). À vérifier avec la fiche."];
     }
 
     /** @return array{0: ?string, 1: string, 2: ?string} code d'unité, reste de la ligne, mot de comptage éventuel */
