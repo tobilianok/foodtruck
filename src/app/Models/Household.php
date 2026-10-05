@@ -126,10 +126,10 @@ class Household extends Model
         return $this->members->pluck('id')->map(fn ($id) => (int) $id)->diff($absent)->values()->all();
     }
 
-    /** Nombre de parts d'un repas pour tout le foyer (somme des coefficients). */
-    public function totalPortions(): float
+    /** Nombre de parts d'un repas pour tout le foyer (somme des coefficients à la date donnée, aujourd'hui par défaut). */
+    public function totalPortions(?\Illuminate\Support\Carbon $on = null): float
     {
-        return (float) $this->members->sum('portion_coefficient');
+        return (float) $this->members->sum(fn (HouseholdMember $m) => $m->coefficientOn($on));
     }
 
     public function budgetEuros(): float

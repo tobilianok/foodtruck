@@ -1,6 +1,6 @@
 # Cadrage - Foodtruck (application menus / recettes / courses)
 
-Version du document : v0.9.1 (étape 10 - économies : bilan, ticket ↔ liste, plats à remplacer, reset ; en attente de validation)
+Version du document : v0.10.0 (étape 11 - âge des membres ; v0.9.1 et v0.10.0 en attente de validation)
 Dernière mise à jour : 2026-10-05
 Langue de travail : français. Chaque livraison = numéro de version incrémenté (semver) + commandes exactes pour la VM et pour GitHub + mise à jour de ces docs (CADRAGE.md, DEPLOIEMENT.md, CHANGELOG.md).
 
@@ -27,7 +27,7 @@ Fonctionnel
 - Rattachement d'un compte à un foyer (décision v0.2.0) : l'admin du foyer génère un lien d'invitation à usage unique, valable 7 jours ; sans invitation, un compte crée son propre foyer via l'assistant. Un compte = un seul foyer ; il peut le quitter.
 - Droits sur le foyer (décision v0.2.0) : seuls les admins du foyer modifient réglages, membres, appareils, comptes et invitations ; les autres consultent. Le créateur du foyer en est admin ; le dernier admin ne peut ni partir ni être rétrogradé.
 - Deux niveaux de rôle : rôle applicatif (users.role admin/membre) et rôle dans le foyer (users.household_role admin/membre).
-- Composition du foyer paramétrable à la création du compte (assistant de première connexion). Coefficients : adulte 1, enfant 0,6, tout-petit 0 (modifiables).
+- Composition du foyer paramétrable à la création du compte (assistant de première connexion). Coefficients : voir « Âge des membres » (v0.10.0), qui remplace adulte 1 / enfant 0,6 / tout-petit 0.
 - Équipements de cuisine du foyer paramétrables : liste commune de 14 appareils par défaut (four, plaques, micro-ondes, air fryer, Companion, Cookeo, yaourtière, robot pâtissier, blender, mixeur plongeant, machine à pain, autocuiseur, congélateur, barbecue/plancha), extensible par saisie libre (décision v0.2.0) ; chaque appareil a un slug qui servira aux recettes.
 - Magasins : Leclerc Drive, Carrefour, Grand Frais, Hyper U, Lidl, Morin Fruits et Légumes (primeur). Toutes les enseignes sont fréquentées.
 - Budget : 100 EUR par semaine, plafond ferme, calculé sur les ingrédients uniquement.
@@ -60,6 +60,18 @@ Stock et anti-gaspi (décisions du 2026-10-05, v0.9.0)
 - Pas encore : durées de conservation proposées par défaut, et sortie du stock quand un plat est cuisiné (le stock ne diminue qu'à la fin des courses ou à la main).
 - Découpage : v0.9.0 = stock et anti-gaspi ; v0.9.1 = rapprochement ticket ↔ liste, plat trop cher à remplacer, bilan, alerte de prix, commande de reset.
 
+Âge des membres (décisions du 2026-10-05, v0.10.0)
+- Chaque membre peut avoir une date de naissance (facultative pour un adulte). Le coefficient de portion suit l'âge à la date de chaque repas (planning à venir compris) : moins de 1 an 0 (lait, purées : pas compté) ; 1 à 3 ans 0,3 (plat simple à part) ; 3 à 5 ans 0,5 (mange comme les adultes) ; 5 à 12 ans 0,7 ; 12 à 15 ans 0,8 ; 15 ans et plus 1. Le changement a lieu le jour de l'anniversaire. Grille dans HouseholdMember::AGE_GRID (une seule source : serveur et formulaires).
+- Réglage manuel possible (case « Régler à la main », ex. gros mangeur à 1,5) : le coefficient reste fixe. Sans date de naissance, le coefficient saisi reste fixe (comportement des versions précédentes : rien ne change tant qu'aucune date n'est saisie).
+- Invités : adulte 1 part, enfant 0,6 part (inchangé).
+- Age affiché dans Mon foyer (« 2 ans aujourd'hui · coefficient automatique · plat simple à part »), en mois sous 2 ans.
+
+Interface (décision du 2026-10-05, v0.11.0)
+- Constat de Louis : le fonctionnement est bon mais l'appli est floue et compliquée pour quelqu'un qui la découvre. Refonte complète de l'interface, plus ergonomique et simple à prendre en main, appliquée directement (sans maquettes préalables, au choix de Louis). Pistes : navigation par tâches, accueil guidé « cette semaine », menu mobile en bas, états vides explicatifs, vocabulaire simplifié, aide contextuelle. Le fonctionnement existant est conservé.
+
+Recettes scannées (décision du 2026-10-05, v0.12.0)
+- Fiches de recettes scannées dans Paperless (étiquette dédiée, comme les tickets) : Foodtruck les récupère automatiquement et crée la recette avec tous ses détails (titre, rendement, durées, ingrédients, étapes). Lecteur intégré gratuit, sans IA ni API externe, réglé sur de vraies fiches (Louis fournira 2 à 3 scans / textes Paperless) ; recette créée en brouillon à relire ; publiée seule si tout est reconnu. L'option API Claude a été écartée pour l'instant.
+
 Économies et bilan (décisions du 2026-10-05, v0.9.1)
 - Un ticket traité est rattaché automatiquement à la liste de courses dont la période correspond à sa date d'achat (courses faites de 4 jours avant le début à 1 jour après la fin ; la liste dont le début est le plus proche l'emporte). Le rattachement se change ou se retire à la main depuis la fiche du ticket, et un ticket peut être rattaché depuis le bilan.
 - Articles retrouvés sur le ticket (même ingrédient, quel que soit le magasin) : cochés automatiquement dans la liste (cases partagées prévenues). Sur une liste déjà classée, rien n'est coché (le stock a déjà été mis à jour sans eux).
@@ -74,7 +86,7 @@ Stock et anti-gaspi (décisions du 2026-10-05, v0.9.0)
 Comptes et foyers
 - users : authentik_sub (identifiant unique), username, email (non unique), nom affiché, rôle applicatif (admin/membre), dernière connexion, household_id, household_role (admin/membre)
 - households : nom, budget hebdo en centimes (10000 par défaut), magasin principal, magasin des fruits et légumes, créateur
-- household_members : nom, catégorie (adulte/enfant/tout-petit), coefficient de portion (décimal 0 à 2), compte lié optionnel (un compte = une fiche au plus), position
+- household_members : nom, date de naissance (birth_date, v0.10.0), catégorie (adulte/enfant/tout-petit, déduite de l'âge), coefficient de portion (décimal 0 à 2 ; enregistré = valeur du jour de la dernière sauvegarde), coefficient réglé à la main (coefficient_manual), compte lié optionnel (un compte = une fiche au plus), position
 - equipment : liste commune des appareils (nom, slug unique, par défaut ou ajouté, créé par)
 - household_equipment : appareils dont dispose le foyer
 - household_invitations : foyer, empreinte SHA-256 du jeton (jamais le jeton en clair), créée par, expiration, utilisée le / par
@@ -144,8 +156,11 @@ Calculées automatiquement : de saison, économique (coût par portion), maison 
 8. Planning de la semaine et repas cumulables (v0.7.0) - VALIDÉ le 2026-10-03
 9. Liste de courses agrégée, par magasin et par rayon, cochable en temps réel (v0.8.0) - VALIDÉ le 2026-10-05
 10. Économies : stock et anti-gaspi (v0.9.0) - VALIDÉ le 2026-10-05 ; rapprochement ticket ↔ liste, bilan, plat trop cher à remplacer, alerte de prix, reset (v0.9.1) - LIVRÉ, en attente de validation
-11. Menu de la semaine proposé automatiquement dans le budget (v0.10.0)
-12. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
+11. Âge des membres : date de naissance et coefficients automatiques (v0.10.0) - LIVRÉ, en attente de validation
+12. Refonte de l'interface : plus simple et ergonomique pour un nouvel utilisateur (v0.11.0)
+13. Recettes scannées dans Paperless récupérées automatiquement (v0.12.0)
+14. Menu de la semaine proposé automatiquement dans le budget (v0.13.0)
+15. Bonus : import de recette par URL, sauvegardes automatiques (dump quotidien vers archive-nas), supervision (état de la synchro Paperless dans Prometheus/Talk), IA locale pour les libellés inconnus, équilibre nutritionnel hebdomadaire
 
 Note : l'assistant "Mon foyer", initialement rattaché au socle, a été isolé en v0.2.0 pour que la première mise en ligne ne teste que l'infrastructure et la connexion.
 
@@ -202,6 +217,8 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.9.0 : stock et anti-gaspi livrés - page Stock (ajout, modification, suppression, lieux, dates limites, « À consommer vite »), déduction du stock dans la liste de courses (« Déjà en stock », « ne pas utiliser le stock »), stock mis à jour en fin de courses (surplus d'emballages entrés, stock utilisé sorti), « Que cuisiner ? » (recettes selon le stock), bandeau « À consommer vite » dans le Planning, entrée « Stock » et carte sur l'accueil ; 130 tests.
 - v0.9.0 installée et validée par Louis le 2026-10-05 (« Ca a l'air ok, on fera un point complet a la fin »). Louis a demandé un reset complet des données d'essai : ajouté en v0.9.1.
 - v0.9.1 : rapprochement ticket ↔ liste (lien automatique, cases cochées, comparaison payé / estimé), page Bilan (ouverte à « Courses terminées »), alertes de prix qui montent et estimations recalées, plats trop chers à remplacer dans le planning, commande ./ft reset, carte « Économies » sur l'accueil ; 150 tests.
+- v0.10.0 : âge des membres livré - date de naissance dans Mon foyer et dans l'assistant, coefficient automatique selon la grille (calculé à la date de chaque repas pour le planning, les listes de courses et les coûts), réglage manuel, âge et note affichés ; 158 tests.
+- Demandes de Louis du 2026-10-05 : âges (livré en v0.10.0), refonte de l'interface (v0.11.0), recettes scannées via Paperless (v0.12.0). La v0.13.0 (menu automatique) passe après.
 
 ## Questions ouvertes
 

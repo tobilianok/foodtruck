@@ -1,6 +1,6 @@
 # Déploiement - Foodtruck
 
-Dernière mise à jour : 2026-10-05 (v0.9.1)
+Dernière mise à jour : 2026-10-05 (v0.10.0)
 
 ## Infrastructure constatée (reconnaissance du 2026-09-28)
 
@@ -148,6 +148,12 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Restaurer une sauvegarde (si besoin) : gzip -dc backups/FICHIER.sql.gz | docker compose exec -T db sh -c 'exec mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" foodtruck'
 - ft est livré par le script de mise à jour (nouvelle commande reset).
 
+## Âge des membres (v0.10.0)
+
+- Aucun service ni port en plus. La migration 2026_10_05_950001 ajoute birth_date et coefficient_manual à household_members ; la sauvegarde SQL de backups/ est faite par le script avant de migrer.
+- Les membres existants gardent leur coefficient actuel. Pour activer le calcul automatique : Mon foyer, saisir la date de naissance (laisser « Régler à la main » décoché), Enregistrer.
+- Le script de mise à jour exige la v0.9.1 en place (sinon il s'arrête sans rien modifier).
+
 ## Données de référence
 
 - Ingrédients de départ : src/database/data/ingredients.php (une ligne par ingrédient, prix estimés en centimes par magasin). Ajouter une ligne puis relancer foodtruck:reference pour l'importer.
@@ -157,7 +163,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.9.0 (v0.9.0 validée le 2026-10-05) ; v0.9.1 livrée, à installer puis pousser.
+- git@github.com:tobilianok/foodtruck.git (privé), branche main, tags v0.1.0 à v0.9.0 (v0.9.0 validée le 2026-10-05) ; v0.9.1 et v0.10.0 livrées, à installer puis pousser (v0.9.1 d'abord).
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

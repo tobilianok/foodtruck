@@ -8,7 +8,7 @@
         <p class="lead">Trois questions pour créer ton foyer. Tout reste modifiable ensuite dans « Mon foyer ».</p>
     </section>
 
-    <form method="post" action="{{ route('onboarding.store') }}" class="stack" data-coefficients="{{ json_encode(collect($categories)->map(fn ($c) => $c['coefficient'])) }}">
+    <form method="post" action="{{ route('onboarding.store') }}" class="stack" data-age-grid="{{ json_encode(collect(\App\Models\HouseholdMember::AGE_GRID)->map(fn ($r) => [$r[0], $r[1]])) }}">
         @csrf
 
         <section class="panel">
@@ -32,10 +32,10 @@
 
         <section class="panel">
             <h2><span class="step">2</span> Qui mange à la maison ?</h2>
-            <p class="hint">Le coefficient sert à calculer les portions : un adulte compte pour 1, un enfant pour 0,6 et un tout-petit pour 0 (il partage les assiettes). Ajuste-le si besoin.</p>
+            <p class="hint">Le coefficient sert à calculer les portions. Avec la date de naissance, il suit l'âge tout seul ({{ \App\Models\HouseholdMember::gridSummary() }}). Sans date de naissance (adultes), saisis-le : 1 par défaut. « Régler à la main » le fixe (ex. gros mangeur : 1,5).</p>
 
             @php
-                $members = old('members', [['name' => auth()->user()->firstName(), 'category' => 'adulte', 'coefficient' => 1]]);
+                $members = old('members', [['name' => auth()->user()->firstName(), 'coefficient' => 1]]);
                 $me = old('me', array_key_first($members));
             @endphp
 
@@ -46,7 +46,7 @@
             </div>
 
             <template data-member-template>
-                @include('onboarding.member-row', ['key' => '__KEY__', 'member' => ['name' => '', 'category' => 'adulte', 'coefficient' => 1], 'me' => null])
+                @include('onboarding.member-row', ['key' => '__KEY__', 'member' => ['name' => '', 'coefficient' => 1], 'me' => null])
             </template>
 
             <button type="button" class="btn btn-ghost" data-add-member>+ Ajouter une personne</button>

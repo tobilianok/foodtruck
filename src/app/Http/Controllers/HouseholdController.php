@@ -22,7 +22,6 @@ class HouseholdController extends Controller
 
         return view('household.show', [
             'household' => $household,
-            'categories' => HouseholdMember::CATEGORIES,
             'equipment' => Equipment::ordered(),
             'owned' => $household->equipment->pluck('id')->all(),
             'invitations' => $household->invitations()->with('creator', 'user')->limit(10)->get(),
@@ -102,10 +101,8 @@ class HouseholdController extends Controller
 
         DB::transaction(function () use ($household, $data) {
             $this->releaseAccount($household->id, $data['user_id'] ?? null);
-            $household->members()->create([
+            $household->members()->create(HouseholdMember::attributesFromInput($data['birth_date'] ?? null, $data['coefficient'] ?? null, ! empty($data['coefficient_manual'])) + [
                 'name' => trim($data['name']),
-                'category' => $data['category'],
-                'portion_coefficient' => round((float) $data['coefficient'], 2),
                 'user_id' => $data['user_id'] ?? null,
                 'position' => ((int) $household->members()->max('position')) + 10,
             ]);
@@ -122,10 +119,8 @@ class HouseholdController extends Controller
 
         DB::transaction(function () use ($member, $household, $data) {
             $this->releaseAccount($household->id, $data['user_id'] ?? null, $member->id);
-            $member->update([
+            $member->update(HouseholdMember::attributesFromInput($data['birth_date'] ?? null, $data['coefficient'] ?? null, ! empty($data['coefficient_manual'])) + [
                 'name' => trim($data['name']),
-                'category' => $data['category'],
-                'portion_coefficient' => round((float) $data['coefficient'], 2),
                 'user_id' => $data['user_id'] ?? null,
             ]);
         });
@@ -216,10 +211,11 @@ class HouseholdController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:60'],
-            'category' => ['required', Rule::in(array_keys(HouseholdMember::CATEGORIES))],
-            'coefficient' => ['required', 'numeric', 'min:0', 'max:2'],
+            'birth_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1899-12-31'],
+            'coefficient' => ['nullable', 'numeric', 'min:0', 'max:2'],
+            'coefficient_manual' => ['nullable', 'boolean'],
             'user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('household_id', $householdId)],
-        ], [], ['name' => 'prénom', 'category' => 'catégorie', 'coefficient' => 'coefficient', 'user_id' => 'compte lié']);
+        ], [], ['name' => 'prénom', 'birth_date' => 'date de naissance', 'coefficient' => 'coefficient', 'user_id' => 'compte lié']);
     }
 
     /** Un compte ne peut être lié qu'à un seul membre : on le détache des autres fiches. */

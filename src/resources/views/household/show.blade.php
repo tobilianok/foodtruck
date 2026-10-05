@@ -64,29 +64,15 @@
     {{-- Membres --}}
     <section class="panel">
         <h2>Membres et portions</h2>
-        <p class="hint">Adulte 1 · enfant 0,6 · tout-petit 0 par défaut. Le compte lié permet de savoir qui est qui.</p>
+        <p class="hint">Avec la date de naissance, le coefficient suit l'âge tout seul, à la date de chaque repas : {{ \App\Models\HouseholdMember::gridSummary() }}.
+            Sans date de naissance, le coefficient saisi reste fixe ; « Régler à la main » le fixe aussi (ex. gros mangeur : 1,5).</p>
 
         <div class="list">
             @foreach ($household->members as $member)
                 @if ($canManage)
                     <form method="post" action="{{ route('household.members.update', $member) }}" class="member-row">
                         @csrf @method('put')
-                        <label class="field">
-                            <span>Prénom</span>
-                            <input type="text" name="name" value="{{ $member->name }}" maxlength="60" required>
-                        </label>
-                        <label class="field">
-                            <span>Catégorie</span>
-                            <select name="category">
-                                @foreach ($categories as $value => $category)
-                                    <option value="{{ $value }}" @selected($member->category === $value)>{{ $category['label'] }}</option>
-                                @endforeach
-                            </select>
-                        </label>
-                        <label class="field field-small">
-                            <span>Coefficient</span>
-                            <input type="number" name="coefficient" value="{{ $member->portion_coefficient }}" min="0" max="2" step="0.05" required>
-                        </label>
+                        @include('household._member-fields', ['prefix' => '', 'member' => $member])
                         <label class="field">
                             <span>Compte lié</span>
                             <select name="user_id">
@@ -108,8 +94,8 @@
                 @else
                     <div class="member-line">
                         <strong>{{ $member->name }}</strong>
-                        <span>{{ $member->categoryLabel() }}</span>
-                        <span>coefficient {{ str_replace('.', ',', (string) $member->portion_coefficient) }}</span>
+                        @if ($member->ageLabel()) <span>{{ $member->ageLabel() }}</span> @else <span>{{ $member->categoryLabel() }}</span> @endif
+                        <span>coefficient {{ str_replace('.', ',', (string) $member->coefficientOn()) }}</span>
                         @if ($member->user)
                             <span class="tag">{{ $member->user->name }}</span>
                         @endif
@@ -123,22 +109,7 @@
                 <summary>+ Ajouter une personne</summary>
                 <form method="post" action="{{ route('household.members.store') }}" class="member-row">
                     @csrf
-                    <label class="field">
-                        <span>Prénom</span>
-                        <input type="text" name="name" maxlength="60" required>
-                    </label>
-                    <label class="field">
-                        <span>Catégorie</span>
-                        <select name="category" data-category>
-                            @foreach ($categories as $value => $category)
-                                <option value="{{ $value }}" data-coefficient="{{ $category['coefficient'] }}">{{ $category['label'] }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <label class="field field-small">
-                        <span>Coefficient</span>
-                        <input type="number" name="coefficient" value="1" min="0" max="2" step="0.05" required data-coefficient>
-                    </label>
+                    @include('household._member-fields', ['prefix' => '', 'member' => ['name' => '', 'coefficient' => 1]])
                     <div class="row-actions"><button type="submit" class="btn btn-small">Ajouter</button></div>
                 </form>
             </details>

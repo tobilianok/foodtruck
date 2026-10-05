@@ -29,21 +29,49 @@
         }
     });
 
-    // Catégorie → coefficient proposé par défaut
-    var defaults = { 'adulte': 1, 'enfant': 0.6, 'tout-petit': 0 };
-    var form = document.querySelector('[data-coefficients]');
-    if (form) {
-        try { defaults = JSON.parse(form.getAttribute('data-coefficients')); } catch (e) { /* valeurs par défaut */ }
+    // Âge → coefficient : grille [[âge limite, coefficient], …] (identique à la grille serveur)
+    var grid = [[1, 0], [3, 0.3], [5, 0.5], [12, 0.7], [15, 0.8], [200, 1]];
+    var formWithGrid = document.querySelector('[data-age-grid]');
+    if (formWithGrid) {
+        try { grid = JSON.parse(formWithGrid.getAttribute('data-age-grid')); } catch (e) { /* grille par défaut */ }
+    }
+
+    function coefficientForBirth(value) {
+        var birth = new Date(value + 'T00:00:00');
+        if (isNaN(birth.getTime())) return null;
+        var today = new Date();
+        var years = today.getFullYear() - birth.getFullYear();
+        if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) years--;
+        years = Math.max(0, years);
+        for (var i = 0; i < grid.length; i++) {
+            if (years < grid[i][0]) return grid[i][1];
+        }
+        return grid[grid.length - 1][1];
+    }
+
+    // Une personne : date de naissance saisie → coefficient automatique (verrouillé) sauf « Régler à la main »
+    function syncMember(row) {
+        var birth = row.querySelector('[data-birth]');
+        var input = row.querySelector('[data-coefficient]');
+        var manual = row.querySelector('[data-manual]');
+        var wrap = row.querySelector('[data-manual-wrap]');
+        if (!birth || !input) return;
+
+        var auto = birth.value ? coefficientForBirth(birth.value) : null;
+        if (wrap) wrap.hidden = auto === null;
+        if (auto !== null && !(manual && manual.checked)) {
+            input.value = auto;
+            input.readOnly = true;
+        } else {
+            input.readOnly = false;
+        }
     }
 
     document.addEventListener('change', function (event) {
-        if (!event.target.matches('[data-category]')) return;
+        if (!event.target.matches('[data-birth], [data-manual]')) return;
         var row = event.target.closest('.member-row');
-        var input = row && row.querySelector('[data-coefficient]');
-        if (input && defaults[event.target.value] !== undefined) {
-            input.value = defaults[event.target.value];
-            updateTotal();
-        }
+        if (row) syncMember(row);
+        updateTotal();
     });
 
     // Assistant : ajout / retrait de personnes et total des parts

@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.10.0 - 2026-10-05 - Âge des membres
+
+- Chaque personne du foyer peut avoir une date de naissance (Mon foyer et assistant de première connexion) ; facultative pour un adulte.
+- Le coefficient de portion suit l'âge, à la date de chaque repas : moins de 1 an 0 ; 1 à 3 ans 0,3 (plat simple à part) ; 3 à 5 ans 0,5 ; 5 à 12 ans 0,7 ; 12 à 15 ans 0,8 ; 15 ans et plus 1. Il change le jour de l'anniversaire, y compris pour les repas déjà planifiés plus tard : planning, quantités des recettes, listes de courses et coûts en tiennent compte.
+- « Régler à la main » fixe le coefficient d'une personne (gros mangeur à 1,5). Sans date de naissance, le coefficient saisi reste fixe : rien ne change pour les membres existants tant qu'aucune date n'est renseignée (pense à cocher « Régler à la main » pour garder un coefficient particulier en saisissant une date).
+- Âge affiché (« 14 mois », « 7 ans aujourd'hui »), avec la note de la grille (« plat simple à part », « mange comme les adultes »). Le champ « Catégorie » disparaît : elle se déduit de l'âge.
+- Migration : colonnes birth_date et coefficient_manual sur household_members.
+- 158 tests automatisés.
+
 ## v0.9.1 - 2026-10-05 - Économies : bilan, tickets rattachés aux listes, plats à remplacer, reset
 
 - Commande `./ft reset` : remise à zéro du planning, des listes de courses et du stock après des essais. Montre ce qui sera effacé, demande de taper EFFACER, sauvegarde la base dans backups/ avant d'effacer. Comptes, foyers et réglages, recettes, référentiel, tickets et prix sont conservés. `--foyer=N` pour un seul foyer. Jamais lancée par les scripts de mise à jour.

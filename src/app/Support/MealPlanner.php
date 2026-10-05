@@ -142,7 +142,7 @@ class MealPlanner
                 continue;
             }
 
-            $serving = RecipeServing::for($entry->recipe, $household, $entry->servingInput());
+            $serving = RecipeServing::for($entry->recipe, $household, $entry->servingInput(), $entry->date);
             $cost = RecipeCost::compute($entry->recipe, $serving->factor);
             $perEntry[$entry->id] = $cost['total_cents'];
             $total += $cost['total_cents'];

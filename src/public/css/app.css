@@ -144,10 +144,14 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 
 .member-row {
-    display: grid; grid-template-columns: minmax(140px, 1.4fr) minmax(120px, 1fr) 110px auto auto;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px; align-items: end; padding: 12px 0; border-bottom: 1px dashed var(--line);
 }
-.panel .member-row:has(.row-actions) { grid-template-columns: minmax(140px, 1.3fr) minmax(120px, 1fr) 110px minmax(140px, 1fr) auto; }
+.member-row .field-small { max-width: none; }
+.member-age { grid-column: 1 / -1; margin-top: -6px; }
+.check-manual { padding-bottom: 10px; }
+.check-manual[hidden] { display: none; }
+input[readonly] { background: var(--bg); color: var(--muted); }
 .row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .member-line, .account-line {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;

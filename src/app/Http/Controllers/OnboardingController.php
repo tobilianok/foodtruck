@@ -25,7 +25,6 @@ class OnboardingController extends Controller
         }
 
         return view('onboarding.show', [
-            'categories' => HouseholdMember::CATEGORIES,
             'equipment' => Equipment::ordered(),
             'stores' => Store::active(),
         ]);
@@ -46,8 +45,9 @@ class OnboardingController extends Controller
             'produce_store_id' => ['nullable', 'integer', 'exists:stores,id'],
             'members' => ['required', 'array', 'min:1', 'max:20'],
             'members.*.name' => ['required', 'string', 'max:60'],
-            'members.*.category' => ['required', Rule::in(array_keys(HouseholdMember::CATEGORIES))],
-            'members.*.coefficient' => ['required', 'numeric', 'min:0', 'max:2'],
+            'members.*.birth_date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today', 'after:1899-12-31'],
+            'members.*.coefficient' => ['nullable', 'numeric', 'min:0', 'max:2'],
+            'members.*.coefficient_manual' => ['nullable', 'boolean'],
             'me' => ['nullable', 'integer'],
             'equipment' => ['nullable', 'array'],
             'equipment.*' => ['integer', 'exists:equipment,id'],
@@ -57,7 +57,7 @@ class OnboardingController extends Controller
             'budget' => 'budget hebdomadaire',
             'members' => 'membres',
             'members.*.name' => 'prénom',
-            'members.*.category' => 'catégorie',
+            'members.*.birth_date' => 'date de naissance',
             'members.*.coefficient' => 'coefficient',
         ]);
 
@@ -77,10 +77,8 @@ class OnboardingController extends Controller
 
             $position = 0;
             foreach ($data['members'] as $key => $member) {
-                $household->members()->create([
+                $household->members()->create(HouseholdMember::attributesFromInput($member['birth_date'] ?? null, $member['coefficient'] ?? null, ! empty($member['coefficient_manual'])) + [
                     'name' => trim($member['name']),
-                    'category' => $member['category'],
-                    'portion_coefficient' => round((float) $member['coefficient'], 2),
                     'user_id' => isset($data['me']) && (string) $data['me'] === (string) $key ? $user->id : null,
                     'position' => $position += 10,
                 ]);

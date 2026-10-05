@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Household;
 use App\Models\HouseholdMember;
 use App\Models\Recipe;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -61,7 +62,8 @@ class RecipeServing
         $this->members = collect();
     }
 
-    public static function for(Recipe $recipe, ?Household $household, array $input = []): self
+    /** $on : jour du repas, pour les coefficients qui suivent l'âge (aujourd'hui par défaut). */
+    public static function for(Recipe $recipe, ?Household $household, array $input = [], ?Carbon $on = null): self
     {
         $base = max((float) $recipe->yield_quantity, 0.0001);
 
@@ -94,7 +96,7 @@ class RecipeServing
             $serving->manual = min(round($manual * 2) / 2 ?: 0.5, 50);
         }
 
-        $computed = $serving->members->whereIn('id', $serving->eaters)->sum('portion_coefficient')
+        $computed = $serving->members->whereIn('id', $serving->eaters)->sum(fn (HouseholdMember $m) => $m->coefficientOn($on))
             + $serving->adults * HouseholdMember::defaultCoefficient('adulte')
             + $serving->children * HouseholdMember::defaultCoefficient('enfant');
 

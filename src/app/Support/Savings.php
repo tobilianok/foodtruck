@@ -62,7 +62,7 @@ class Savings
             $options = [];
 
             foreach ($pool->where('category', $entry->recipe->category) as $recipe) {
-                $alternative = RecipeCost::compute($recipe, RecipeServing::for($recipe, $household, $entry->servingInput())->factor);
+                $alternative = RecipeCost::compute($recipe, RecipeServing::for($recipe, $household, $entry->servingInput(), $entry->date)->factor);
                 if (! $alternative['complete']) {
                     continue;
                 }

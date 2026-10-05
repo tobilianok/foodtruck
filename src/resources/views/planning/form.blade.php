@@ -8,6 +8,7 @@
         $isLeftover = $entry->isLeftover();
         $source = $isLeftover ? $entry->source : null;
         $date = $entry->date instanceof \Carbon\CarbonInterface ? $entry->date->toDateString() : $entry->date;
+        $on = \Illuminate\Support\Carbon::parse($date ?: now('Europe/Paris'));
     @endphp
 
     <section class="hero hero-compact">
@@ -85,7 +86,7 @@
                                 @foreach ($household->members as $member)
                                     <label class="chip-check">
                                         <input type="checkbox" name="qui[]" value="{{ $member->id }}" @checked(in_array($member->id, old('qui', $eaters)))>
-                                        <span>{{ $member->name }} <small>{{ $U::number($member->portion_coefficient) }}</small></span>
+                                        <span>{{ $member->name }} <small>{{ $U::number($member->coefficientOn($on)) }}</small></span>
                                     </label>
                                 @endforeach
                                 <small class="muted usual-hint" @unless ($followsUsual) hidden @endunless>d'après la semaine type</small>
@@ -108,7 +109,7 @@
                             <small class="muted">les restes vont sur les déjeuners et dîners libres suivants où quelqu'un mange à la maison</small>
                         </fieldset>
                         <label class="field-inline"><span>Parts par repas <small class="muted">(réglage libre)</small></span>
-                            <input type="number" name="parts" min="0.5" max="50" step="0.5" value="{{ old('parts', $entry->parts_manual) }}" placeholder="{{ $U::number($household->members->whereIn('id', $eaters)->sum('portion_coefficient')) }}" inputmode="decimal"></label>
+                            <input type="number" name="parts" min="0.5" max="50" step="0.5" value="{{ old('parts', $entry->parts_manual) }}" placeholder="{{ $U::number($household->members->whereIn('id', $eaters)->sum(fn ($m) => $m->coefficientOn($on))) }}" inputmode="decimal"></label>
                     </div>
 
                     <div class="serving-form" data-mode-block="fournee">

@@ -133,7 +133,7 @@ class MealPlanEntry extends Model
             return null;
         }
 
-        return RecipeServing::for($source->recipe, $household ?? $this->household, $source->servingInput());
+        return RecipeServing::for($source->recipe, $household ?? $this->household, $source->servingInput(), $source->date);
     }
 
     /** Parts servies sur ce créneau (un repas du plat, restes compris). */

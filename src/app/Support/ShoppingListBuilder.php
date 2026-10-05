@@ -144,7 +144,7 @@ class ShoppingListBuilder
         $needs = [];
 
         foreach ($entries as $entry) {
-            $serving = RecipeServing::for($entry->recipe, $household, $entry->servingInput());
+            $serving = RecipeServing::for($entry->recipe, $household, $entry->servingInput(), $entry->date);
 
             foreach ($entry->recipe->ingredients as $line) {
                 if ($line->is_optional) {
