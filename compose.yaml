@@ -20,7 +20,11 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/Paris
-      FOODTRUCK_OCR_URL: http://foodtruck-ocr:8080
+      FOODTRUCK_PAGES_URL: http://foodtruck-pages:8080
+      # v0.18.0 : lecture des fiches par le modèle de vision (Ollama sur le PC 192.168.1.29, RX 6800) ;
+      # modifiable dans .env (FOODTRUCK_VISION_URL vide : le texte de Paperless sert, pour le développement seulement)
+      FOODTRUCK_VISION_URL: ${FOODTRUCK_VISION_URL-http://192.168.1.29:11434}
+      FOODTRUCK_VISION_MODEL: ${FOODTRUCK_VISION_MODEL:-qwen3-vl:8b-instruct-q8_0}
     volumes:
       - ./src:/var/www/html
     depends_on:
@@ -39,7 +43,11 @@ services:
     command: ["php", "artisan", "schedule:work"]
     environment:
       TZ: Europe/Paris
-      FOODTRUCK_OCR_URL: http://foodtruck-ocr:8080
+      FOODTRUCK_PAGES_URL: http://foodtruck-pages:8080
+      # v0.18.0 : lecture des fiches par le modèle de vision (Ollama sur le PC 192.168.1.29, RX 6800) ;
+      # modifiable dans .env (FOODTRUCK_VISION_URL vide : le texte de Paperless sert, pour le développement seulement)
+      FOODTRUCK_VISION_URL: ${FOODTRUCK_VISION_URL-http://192.168.1.29:11434}
+      FOODTRUCK_VISION_MODEL: ${FOODTRUCK_VISION_MODEL:-qwen3-vl:8b-instruct-q8_0}
     volumes:
       - ./src:/var/www/html
     depends_on:
@@ -48,19 +56,19 @@ services:
     networks:
       - internal
 
-  # Lecture des fiches de recettes scannées (Tesseract + découpage par position), réseau interne seulement
-  ocr:
+  # v0.18.0 : fiches de recettes (PDF ou photo) transformées en images pour le modèle de vision de srv-nas.
+  # Aucune reconnaissance de texte ici ; réseau interne seulement, aucun port publié.
+  pages:
     build:
-      context: ./docker/ocr
-    image: foodtruck-ocr:local
-    container_name: foodtruck-ocr
+      context: ./docker/pages
+    image: foodtruck-pages:local
+    container_name: foodtruck-pages
     restart: unless-stopped
     environment:
       TZ: Europe/Paris
-      OMP_THREAD_LIMIT: "1"
     tmpfs:
       - /tmp
-    mem_limit: 1g
+    mem_limit: 768m
     networks:
       - internal
 

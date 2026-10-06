@@ -13,13 +13,20 @@
                 @if ($recipe)
                     · recette {{ $recipe->isPublished() ? ($import->auto_published ? 'publiée automatiquement' : 'publiée') : 'en brouillon' }}
                 @elseif ($import->isReading())
-                    · lecture du scan en cours
+                    · {{ $import->layout_progress !== null ? 'lecture en cours' : 'en attente de lecture' }}
                 @elseif ($problems)
                     · {{ $problems }} ingrédient{{ $problems > 1 ? 's' : '' }} à compléter
                 @elseif ($ready)
                     · tout est reconnu, il ne reste qu'à valider
                 @endif
             </span>
+            @if ($import->isReading())
+                {{-- v0.18.0 : avancement de la lecture, mis à jour toutes les 3 secondes --}}
+                <span class="read-progress" data-read-progress="{{ $import->id }}">
+                    <span class="read-progress-bar"><span class="read-progress-fill" style="width: {{ (int) ($import->layout_progress ?? 0) }}%"></span></span>
+                    <span class="read-progress-text small muted"><span data-read-step>{{ $import->layout_step ?? \App\Http\Controllers\RecipeImportController::waiting($import) }}</span><span data-read-percent>{{ $import->layout_progress !== null ? ' · '.$import->layout_progress.' %' : '' }}</span><span data-read-since></span></span>
+                </span>
+            @endif
             @if (! empty($import->issues) && ! $import->isReading() && (! $recipe || ! $recipe->isPublished()))
                 <span class="muted small">{{ implode(' ', $import->issues) }}</span>
             @endif

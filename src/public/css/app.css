@@ -908,3 +908,11 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 }
 
 .fix-dialog .pick { font-size: 1rem; padding: .35em .9em; }
+
+/* v0.18.0 : barre de progression de la lecture des fiches Paperless */
+.read-progress { display: flex; flex-direction: column; gap: .3rem; margin-top: .45rem; max-width: 34rem; }
+.read-progress-bar { position: relative; height: .5rem; border-radius: 999px; background: var(--line, rgba(127, 127, 127, .25)); overflow: hidden; }
+.read-progress-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: var(--accent, #2fbf71); transition: width .8s ease; }
+.read-progress.is-waiting .read-progress-fill { width: 100% !important; opacity: .25; animation: read-wait 1.6s ease-in-out infinite; }
+@keyframes read-wait { 0%, 100% { opacity: .12; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .read-progress-fill { transition: none; } .read-progress.is-waiting .read-progress-fill { animation: none; } }

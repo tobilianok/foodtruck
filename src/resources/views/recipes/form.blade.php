@@ -28,7 +28,7 @@
         @endif
         <section class="panel">
             <details>
-                <summary class="more-summary">{{ $import->layout_status === 'lu' ? 'Texte lu sur le scan par Foodtruck' : 'Texte lu dans Paperless' }}</summary>
+                <summary class="more-summary">@if (\App\Support\RecipeScan\ScanImporter::readByVision($import))Recette lue sur le scan par le modèle {{ $import->layout['modele'] ?? '' }} ({{ intdiv((int) ($import->layout['secondes'] ?? 0), 60) }} min {{ str_pad((string) ((int) ($import->layout['secondes'] ?? 0) % 60), 2, '0', STR_PAD_LEFT) }} s)@else{{ 'Texte lu dans Paperless' }}@endif</summary>
                 <pre class="raw-text">{{ $importText ?? $import->raw_text }}</pre>
             </details>
             <div class="row-actions">

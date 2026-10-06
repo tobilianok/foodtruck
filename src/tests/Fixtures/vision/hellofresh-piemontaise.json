@@ -1,0 +1,129 @@
+{
+ "titre": "Salade façon piémontaise au jambon avec des pommes de terre & de la sucrine",
+ "personnes": 2,
+ "ingredients": [
+  {
+   "nom": "Pommes de terre",
+   "quantite": 500,
+   "unite": "g",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Tomate",
+   "quantite": 2,
+   "unite": "pièce(s)",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Concombre",
+   "quantite": 1,
+   "unite": "pièce(s)",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Ciboulette",
+   "quantite": 0.5,
+   "unite": "sachet(s)",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Sucrine",
+   "quantite": 1,
+   "unite": "pièce(s)",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Jambon blanc",
+   "quantite": 4,
+   "unite": "tranche(s)",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Mayonnaise",
+   "quantite": 1,
+   "unite": "sachet(s)",
+   "precision": null,
+   "groupe": null,
+   "doute": false
+  },
+  {
+   "nom": "Œuf",
+   "quantite": 2,
+   "unite": "pièce(s)",
+   "precision": null,
+   "groupe": "À ajouter vous-même",
+   "doute": false
+  },
+  {
+   "nom": "Vinaigre de vin rouge ou de cidre",
+   "quantite": 1,
+   "unite": "cc",
+   "precision": null,
+   "groupe": "À ajouter vous-même",
+   "doute": false
+  },
+  {
+   "nom": "Moutarde",
+   "quantite": 1,
+   "unite": "cc",
+   "precision": null,
+   "groupe": "À ajouter vous-même",
+   "doute": false
+  },
+  {
+   "nom": "Huile d'olive",
+   "quantite": 2,
+   "unite": "cc",
+   "precision": null,
+   "groupe": "À ajouter vous-même",
+   "doute": false
+  },
+  {
+   "nom": "Poivre et sel",
+   "quantite": null,
+   "unite": null,
+   "precision": "selon votre goût",
+   "groupe": "À ajouter vous-même",
+   "doute": false
+  }
+ ],
+ "etapes": [
+  {
+   "titre": "Coup d'envoi gourmand",
+   "texte": "• Veillez à bien respecter les quantités indiquées à gauche pour préparer votre recette !\n• Épluchez les pommes de terre et coupez-les en dés de 1-1½ cm. Mettez-les dans une casserole, salez et versez de l'eau pour les couvrir de quelques centimètres.\n• Portez à ébullition et faites cuire 15-17 min, ou jusqu'à ce qu'elles soient tendres. Contrôlez la cuisson avec un couteau.\n• Rincez les œufs ou portez une petite casserole d'eau à ébullition si vous préférez ne pas les cuire avec les pommes de terre."
+  },
+  {
+   "titre": "Pro du couteau",
+   "texte": "• Pendant ce temps, coupez les tomates en dés.\n• Coupez le concombre en deux dans l'épaisseur, retirez-en les graines avec une petite cuillère et taillez-le en fines demi-lunes.\n• Ciselez la ciboulette et coupez la sucrine en fines lanières (comptez-en ½ pièce par personne).\n• Coupez le jambon blanc en dés.\n\nL'ASTUCE DU CHEF : Il se peut que les premières feuilles de votre sucrine soient légèrement déshydratées ; pensez à les retirer avant de les consommer."
+  },
+  {
+   "titre": "Les œufs prennent leurs bain",
+   "texte": "• Lorsqu'il reste 8-10 min de cuisson aux pommes de terre (voir L'ASTUCE), ajoutez délicatement les œufs dans l'eau bouillante (ou faites-les cuire dans une casserole à part).\n• Égouttez le tout, rincez à l'eau froide, et égouttez de nouveau.\n• Écalez les œufs et coupez-les en dés.\n\nL'ASTUCE DU CHEF : Si vous préférez une cuisson mollet de l'œuf, ajoutez-les à la casserole lorsqu'il reste 6 min de cuisson aux pommes de terre"
+  },
+  {
+   "titre": "Sauce qui peut !",
+   "texte": "• Dans un saladier, ajoutez la mayonnaise avec la moitié de la ciboulette et, par personne : ½ cc de vinaigre de vin rouge (ou vinaigre de cidre), ½ cc de moutarde et 1 cc d'huile d'olive.\n• Salez, poivrez et mélangez."
+  },
+  {
+   "titre": "L'alliance des saveurs",
+   "texte": "• Au moment de servir, ajoutez tous les éléments au saladier : les tomates, les œufs, le concombre, les dés de jambon, les pommes de terre refroidies et la sucrine.\n• Mélangez délicatement."
+  },
+  {
+   "titre": "Régal assuré",
+   "texte": "• Servez la salade dans les assiettes.\n• Parsemez du reste de ciboulette."
+  }
+ ],
+ "conseil": null
+}

@@ -30,8 +30,10 @@
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
-        <env name="FOODTRUCK_OCR_URL" value="" force="true"/>
-        <server name="FOODTRUCK_OCR_URL" value=""/>
+        <env name="FOODTRUCK_PAGES_URL" value="" force="true"/>
+        <env name="FOODTRUCK_VISION_URL" value="" force="true"/>
+        <server name="FOODTRUCK_PAGES_URL" value=""/>
+        <server name="FOODTRUCK_VISION_URL" value=""/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>

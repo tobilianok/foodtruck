@@ -16,7 +16,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         // Jamais d'appel au vrai service de lecture des scans (la variable du conteneur ne compte pas)
-        config(['foodtruck.ocr_url' => null]);
+        config(['foodtruck.pages_url' => null, 'foodtruck.vision_url' => null]);
 
         config([
             'oidc.issuer' => self::ISSUER,

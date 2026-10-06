@@ -26,7 +26,8 @@ Dernière mise à jour : 2026-10-05 (v0.12.2)
 - foodtruck-scheduler (v0.5.0) : même image que foodtruck-app, lance « php artisan schedule:work » (synchronisation Paperless toutes les heures).
 - foodtruck-web : nginx:stable-alpine, sert ./src/public, relaie le PHP vers foodtruck-app:9000.
 - foodtruck-db : mariadb:11.4, données dans ./data/mariadb (hors Git), buffer InnoDB limité à 128 Mo.
-- foodtruck-ocr (v0.15.0) : lecture des scans de fiches (Tesseract), réseau interne seulement.
+- foodtruck-pages (v0.18.0, remplace foodtruck-ocr) : transforme le fichier d'une fiche (PDF ou photo) en images pour le modèle de vision (Poppler + Pillow, aucune reconnaissance de texte), réseau interne seulement, 768 Mo au plus.
+- Ollama (v0.18.0, hors de la stack) : sur le PC de Louis (192.168.1.29:11434, Radeon RX 6800), modèle qwen3-vl:8b-instruct-q8_0 ; joint par foodtruck-app et foodtruck-scheduler (variables FOODTRUCK_VISION_URL et FOODTRUCK_VISION_MODEL de compose.yaml, modifiables dans .env).
 
 ## Arborescence
 
@@ -188,7 +189,17 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Écrans : /recettes/importees (liste), /recettes/importees/{n} (relecture). Rien à changer dans Nginx Proxy Manager ni dans Authentik.
 - Sauvegarde : les fiches lues (texte et rapprochements) sont dans la base, déjà couverte par backups/.
 
-## Lecture des scans : service foodtruck-ocr (v0.15.0)
+## Lecture des fiches par le modèle de vision (v0.18.0)
+
+- Sur le PC (192.168.1.29) : installation standard d'Ollama (curl -fsSL https://ollama.com/install.sh | sh), puis sudo systemctl edit ollama avec [Service] Environment="OLLAMA_HOST=0.0.0.0:11434", sudo systemctl restart ollama, ollama pull qwen3-vl:8b-instruct-q8_0. Ollama n'a pas de mot de passe : si ufw est actif, sudo ufw allow from 192.168.1.14 to any port 11434 proto tcp. Avant une partie : sudo systemctl stop ollama (les fiches attendent) ; après : sudo systemctl start ollama.
+- Depuis la VM Docker : curl -s http://192.168.1.29:11434/api/version ; ./ft php artisan foodtruck:check (lignes « Préparation des pages » et « Lecture par le modèle de vision »).
+- Lecture : planificateur chaque minute, une fiche à la fois (verrou d'une heure) ; avancement dans Recettes → Fiches Paperless. PC éteint : nouvel essai toutes les 15 min sans limite ; lecture ratée : 6 essais espacés puis « Relire la fiche ».
+- Changer de machine ou de modèle : dans .env, FOODTRUCK_VISION_URL=http://…:11434 et FOODTRUCK_VISION_MODEL=…, puis docker compose up -d app scheduler.
+- ./ft vider-recettes : aperçu, saisie de EFFACER, sauvegarde SQL dans backups/ (les photos des recettes ne sont pas sauvegardées), suppression de toutes les recettes et des fiches lues, relecture de toutes les fiches Paperless.
+- Le script (foodtruck-update-v0.18.0.sh) exige la v0.17.0, sauvegarde la base, applique le correctif, construit l'image foodtruck-pages, lance les tests, migre, recrée la stack (foodtruck-ocr supprimé, foodtruck-pages créé), vérifie le service des pages et le site de bout en bout (retour arrière automatique sinon), remet en lecture les fiches à relire, puis supprime l'ancienne image foodtruck-ocr:local.
+- srv-nas : Ollama désactivé (sudo systemctl disable --now ollama) ; désinstallation complète possible (voir srv-nas-ollama-install.sh).
+
+## Lecture des scans : service foodtruck-ocr (v0.15.0, supprimé en v0.18.0)
 
 - Nouveau conteneur foodtruck-ocr (image foodtruck-ocr:local construite depuis docker/ocr : Debian bookworm, Tesseract 5 + français + détection d'orientation, Poppler, Python 3 avec la seule bibliothèque standard et Pillow). Réseau foodtruck_internal uniquement, aucun port publié, 1 Go de mémoire au plus, /tmp en mémoire, aucun fichier conservé. foodtruck-app et foodtruck-scheduler le joignent par FOODTRUCK_OCR_URL=http://foodtruck-ocr:8080 (compose.yaml).
 - Le script de mise à jour (foodtruck-update-v0.15.0.sh) exige la v0.14.0 en place et un dépôt Git propre, sauvegarde la base, applique le correctif, construit l'image (accès Internet de la VM nécessaire pour les paquets Debian), lance les tests (retour arrière si échec), migre, (re)crée foodtruck-ocr, foodtruck-app et foodtruck-scheduler (docker compose up -d), attend que le service soit prêt, contrôle, puis relit d'après le scan les fiches encore à relire.
@@ -242,7 +253,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0, v0.15.0 et v0.15.1 livrées le 2026-10-05, v0.15.2 appliquée sur la VM et poussée le 2026-10-06 ; v0.15.3, v0.15.4, v0.16.0, v0.16.1 et v0.16.2 appliquées et poussées le 2026-10-06 ; v0.16.3 et v0.16.4 appliquées et poussées le 2026-10-06 ; v0.17.0 livrée le 2026-10-06) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0, v0.15.0 et v0.15.1 livrées le 2026-10-05, v0.15.2 appliquée sur la VM et poussée le 2026-10-06 ; v0.15.3, v0.15.4, v0.16.0, v0.16.1 et v0.16.2 appliquées et poussées le 2026-10-06 ; v0.16.3 et v0.16.4 appliquées et poussées le 2026-10-06 ; v0.17.0 appliquée le 2026-10-06 ; v0.18.0 livrée le 2026-10-06) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

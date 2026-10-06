@@ -6,7 +6,6 @@ use App\Services\OidcClient;
 use App\Support\Receipts\PaperlessClient;
 use App\Support\Receipts\ReceiptSync;
 use App\Support\RecipeScan\RecipeScanSync;
-use App\Support\RecipeImporter;
 use App\Support\ReferenceImporter;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -48,6 +47,45 @@ Artisan::command('foodtruck:reset {--foyer= : Numéro du foyer (par défaut : to
 
     return 0;
 })->purpose('Efface planning, listes de courses et stock (garde comptes, recettes, référentiel, tickets, prix)');
+
+/*
+ * ./ft vider-recettes   (sauvegarde la base avant, demande de taper EFFACER)
+ * v0.18.0 : supprime TOUTES les recettes pour ne réimporter que les fiches de Louis (voir App\Support\RecipeWipe).
+ */
+Artisan::command('foodtruck:vider-recettes {--apercu : Affiche seulement ce qui serait effacé} {--oui : Efface sans demander confirmation}', function (RecipeScanSync $sync) {
+    $counts = App\Support\RecipeWipe::counts();
+
+    $this->info('Suppression de toutes les recettes');
+    foreach ($counts as $label => $count) {
+        $this->line(sprintf('  %-32s %d', $label, $count));
+    }
+    $this->line('  Conservé : comptes, foyers, ingrédients et leurs unités, magasins, tickets, prix, stock, listes de courses.');
+
+    if ($this->option('apercu')) {
+        return 0;
+    }
+    if (array_sum($counts) === 0) {
+        $this->info('Rien à effacer.');
+
+        return 0;
+    }
+    if (! $this->option('oui') && $this->ask('Pour confirmer, tape EFFACER') !== 'EFFACER') {
+        $this->warn('Annulé : rien n\'a été effacé.');
+
+        return 1;
+    }
+
+    App\Support\RecipeWipe::run();
+    $this->info('Toutes les recettes sont supprimées.');
+
+    // Les fiches de Paperless sont aussitôt remises en lecture (le planificateur les lit une par une)
+    foreach (Household::all()->filter->hasPaperless() as $household) {
+        $this->line("{$household->name} : ".RecipeScanSync::summary($sync->run($household)));
+    }
+    $this->line('Avancement de la lecture : Recettes → Fiches Paperless.');
+
+    return 0;
+})->purpose('Supprime toutes les recettes et relit les fiches de Paperless');
 
 /*
  * ./ft php artisan foodtruck:check
@@ -108,19 +146,37 @@ Artisan::command('foodtruck:check', function (OidcClient $oidc) {
         // Table pas encore migrée : rien à vérifier
     }
 
-    if (\App\Support\RecipeScan\OcrClient::enabled()) {
+    // v0.18.0 : préparation des pages (foodtruck-pages) puis lecture par le modèle de vision (Ollama sur le PC)
+    if (\App\Support\RecipeScan\PagesClient::enabled()) {
         try {
-            $health = \App\Support\RecipeScan\OcrClient::make()->health();
+            $health = \App\Support\RecipeScan\PagesClient::make()->health();
             ($health['ok'] ?? false)
-                ? $ok('Lecture des scans (foodtruck-ocr) : Tesseract '.($health['tesseract'] ?? '?').', langues '.implode(', ', $health['langues'] ?? []).(isset($health['mots']) ? ', dictionnaire de '.number_format((int) $health['mots'], 0, ',', ' ').' mots' : ''))
-                : $ko('Lecture des scans (foodtruck-ocr) : le français n\'est pas installé dans le service');
+                ? $ok('Préparation des pages (foodtruck-pages) : Poppler '.($health['poppler'] ?? '?'))
+                : $ko('Préparation des pages (foodtruck-pages) : service en mauvais état');
             $errors += ($health['ok'] ?? false) ? 0 : 1;
         } catch (Throwable $e) {
-            $ko('Lecture des scans : '.$e->getMessage());
+            $ko('Préparation des pages : '.$e->getMessage());
+            $errors++;
+        }
+    }
+
+    // v0.18.0 : modèle de vision (Ollama sur le PC). PC éteint : ce n'est pas une panne, les fiches attendent
+    if (\App\Support\RecipeScan\VisionClient::enabled()) {
+        $vision = \App\Support\RecipeScan\VisionClient::make();
+        try {
+            $health = $vision->health();
+            ($health['ok'] ?? false)
+                ? $ok('Lecture par le modèle de vision : '.$vision->model().' (Ollama '.($health['version'] ?? '?').', '.config('foodtruck.vision_url').')')
+                : $ko('Modèle '.$vision->model().' absent d\'Ollama (présents : '.(implode(', ', $health['modeles'] ?? []) ?: 'aucun').') : les fiches attendent');
+            $errors += ($health['ok'] ?? false) ? 0 : 1;
+        } catch (\App\Support\RecipeScan\VisionUnavailable $e) {
+            $this->line('  <fg=yellow>INFO</>  '.$e->getMessage().' : les fiches attendent, la lecture sera retentée');
+        } catch (Throwable $e) {
+            $ko($e->getMessage());
             $errors++;
         }
     } else {
-        $this->line('  <fg=yellow>INFO</>  Lecture des scans désactivée (FOODTRUCK_OCR_URL vide) : le texte de Paperless sert');
+        $this->line('  <fg=yellow>INFO</>  Lecture par le modèle de vision désactivée (FOODTRUCK_VISION_URL vide) : le texte de Paperless sert');
     }
 
     $this->newLine();
@@ -230,18 +286,6 @@ Artisan::command('foodtruck:unites', function () {
 })->purpose('Pré-remplit les unités courantes des ingrédients');
 
 /*
- * ./ft php artisan foodtruck:recipes
- * Importe le premier lot de recettes (n'ajoute que les absentes, n'écrase rien).
- */
-Artisan::command('foodtruck:recipes', function () {
-    $counts = RecipeImporter::import();
-    $this->info("Recettes ajoutées : {$counts['recipes']}.");
-    if ($counts['skipped'] > 0) {
-        $this->line("Déjà présentes, laissées telles quelles : {$counts['skipped']}.");
-    }
-})->purpose('Importe le premier lot de recettes');
-
-/*
  * ./ft php artisan foodtruck:tickets
  * Synchronise les tickets Paperless de tous les foyers configurés (lancé toutes les heures).
  */
@@ -316,7 +360,7 @@ Artisan::command('foodtruck:recettes', function (RecipeScanSync $sync) {
 Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\ScanImporter $importer) {
     $imports = \App\Models\RecipeImport::where('status', \App\Models\RecipeImport::STATUS_TO_REVIEW)->whereNull('recipe_id')
         // Fiches dont le scan attend sa lecture : c'est foodtruck:lire-fiches qui s'en charge
-        ->when(\App\Support\RecipeScan\OcrClient::enabled(), fn ($q) => $q->where(fn ($q) => $q->whereNull('layout_status')->orWhere('layout_status', '!=', \App\Models\RecipeImport::LAYOUT_PENDING)))
+        ->when(\App\Support\RecipeScan\VisionClient::ready(), fn ($q) => $q->where(fn ($q) => $q->whereNull('layout_status')->orWhere('layout_status', '!=', \App\Models\RecipeImport::LAYOUT_PENDING)))
         ->get();
 
     foreach ($imports as $import) {
@@ -328,19 +372,27 @@ Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\
 })->purpose('Relit les fiches de recettes en attente avec les règles à jour');
 
 /*
- * ./ft php artisan foodtruck:lire-fiches [--toutes]
- * Lit les scans des fiches en attente avec le service foodtruck-ocr (lancé chaque minute par le planificateur).
+ * ./ft php artisan foodtruck:lire-fiches [--toutes] [--en-attente]
+ * Lit les fiches en attente avec le modèle de vision (Ollama sur le PC ; lancé chaque minute par le planificateur, une fiche à
+ * la fois ; une lecture en échec est retentée toute seule).
  * --toutes : relit aussi, d'après le scan, toutes les fiches encore à relire (après l'installation du service).
+ * --en-attente : avec --toutes, remet seulement les fiches en lecture et rend la main ; le planificateur les lit
+ *                une par une (barre de progression dans « Fiches Paperless »).
  */
-Artisan::command('foodtruck:lire-fiches {--toutes : Remettre en lecture toutes les fiches encore à relire}', function (\App\Support\RecipeScan\RecipeLayoutRunner $runner) {
-    if (! \App\Support\RecipeScan\OcrClient::enabled()) {
-        $this->line('Lecture des scans désactivée (FOODTRUCK_OCR_URL vide).');
+Artisan::command('foodtruck:lire-fiches {--toutes : Remettre en lecture toutes les fiches encore à relire} {--en-attente : Seulement les remettre en lecture (le planificateur les lit)}', function (\App\Support\RecipeScan\RecipeLayoutRunner $runner) {
+    if (! \App\Support\RecipeScan\VisionClient::ready()) {
+        $this->line('Lecture par le modèle de vision désactivée (FOODTRUCK_VISION_URL ou FOODTRUCK_PAGES_URL vide).');
 
         return 0;
     }
 
     if ($this->option('toutes')) {
         $this->line(\App\Support\RecipeScan\RecipeLayoutRunner::queueAllToReview().' fiche(s) remise(s) en lecture.');
+        if ($this->option('en-attente')) {
+            $this->line('Le planificateur les lit une par une : avancement dans Recettes → Fiches Paperless.');
+
+            return 0;
+        }
     }
 
     $counts = $runner->processPending($this->option('toutes') ? null : 50);
@@ -350,13 +402,14 @@ Artisan::command('foodtruck:lire-fiches {--toutes : Remettre en lecture toutes l
         return 0;
     }
     if ($counts['read'] + $counts['failed'] + $counts['left'] > 0) {
-        $this->info($counts['read'].' fiche(s) lue(s) d\'après le scan, '.$counts['failed'].' avec le texte de Paperless (lecture du scan impossible), '.$counts['left'].' encore en attente.');
+        $this->info($counts['read'].' fiche(s) lue(s) par le modèle, '.$counts['failed'].' en échec (lecture retentée plus tard), '.$counts['left'].' encore en attente.');
     }
 
     return $counts['failed'] > 0 ? 1 : 0;
-})->purpose('Lit les scans des fiches de recettes en attente (service foodtruck-ocr)');
+})->purpose('Lit les fiches de recettes en attente avec le modèle de vision (Ollama)');
 
-Schedule::command('foodtruck:lire-fiches')->everyMinute()->withoutOverlapping(15)->runInBackground();
+// v0.18.0 : une lecture par le modèle de vision dure 30 minutes au plus (verrou d'une heure, comme celui du lecteur)
+Schedule::command('foodtruck:lire-fiches')->everyMinute()->withoutOverlapping(60)->runInBackground();
 
 Schedule::command('foodtruck:tickets')->hourly()->withoutOverlapping(30);
 Schedule::command('foodtruck:recettes')->hourlyAt(20)->withoutOverlapping(30);

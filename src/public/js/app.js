@@ -764,3 +764,44 @@
 
     recount();
 })();
+
+// ---------------------------------------------------------------------------------------------------------------
+// v0.18.0 : avancement de la lecture des fiches Paperless (modèle de vision de srv-nas), mis à jour toutes les 3 s.
+// Quand une fiche n'est plus en lecture, la page se recharge : elle apparaît « à valider » ou « à compléter ».
+(function () {
+    var source = document.getElementById('read-progress-url');
+    if (!source) return;
+    var url = JSON.parse(source.textContent);
+    var known = {};
+    document.querySelectorAll('[data-read-progress]').forEach(function (el) { known[el.getAttribute('data-read-progress')] = true; });
+
+    function duration(seconds) {
+        if (seconds === null || seconds === undefined) return '';
+        var m = Math.floor(seconds / 60), s = seconds % 60;
+        return ' · depuis ' + (m > 0 ? m + ' min ' : '') + (s < 10 && m > 0 ? '0' : '') + s + ' s';
+    }
+
+    function tick() {
+        fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function (data) {
+                var still = {};
+                (data.reading || []).forEach(function (item) {
+                    still[item.id] = true;
+                    var el = document.querySelector('[data-read-progress="' + item.id + '"]');
+                    if (!el) return;
+                    var fill = el.querySelector('.read-progress-fill');
+                    if (fill) fill.style.width = (item.progress || 0) + '%';
+                    el.classList.toggle('is-waiting', item.progress === null);
+                    el.querySelector('[data-read-step]').textContent = item.step;
+                    el.querySelector('[data-read-percent]').textContent = item.progress === null ? '' : ' · ' + item.progress + ' %';
+                    el.querySelector('[data-read-since]').textContent = item.progress === null ? '' : duration(item.since);
+                });
+                var finished = Object.keys(known).some(function (id) { return !still[id]; });
+                if (finished) { window.location.reload(); return; }
+                setTimeout(tick, 3000);
+            })
+            .catch(function () { setTimeout(tick, 10000); });
+    }
+    tick();
+})();

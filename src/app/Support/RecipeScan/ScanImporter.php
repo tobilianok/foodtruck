@@ -137,46 +137,46 @@ class ScanImporter
     }
 
     /**
-     * Texte à lire : la fiche remise en forme d'après le scan (foodtruck-ocr) quand elle existe, sinon le texte de
-     * Paperless. Si la lecture du scan trouve moins de choses (ni ingrédients ni étapes) que le texte de Paperless,
-     * c'est ce dernier qui sert : la nouvelle lecture ne fait jamais moins bien que l'ancienne.
+     * Ce qui est lu pour cette fiche. v0.18.0 : la recette rendue par le modèle de vision (Ollama) ; plus aucun autre
+     * outil de reconnaissance de texte. Fiche pas encore lue (ou lecture impossible) : rien n'est deviné, la fiche
+     * attend sa lecture. Sans modèle configuré (développement, tests) : le texte de Paperless.
      */
     public function bestAnalysis(RecipeImport $import): array
     {
-        $paperless = fn () => $this->analyse((string) $import->raw_text, $import->title);
-
-        if ($import->layout_status === RecipeImport::LAYOUT_FAILED) {
-            $analysis = $paperless();
-            $analysis['issues'][] = 'Lecture du scan impossible ('.Str::limit((string) $import->layout_error, 120).') : texte de Paperless utilisé, à vérifier. « Relire la fiche » relance la lecture du scan.';
+        if (self::readByVision($import)) {
+            $text = VisionComposer::compose($import->layout['recette']);
+            $analysis = $this->analyse($text, null);
+            if (trim((string) $analysis['recipe']['title']) === '') {
+                $analysis = $this->analyse($text, $import->title);
+            }
 
             return $analysis;
         }
 
-        if ($import->layout_status !== RecipeImport::LAYOUT_DONE || empty($import->layout)) {
-            return $paperless();
+        if (VisionClient::ready()) {
+            $analysis = $this->analyse('', $import->title);
+            $analysis['complete'] = false;
+            $analysis['issues'] = [$import->layout_status === RecipeImport::LAYOUT_FAILED
+                ? 'Lecture par le modèle impossible après '.(int) $import->layout_attempts.' essais ('.Str::limit((string) $import->layout_error, 140).'). « Relire la fiche » relance la lecture.'
+                : 'Fiche pas encore lue par le modèle.'.($import->layout_error ? ' '.$import->layout_error.'.' : '')];
+
+            return $analysis;
         }
 
-        // Titre du document Paperless dont le service de lecture a recoupé les mots collés (« Curry thaïléger »)
-        $fromScan = $this->analyse(LayoutComposer::compose($import->layout), $import->layout['titre'] ?? $import->title);
-        $score = fn (array $a) => (count($a['rows']) > 0 ? 2 : 0) + (count($a['recipe']['steps']) > 0 ? 2 : 0);
-        if ($score($fromScan) < 4 && trim((string) $import->raw_text) !== '') {
-            $fallback = $paperless();
-            if ($score($fallback) > $score($fromScan)) {
-                $fallback['issues'][] = 'Le scan a été mal compris : texte de Paperless utilisé, à vérifier.';
-
-                return $fallback;
-            }
-        }
-
-        return $fromScan;
+        return $this->analyse((string) $import->raw_text, $import->title);
     }
 
     /** Texte effectivement lu pour cette fiche (affiché à la relecture). */
     public static function readText(RecipeImport $import): string
     {
-        return $import->layout_status === RecipeImport::LAYOUT_DONE && ! empty($import->layout)
-            ? LayoutComposer::compose($import->layout)
-            : (string) $import->raw_text;
+        return self::readByVision($import) ? VisionComposer::compose($import->layout['recette']) : (string) $import->raw_text;
+    }
+
+    /** v0.18.0 : fiche lue par le modèle de vision. */
+    public static function readByVision(RecipeImport $import): bool
+    {
+        return $import->layout_status === RecipeImport::LAYOUT_DONE && ($import->layout['source'] ?? null) === 'vision'
+            && is_array($import->layout['recette'] ?? null);
     }
 
     /** Données au format attendu par RecipeWriter::save(). */

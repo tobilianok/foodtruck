@@ -52,6 +52,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/recettes/importees', [RecipeImportController::class, 'index'])->name('recipes.imports.index');
         Route::post('/recettes/importees/synchroniser', [RecipeImportController::class, 'sync'])->name('recipes.imports.sync');
         Route::post('/recettes/importees/tout-supprimer', [RecipeImportController::class, 'discardAll'])->name('recipes.imports.discard-all');
+        Route::get('/recettes/importees/progression', [RecipeImportController::class, 'progress'])->name('recipes.imports.progress');
         Route::get('/recettes/importees/{recipeImport}', [RecipeImportController::class, 'show'])->name('recipes.imports.show');
         Route::post('/recettes/importees/{recipeImport}/relire', [RecipeImportController::class, 'reanalyse'])->name('recipes.imports.reanalyse');
         Route::post('/recettes/importees/{recipeImport}/ignorer', [RecipeImportController::class, 'ignore'])->name('recipes.imports.ignore');

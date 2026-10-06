@@ -29,6 +29,34 @@ class RecipeImportController extends Controller
         ]);
     }
 
+    /**
+     * v0.18.0 : avancement des lectures en cours (lu toutes les 3 secondes par la page « Fiches Paperless »).
+     * Les fiches en attente derrière celle qui est lue ont « progress » à null.
+     */
+    public function progress(Request $request)
+    {
+        $reading = $request->user()->household->recipeImports()
+            ->where('layout_status', RecipeImport::LAYOUT_PENDING)->whereNull('recipe_id')->orderBy('id')->get()
+            ->filter->isReading()->values();
+
+        return response()->json(['reading' => $reading->map(fn (RecipeImport $i) => [
+            'id' => $i->id,
+            'progress' => $i->layout_progress,
+            'step' => $i->layout_step ?? self::waiting($i),
+            'since' => $i->layout_started_at ? (int) abs($i->layout_started_at->diffInSeconds(now())) : null,
+        ])->all()]);
+    }
+
+    /** Fiche en attente : derrière une autre, ou en attente d'Ollama (PC éteint) avec l'heure du prochain essai. */
+    public static function waiting(RecipeImport $import): string
+    {
+        if ($import->layout_error && $import->layout_retry_at) {
+            return 'En attente : '.$import->layout_error.' ; nouvel essai vers '.$import->layout_retry_at->timezone('Europe/Paris')->format('H:i');
+        }
+
+        return 'En attente de lecture (une fiche à la fois)';
+    }
+
     public function sync(Request $request, RecipeScanSync $sync)
     {
         $household = $request->user()->household;
@@ -51,7 +79,7 @@ class RecipeImportController extends Controller
         $recipeImport->loadMissing('recipe');
 
         if ($recipeImport->isReading()) {
-            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est en cours de lecture (environ une minute par page) : la liste se met à jour toute seule.');
+            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est en cours de lecture : suis son avancement ici, elle s\'ouvrira dès qu\'elle sera prête.');
         }
 
         if ($recipeImport->recipe && $request->user()->can('update', $recipeImport->recipe)) {
@@ -95,11 +123,13 @@ class RecipeImportController extends Controller
         $this->authorizeImport($request, $recipeImport);
         abort_if($recipeImport->recipe_id !== null, 404);
 
-        // Lecture du scan pas encore faite ou impossible : on la relance (en arrière-plan)
-        if (\App\Support\RecipeScan\OcrClient::enabled() && $recipeImport->layout_status !== RecipeImport::LAYOUT_DONE) {
-            $recipeImport->forceFill(['layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null, 'status' => RecipeImport::STATUS_TO_REVIEW])->save();
+        // Fiche pas encore lue par le modèle de vision (lecture impossible, ou faite avant la v0.18.0) : on la relance
+        // (en arrière-plan)
+        if (\App\Support\RecipeScan\VisionClient::ready() && ! ScanImporter::readByVision($recipeImport)) {
+            $recipeImport->forceFill(['layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null, 'layout_progress' => null, 'layout_step' => null,
+                'layout_attempts' => 0, 'layout_retry_at' => null, 'status' => RecipeImport::STATUS_TO_REVIEW])->save();
 
-            return redirect()->route('recipes.imports.index')->with('status', 'Lecture du scan relancée : la fiche revient dans une minute environ.');
+            return redirect()->route('recipes.imports.index')->with('status', 'Lecture du scan relancée : suis son avancement ici.');
         }
 
         $recipeImport->status = RecipeImport::STATUS_TO_REVIEW;

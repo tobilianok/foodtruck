@@ -22,8 +22,8 @@ class RecipeScanSync
     public function run(Household $household, ?PaperlessClient $client = null): array
     {
         $counts = ['new' => 0, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'ready' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null];
-        // Service de lecture des scans présent : les fiches sont lues en arrière-plan d'après le scan (RecipeLayoutRunner)
-        $reading = OcrClient::enabled();
+        // v0.18.0 : modèle de vision configuré : les fiches sont lues en arrière-plan d'après le scan (RecipeLayoutRunner)
+        $reading = VisionClient::ready();
 
         try {
             $client ??= PaperlessClient::for($household);
@@ -58,7 +58,7 @@ class RecipeScanSync
                 if ($reading) {
                     $import->forceFill([
                         'layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null,
-                        'status' => RecipeImport::STATUS_TO_REVIEW, 'parsed' => null, 'issues' => ['Lecture du scan en cours…'],
+                        'status' => RecipeImport::STATUS_TO_REVIEW, 'parsed' => null, 'issues' => ['Lecture du scan en cours…'], 'layout_attempts' => 0, 'layout_retry_at' => null,
                     ])->save();
                     $isNew ? $counts['new']++ : $counts['updated']++;
                     $counts['reading']++;
