@@ -310,7 +310,7 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - Cartes HelloFresh : sachets et paquets comptés en pièces ; à décider avec Louis : (1) donner un poids à chaque sachet ou paquet par ingrédient (lu sur les emballages), ou (2) garder la quantité telle quelle, marquée « à estimer ». (3) Lecture avec coordonnées (Tesseract dans l'image PHP, PDF téléchargé depuis Paperless) : option mise de côté, à rouvrir seulement si les cartes à colonnes deviennent trop nombreuses.
 - Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.
 
-## Pour reprendre dans une nouvelle conversation (état au 2026-10-06, après la livraison de la v0.16.1)
+## Pour reprendre dans une nouvelle conversation (état au 2026-10-06, après la livraison de la v0.16.2)
 
 État
 - v0.12.0 (recettes scannées dans Paperless) : livrée et poussée sur GitHub (tag v0.12.0).
@@ -320,6 +320,7 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.13.2 (supprimer une fiche Paperless l'efface complètement, elle est retraitée à la recherche suivante) : livrée, script foodtruck-update-v0.13.2.sh fourni (exige la v0.13.1 en place, une migration de nettoyage), en attente de validation de Louis. 226 tests automatisés.
 - v0.13.1 (boutons Supprimer / Tout supprimer, fiches mises de côté) : appliquée par Louis le 2026-10-05, remplacée par la v0.13.2.
 - v0.13.0 (menu automatique) : livrée, script foodtruck-update-v0.13.0.sh fourni, EN ATTENTE de validation de Louis (exige la v0.12.2 en place ; une migration). 222 tests automatisés. Louis a demandé de mettre de côté les fiches de recettes pour avancer sur le reste du projet.
+- v0.16.2 (correctif : image foodtruck-ocr de la v0.16.1 inutilisable, dossier /app illisible ; vérification au démarrage intégrée à l'image, script qui revient en arrière si le service n'est pas en bonne santé) : livrée le 2026-10-06, script foodtruck-update-v0.16.2.sh (exige la v0.16.1 commitée), en attente de validation. 255 tests automatisés.
 - v0.16.1 (validation systématique des fiches Paperless, plus de publication automatique ; mots collés recoupés à la lecture et dans le titre Paperless, « Curry thaïléger ») : livrée le 2026-10-06, script foodtruck-update-v0.16.1.sh fourni (exige la v0.16.0, reconstruit l'image foodtruck-ocr, relit les fiches à relire), en attente de validation. 255 tests automatisés.
 - v0.16.0 (plusieurs unités par ingrédient : sachet, gousse, boîte… ; unités lues converties à l'import, une seule question pour une unité inconnue, retenue ; valeurs typiques pré-remplies, 115 unités sur 63 ingrédients chez Louis) : appliquée sur la VM et poussée le 2026-10-06.
 - v0.15.4 (lecture des scans d'après le fichier original de Paperless et non plus la version archivée, dont les images recompressées collaient les mots) : livrée le 2026-10-06, script foodtruck-update-v0.15.4.sh fourni (s'installe sur la v0.15.2 ou la v0.15.3, aucune migration, relit les fiches à relire), en attente de validation. 248 tests automatisés.

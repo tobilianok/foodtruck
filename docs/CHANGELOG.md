@@ -1,5 +1,13 @@
 # Journal des versions - Foodtruck
 
+## v0.16.2 - 2026-10-06 - Correctif : service de lecture arrêté depuis la v0.16.1 (« Permission denied »)
+
+- Signalé par Louis : alertes répétées de la supervision (« conteneur foodtruck-ocr en mauvaise santé »). Diagnostic : le service redémarrait en boucle (68 redémarrages), « python3: can't open file '/app/server.py': [Errno 13] Permission denied ».
+- Cause : dans l'image de la v0.16.1, le dictionnaire était ajouté avec des droits 644 avant la création du dossier /app ; Docker a alors créé /app avec ces mêmes droits, sans le droit de traverser le dossier : l'utilisateur du service ne pouvait plus lire ses propres fichiers. Les tests de l'application ne le voyaient pas (ils simulent le service).
+- Correction : /app est créé d'abord (755), droits remis explicitement, et l'image vérifie maintenant à sa construction, avec l'utilisateur du service, que le programme se charge et que le dictionnaire est lisible : une image qui ne démarrerait pas n'est plus jamais construite.
+- Script de mise à jour plus sûr : après le redémarrage du service de lecture, il attend son bon état de santé ; s'il ne l'obtient pas en 3 minutes, il affiche les derniers messages du service et revient automatiquement à la version précédente.
+- Aucune migration. 255 tests automatisés.
+
 ## v0.16.1 - 2026-10-06 - Validation systématique des fiches Paperless, mots collés recoupés
 
 - Validation systématique (demande de Louis) : plus aucune recette n'est créée ni publiée toute seule depuis Paperless, même entièrement reconnue. Une fiche sans rien à corriger apparaît « à valider » (« tout est reconnu, il ne reste qu'à valider ») ; le bouton de l'écran de relecture devient « Valider la recette ». « Chercher dans Paperless » annonce « N fiches prêtes à valider, M à compléter ».
