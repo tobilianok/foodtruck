@@ -55,15 +55,17 @@
 
         <section class="panel">
             <h2>L'essentiel</h2>
-            <div class="grid-2">
-                <label class="field span-2">
+            {{-- v0.15.3 : grille à 4 colonnes (2 sur téléphone), libellés sur une ligne, champs alignés ; aides sous les champs --}}
+            <div class="essentials">
+                <label class="field wide">
                     <span>Titre</span>
                     <input type="text" name="title" value="{{ old('title', $recipe->title) }}" maxlength="120" required>
                 </label>
-                <label class="field span-2">
+                <label class="field wide">
                     <span>Présentation <small>(facultatif)</small></span>
                     <textarea name="description" rows="2" maxlength="2000">{{ old('description', $recipe->description) }}</textarea>
                 </label>
+
                 <label class="field">
                     <span>Catégorie</span>
                     <select name="category">
@@ -72,7 +74,25 @@
                         @endforeach
                     </select>
                 </label>
-                <div class="field">
+                <label class="field">
+                    <span>Difficulté</span>
+                    <select name="difficulty">
+                        @foreach (\App\Models\Recipe::DIFFICULTIES as $value => $label)
+                            <option value="{{ $value }}" @selected(old('difficulty', $recipe->difficulty) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <label class="field wide-phone">
+                    <span>Protéine principale</span>
+                    <select name="protein">
+                        <option value="">—</option>
+                        @foreach (\App\Models\Recipe::PROTEINS as $value => $label)
+                            <option value="{{ $value }}" @selected(old('protein', $recipe->protein) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <small>Sert à équilibrer les menus.</small>
+                </label>
+                <div class="field wide-phone">
                     <span>Recette prévue pour</span>
                     <div class="input-pair">
                         <input type="text" name="yield_quantity" value="{{ old('yield_quantity', $recipe->yield_quantity ? \App\Support\Units::number($recipe->yield_quantity) : '') }}" inputmode="decimal" required aria-label="Quantité">
@@ -82,8 +102,9 @@
                             @endforeach
                         </select>
                     </div>
-                    <small>Sera proratisé selon le nombre de personnes choisi.</small>
+                    <small>Proratisée selon le nombre de personnes.</small>
                 </div>
+
                 <label class="field">
                     <span>Préparation (min)</span>
                     <input type="number" name="prep_minutes" value="{{ old('prep_minutes', $recipe->prep_minutes) }}" min="0">
@@ -97,33 +118,16 @@
                     <input type="number" name="rest_minutes" value="{{ old('rest_minutes', $recipe->rest_minutes) }}" min="0">
                 </label>
                 <label class="field">
-                    <span>Difficulté</span>
-                    <select name="difficulty">
-                        @foreach (\App\Models\Recipe::DIFFICULTIES as $value => $label)
-                            <option value="{{ $value }}" @selected(old('difficulty', $recipe->difficulty) === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <label class="field">
-                    <span>Protéine principale</span>
-                    <select name="protein">
-                        <option value="">—</option>
-                        @foreach (\App\Models\Recipe::PROTEINS as $value => $label)
-                            <option value="{{ $value }}" @selected(old('protein', $recipe->protein) === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                    <small>Servira à équilibrer les menus.</small>
-                </label>
-                <label class="field">
-                    <span>Prix de l'équivalent industriel <small>(facultatif)</small></span>
+                    <span>Prix industriel</span>
                     <span class="input-suffix">
                         <input type="text" name="industrial_price" inputmode="decimal" placeholder="2,49"
                                value="{{ old('industrial_price', $recipe->industrial_price_cents ? number_format($recipe->industrial_price_cents / 100, 2, ',', '') : '') }}">
                         <span>€</span>
                     </span>
-                    <small>Pour le fait maison : affiche l'économie réalisée.</small>
+                    <small>Facultatif : le plat tout prêt, pour chiffrer l'économie.</small>
                 </label>
-                <label class="field span-2">
+
+                <label class="field wide">
                     <span>Source <small>(livre, site, famille…)</small></span>
                     <input type="text" name="source" value="{{ old('source', $recipe->source) }}" maxlength="255">
                 </label>

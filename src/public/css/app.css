@@ -223,7 +223,7 @@ details.more[open] > summary::before, .add-block[open] > summary::before { trans
 details.more > :not(summary) { margin-top: 10px; }
 
 /* ---- Formulaires ---- */
-.field { display: grid; gap: 5px; min-width: 0; border: 0; padding: 0; margin: 0; }
+.field { display: grid; gap: 5px; min-width: 0; border: 0; padding: 0; margin: 0; align-content: start; }
 .field > span, .field > legend { font-size: .9rem; font-weight: 700; color: var(--text-2); padding: 0; }
 .field small { color: var(--muted); font-size: .82rem; font-weight: 400; }
 .field-small { max-width: 120px; }
@@ -849,4 +849,15 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
     .ingredient-row .ing-optional { flex-direction: column; gap: 0; }
     .ingredient-row.has-problem { padding-inline: 8px; }
 }
+
+/* v0.15.3 : bloc « L'essentiel » de la fiche recette — 4 colonnes alignées (2 sur téléphone) */
+.essentials { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 16px; align-items: start; }
+.essentials .wide { grid-column: 1 / -1; }
+.essentials .field > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.essentials input[type=text], .essentials input[type=number], .essentials select { height: 44px; }
+.essentials .input-pair { grid-template-columns: minmax(52px, 72px) minmax(0, 1fr); }
+.essentials .field small { line-height: 1.35; }
+@media (max-width: 900px) {
+    .essentials { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+    .essentials .wide-phone { grid-column: 1 / -1; }
 }

@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.15.3 - 2026-10-06 - Fiche recette : bloc « L'essentiel » aligné et ordonné
+
+- Signalé par Louis : dans le formulaire d'une recette (et la relecture d'une fiche Paperless), les champs du bloc « L'essentiel » n'étaient ni alignés ni ordonnés (hauteurs différentes, libellés sur deux lignes, champs étirés).
+- Nouvelle grille à 4 colonnes, rangée par sujet : titre ; présentation ; catégorie, difficulté, protéine principale, recette prévue pour ; préparation, cuisson, repos, prix industriel ; source. Tous les champs ont la même hauteur, chaque libellé tient sur une ligne et les aides sont sous les champs. Sur téléphone (moins de 900 px de large) : 2 colonnes, protéine et « prévue pour » sur toute la largeur.
+- Libellés raccourcis : « Prix industriel » (aide : « Facultatif : le plat tout prêt, pour chiffrer l'économie »).
+- Correction générale : un champ de formulaire n'est plus étiré en hauteur quand son voisin est plus grand (tous les formulaires de l'application).
+- Correction d'une accolade en trop à la fin de la feuille de style de la v0.15.2 (sans effet visible jusqu'ici, mais elle aurait annulé la règle suivante).
+- Aucune migration. 248 tests automatisés.
+
 ## v0.15.2 - 2026-10-06 - Écran de relecture compact et lecture des scans plus précise (Ratatouille Leclerc)
 
 - Signalé par Louis sur la Ratatouille Leclerc : écran de relecture « fouillis » et lecture approximative (« tt », « courgeties »).
