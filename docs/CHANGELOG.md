@@ -1,5 +1,13 @@
 # Journal des versions - Foodtruck
 
+## v0.16.3 - 2026-10-06 - Correctif : site en « 502 Bad Gateway » après un redémarrage de l'application
+
+- Signalé par Louis à 14:02 : foodtruck.louisrousseaux.fr répondait « 502 Bad Gateway ». Diagnostic : tous les conteneurs tournaient, mais foodtruck-web (Nginx) essayait encore de joindre PHP à l'ancienne adresse de foodtruck-app (« connect() failed (111: Connection refused) … fastcgi://172.28.0.6:9000 »).
+- Cause : Nginx ne cherche l'adresse de foodtruck-app qu'une fois, à son démarrage. Le script de la v0.16.2 a redémarré foodtruck-app pendant que foodtruck-ocr redémarrait en boucle ; Docker lui a donné une autre adresse IP, et Nginx (démarré la veille) a gardé l'ancienne. Le site était indisponible depuis 13:05.
+- Remise en route immédiate : redémarrage de foodtruck-web. Correction durable : Nginx redemande l'adresse de foodtruck-app au DNS de Docker (au plus toutes les 10 secondes), un redémarrage de l'application ne casse plus le site.
+- Script de mise à jour : configuration Nginx vérifiée (nginx -t) avant d'être appliquée ; après le redémarrage, le site est testé de bout en bout (Nginx → PHP → Laravel, adresse /up) ; retour arrière automatique en cas d'échec. Ce contrôle de bout en bout sera repris dans tous les scripts suivants.
+- Aucune migration. 255 tests automatisés.
+
 ## v0.16.2 - 2026-10-06 - Correctif : service de lecture arrêté depuis la v0.16.1 (« Permission denied »)
 
 - Signalé par Louis : alertes répétées de la supervision (« conteneur foodtruck-ocr en mauvaise santé »). Diagnostic : le service redémarrait en boucle (68 redémarrages), « python3: can't open file '/app/server.py': [Errno 13] Permission denied ».
