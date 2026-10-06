@@ -151,6 +151,70 @@
         </details>
     </section>
 
+    {{-- Unités de mesure (v0.16.0) --}}
+    @php $base = $ingredient->base_unit; $baseLabel = \App\Support\Units::label($base); @endphp
+    <section class="panel" id="unites">
+        <h2>Unités de mesure</h2>
+        <p class="hint">
+            Référence : <strong>{{ Str::lower($ingredient->baseUnitLabel()) }}</strong> (liste de courses, prix, stock).
+            Les recettes peuvent aussi utiliser ces unités, converties automatiquement :
+            @if ($ingredient->piece_weight_g) 1 pièce = {{ \App\Support\Units::number($ingredient->piece_weight_g) }} g. @endif
+            @if ($ingredient->density) 1 c. à soupe ≈ {{ \App\Support\Units::number(15 * $ingredient->density, 1) }} g. @endif
+        </p>
+        <div class="list">
+            @foreach ($ingredient->units as $unit)
+                <form method="post" action="{{ route('ingredients.units.update', [$ingredient, $unit]) }}" class="unit-row">
+                    @csrf @method('put')
+                    <label class="field">
+                        <span>Unité @if ($unit->is_estimate)<span class="badge-estimate" title="Valeur typique proposée par Foodtruck : corrige-la si besoin">valeur typique</span>@endif</span>
+                        <input type="text" name="name" value="{{ $unit->name }}" maxlength="40" required>
+                    </label>
+                    <label class="field">
+                        <span>Pluriel</span>
+                        <input type="text" name="plural" value="{{ $unit->plural }}" maxlength="40">
+                    </label>
+                    <label class="field">
+                        <span>1 {{ $unit->name }} =</span>
+                        <span class="input-suffix">
+                            <input type="text" name="quantity" value="{{ \App\Support\Units::number($unit->quantity, 3) }}" inputmode="decimal" maxlength="12" required>
+                            <span>{{ $baseLabel }}</span>
+                        </span>
+                    </label>
+                    <div class="row-actions">
+                        <button type="submit" class="btn btn-small">{{ $unit->is_estimate ? 'Valider' : 'Enregistrer' }}</button>
+                        <button type="submit" class="btn btn-small btn-danger" form="delete-unit-{{ $unit->id }}"
+                                data-confirm="Supprimer l'unité « {{ $unit->name }} » ?">Supprimer</button>
+                    </div>
+                </form>
+                <form method="post" action="{{ route('ingredients.units.destroy', [$ingredient, $unit]) }}" id="delete-unit-{{ $unit->id }}" hidden>
+                    @csrf @method('delete')
+                </form>
+            @endforeach
+        </div>
+        <details class="add-block" @if ($ingredient->units->isEmpty()) open @endif>
+            <summary>+ Ajouter une unité</summary>
+            <form method="post" action="{{ route('ingredients.units.store', $ingredient) }}" class="unit-row">
+                @csrf
+                <label class="field">
+                    <span>Unité</span>
+                    <input type="text" name="name" maxlength="40" placeholder="sachet" required>
+                </label>
+                <label class="field">
+                    <span>Pluriel</span>
+                    <input type="text" name="plural" maxlength="40" placeholder="sachets">
+                </label>
+                <label class="field">
+                    <span>Équivalence</span>
+                    <span class="input-suffix">
+                        <input type="text" name="quantity" inputmode="decimal" maxlength="12" placeholder="10" required>
+                        <span>{{ $baseLabel }}</span>
+                    </span>
+                </label>
+                <div class="row-actions"><button type="submit" class="btn btn-small">Ajouter</button></div>
+            </form>
+        </details>
+    </section>
+
     {{-- Caractéristiques --}}
     <section class="panel" id="caracteristiques">
         <h2>Caractéristiques</h2>

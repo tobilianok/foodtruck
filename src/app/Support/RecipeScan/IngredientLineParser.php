@@ -18,7 +18,7 @@ class IngredientLineParser
     private const FRACTIONS = ['½' => 0.5, '¼' => 0.25, '¾' => 0.75, '⅓' => 1 / 3, '⅔' => 2 / 3, '⅛' => 0.125];
 
     /** Mots qui comptent des éléments : l'unité devient « pièce » et le mot est gardé en précision. */
-    private const PIECE_WORDS = 'feuilles?|gousses?|branches?|brins?|tranches?|pots?|bo[iî]tes?|sachets?|paquets?|t[eê]tes?|bottes?|bouquets?|filets?|noix|morceaux?|cubes?|tiges?|rondelles?|pav[eé]s?|escalopes?|blancs?|b[aâ]tons?|bocal|bocaux|carr[eé]s?|barquettes?|poign[eé]es?|tubes?|conserves?|boules?|pi[eè]ces?|bandes?|cuisses?|aiguillettes?|[eé]pis?|grappes?|quartiers?|zestes?|rouleaux?|plaques?|sticks?|gr[aâ]ins?';
+    private const PIECE_WORDS = 'feuilles?|gousses?|branches?|brins?|tranches?|pots?|bo[iî]tes?|sachets?|paquets?|t[eê]tes?|bottes?|bouquets?|filets?|noix|morceaux?|cubes?|tiges?|rondelles?|pav[eé]s?|escalopes?|blancs?|b[aâ]tons?|bocal|bocaux|carr[eé]s?|barquettes?|poign[eé]es?|tubes?|conserves?|boules?|pi[eè]ces?|bandes?|cuisses?|aiguillettes?|[eé]pis?|grappes?|quartiers?|zestes?|rouleaux?|plaques?|sticks?|gr[aâ]ins?|cm';
 
     private const QUALIFIERS = 'bonne|belle|grosse|petite|grande|g[eé]n[eé]reuse|pleine|rase|ras[eé]e|bomb[eé]e|copieuse|demie|gros|petit|grand|beau|bon|moyen|moyenne';
 

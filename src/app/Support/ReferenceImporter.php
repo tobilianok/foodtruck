@@ -77,6 +77,9 @@ class ReferenceImporter
                         $counts['prices']++;
                     }
                 }
+
+                // v0.16.0 : unités courantes (gousse, botte, sachet…) pré-remplies avec des valeurs typiques
+                TypicalUnits::seed($ingredient);
             }
         });
 

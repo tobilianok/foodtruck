@@ -214,6 +214,22 @@ Artisan::command('foodtruck:reference', function () {
 })->purpose('Importe le jeu d\'ingrédients de départ');
 
 /*
+ * ./ft php artisan foodtruck:unites
+ * v0.16.0 : pré-remplit les unités courantes des ingrédients (gousse, botte, sachet, boîte…) avec des valeurs
+ * typiques marquées « valeur typique ». N'écrase jamais une unité existante ; relançable sans risque.
+ */
+Artisan::command('foodtruck:unites', function () {
+    $added = 0;
+    $touched = 0;
+    \App\Models\Ingredient::with('units')->orderBy('name')->each(function ($ingredient) use (&$added, &$touched) {
+        $n = \App\Support\TypicalUnits::seed($ingredient);
+        $added += $n;
+        $touched += $n > 0 ? 1 : 0;
+    });
+    $this->info("Unités typiques ajoutées : {$added} (sur {$touched} ingrédient(s)). Les valeurs se corrigent sur la fiche de chaque ingrédient.");
+})->purpose('Pré-remplit les unités courantes des ingrédients');
+
+/*
  * ./ft php artisan foodtruck:recipes
  * Importe le premier lot de recettes (n'ajoute que les absentes, n'écrase rien).
  */

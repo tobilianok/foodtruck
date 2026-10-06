@@ -111,6 +111,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/ingredients/{ingredient:slug}/conditionnements/{pack}', [IngredientController::class, 'updatePack'])->name('ingredients.packs.update');
         Route::delete('/ingredients/{ingredient:slug}/conditionnements/{pack}', [IngredientController::class, 'destroyPack'])->name('ingredients.packs.destroy');
         Route::post('/ingredients/{ingredient:slug}/prix', [IngredientController::class, 'storePrice'])->name('ingredients.prices.store');
+        Route::post('/ingredients/{ingredient:slug}/unites', [IngredientController::class, 'storeUnit'])->name('ingredients.units.store');
+        Route::put('/ingredients/{ingredient:slug}/unites/{unit}', [IngredientController::class, 'updateUnit'])->name('ingredients.units.update');
+        Route::delete('/ingredients/{ingredient:slug}/unites/{unit}', [IngredientController::class, 'destroyUnit'])->name('ingredients.units.destroy');
 
         // Tickets de caisse (Paperless ou saisie manuelle) : prix réellement payés
         Route::get('/tickets', [ReceiptController::class, 'index'])->name('receipts.index');

@@ -34,6 +34,20 @@ class Ingredient extends Model
         return $this->hasMany(IngredientPack::class)->orderBy('position')->orderBy('quantity');
     }
 
+    /** Unités propres à l'ingrédient (v0.16.0) : sachet, gousse, boîte… */
+    public function units(): HasMany
+    {
+        return $this->hasMany(IngredientUnit::class)->orderBy('name');
+    }
+
+    /** Unité propre retrouvée par son slug (« sachet ») ou son code (« u:sachet »). */
+    public function unitBySlug(string $slugOrCode): ?IngredientUnit
+    {
+        $slug = Units::isCustom($slugOrCode) ? Units::customSlug($slugOrCode) : $slugOrCode;
+
+        return $this->units->firstWhere('slug', $slug);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

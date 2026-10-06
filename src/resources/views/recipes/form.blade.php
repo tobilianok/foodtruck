@@ -137,6 +137,7 @@
         <section class="panel">
             <h2>Ingrédients</h2>
             <p class="hint">Commence à taper le nom et choisis dans la liste. Quantité et unité vides = « selon goût ». Le groupe sert à séparer « Pour la pâte », « Pour la sauce »…</p>
+            <script type="application/json" id="ingredient-units">@json($ingredientUnits ?? [])</script>
             <datalist id="ingredient-names">
                 @foreach ($ingredientNames as $name)
                     <option value="{{ $name }}"></option>

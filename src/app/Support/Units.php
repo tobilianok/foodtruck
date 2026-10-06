@@ -20,6 +20,11 @@ class Units
 
     public const PIECE = 'piece';
 
+    /** Unité propre à un ingrédient (« u:sachet ») : convertie par l'ingrédient lui-même (v0.16.0). */
+    public const CUSTOM = 'propre';
+
+    public const CUSTOM_PREFIX = 'u:';
+
     /** Unité de base de chaque dimension. */
     public const BASE = [
         self::MASS => 'g',
@@ -54,15 +59,39 @@ class Units
         return isset(self::UNITS[$unit]);
     }
 
+    public static function isCustom(?string $unit): bool
+    {
+        return $unit !== null && str_starts_with($unit, self::CUSTOM_PREFIX);
+    }
+
+    public static function customSlug(string $unit): string
+    {
+        return substr($unit, strlen(self::CUSTOM_PREFIX));
+    }
+
+    /** Code de ligne de recette accepté : unité générale (g, cl, c. à soupe…) ou unité propre (« u:sachet »). */
+    public static function validCode(?string $unit): bool
+    {
+        return $unit !== null && (self::exists($unit) || preg_match('/^u:[a-z0-9][a-z0-9-]{0,35}$/', $unit) === 1);
+    }
+
     public static function dimension(string $unit): string
     {
+        if (self::isCustom($unit)) {
+            return self::CUSTOM;
+        }
         self::assertExists($unit);
 
         return self::UNITS[$unit][1];
     }
 
-    public static function label(string $unit): string
+    public static function label(string $unit, ?Ingredient $ingredient = null, float $quantity = 1): string
     {
+        if (self::isCustom($unit)) {
+            $own = $ingredient?->unitBySlug($unit);
+
+            return $own ? $own->label($quantity) : str_replace('-', ' ', self::customSlug($unit));
+        }
         self::assertExists($unit);
 
         return self::UNITS[$unit][0];
@@ -75,6 +104,15 @@ class Units
      */
     public static function toBase(float $quantity, string $unit, Ingredient $ingredient): float
     {
+        if (self::isCustom($unit)) {
+            $own = $ingredient->unitBySlug($unit);
+            if (! $own) {
+                throw new UnitConversionException('Unité « '.self::label($unit).' » inconnue pour « '.$ingredient->name.' ».');
+            }
+
+            return $quantity * $own->quantity;
+        }
+
         $from = self::dimension($unit);
         $to = self::dimension($ingredient->base_unit);
         $value = $quantity * self::UNITS[$unit][2];
@@ -98,8 +136,12 @@ class Units
     }
 
     /** Quantité saisie dans une recette : « 2 pièces », « 1 c. à soupe », « 20 cl ». */
-    public static function quantityLabel(float $quantity, string $unit): string
+    public static function quantityLabel(float $quantity, string $unit, ?Ingredient $ingredient = null): string
     {
+        if (self::isCustom($unit)) {
+            return self::fraction($quantity).' '.self::label($unit, $ingredient, $quantity);
+        }
+
         $plurals = ['piece' => 'pièces', 'pincee' => 'pincées', 'verre' => 'verres'];
         $label = $quantity > 1 && isset($plurals[$unit]) ? $plurals[$unit] : self::label($unit);
 
@@ -117,7 +159,7 @@ class Units
             return 0.0;
         }
 
-        $step = match ($unit) {
+        $step = self::isCustom($unit) ? ($quantity < 2 ? 0.25 : 0.5) : match ($unit) {
             'piece' => $quantity < 1 ? 0.5 : 1.0,
             'g', 'ml' => match (true) {
                 $quantity < 20 => 1.0,
@@ -139,8 +181,12 @@ class Units
      * Libellé d'une quantité recalculée : unité plus lisible au-delà d'un seuil (1 250 g → « 1,25 kg »)
      * et fractions pour ce qui se compte (« 1 ½ c. à soupe », « ½ pièce »).
      */
-    public static function scaledLabel(float $quantity, string $unit): string
+    public static function scaledLabel(float $quantity, string $unit, ?Ingredient $ingredient = null): string
     {
+        if (self::isCustom($unit)) {
+            return self::quantityLabel($quantity, $unit, $ingredient);
+        }
+
         if ($unit === 'g' && $quantity >= 1000) {
             return self::number($quantity / 1000).' kg';
         }
@@ -194,6 +240,20 @@ class Units
     public static function referenceFactor(string $baseUnit): int
     {
         return in_array($baseUnit, ['g', 'ml'], true) ? 1000 : 1;
+    }
+
+    /** Quantité qui se compte : « ½ », « 1 ¼ », « 3 » ; sinon le nombre (« 0,3 »). */
+    public static function fraction(float $value): string
+    {
+        $whole = (int) floor($value + 0.001);
+        $rest = $value - $whole;
+        foreach (['¼' => 0.25, '½' => 0.5, '¾' => 0.75] as $glyph => $part) {
+            if (abs($rest - $part) < 0.01) {
+                return $whole > 0 ? $whole.' '.$glyph : $glyph;
+            }
+        }
+
+        return abs($rest) < 0.01 || abs($rest - 1) < 0.01 ? (string) (int) round($value) : self::number($value);
     }
 
     public static function number(float $value, int $decimals = 2): string

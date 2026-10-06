@@ -861,3 +861,16 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
     .essentials { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
     .essentials .wide-phone { grid-column: 1 / -1; }
 }
+
+/* v0.16.0 : unités propres des ingrédients — question unique à la relecture, valeur typique, page ingrédient */
+.ask-unit { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); }
+.ask-unit input[type=text] { width: 5.5em; min-height: 32px; padding: .2em .5em; }
+.row-info { grid-column: 1 / -1; margin: 0; font-size: .8rem; color: var(--muted); }
+.unit-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 160px auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.unit-row .field > span { font-size: .8rem; }
+.unit-row .field > .input-suffix { font-size: 1rem; font-weight: 400; color: var(--text); }
+.badge-estimate { display: inline-block; font-size: .72rem; font-weight: 600; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: .05em .6em; margin-left: 6px; }
+@media (max-width: 720px) {
+    .unit-row { grid-template-columns: 1fr 1fr; }
+    .unit-row .row-actions { grid-column: 1 / -1; }
+}

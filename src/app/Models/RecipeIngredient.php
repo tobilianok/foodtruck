@@ -56,10 +56,10 @@ class RecipeIngredient extends Model
         }
 
         if (abs($factor - 1) < 0.0001) {
-            return Units::quantityLabel($this->quantity, $this->unit);
+            return Units::quantityLabel($this->quantity, $this->unit, $this->ingredient);
         }
 
-        return Units::scaledLabel(Units::practical($this->quantity * $factor, $this->unit), $this->unit);
+        return Units::scaledLabel(Units::practical($this->quantity * $factor, $this->unit), $this->unit, $this->ingredient);
     }
 
     /** Valeur exacte du calcul quand l'arrondi pratique la modifie (affichée au survol), sinon null. */
@@ -71,10 +71,10 @@ class RecipeIngredient extends Model
 
         $exact = $this->quantity * $factor;
 
-        return abs(Units::practical($exact, $this->unit) - $exact) < 0.005 ? null : 'calcul exact : '.Units::quantityLabel($exact, $this->unit);
+        return abs(Units::practical($exact, $this->unit) - $exact) < 0.005 ? null : 'calcul exact : '.Units::quantityLabel($exact, $this->unit, $this->ingredient);
     }
 
-    /** Équivalence dans l'unité de base quand la dimension diffère (« 2 pièces » → « ≈ 250 g »). */
+    /** Équivalence dans l'unité de base quand la dimension diffère (« 2 pièces » → « ≈ 250 g », « ½ sachet » → « ≈ 5 g »). */
     public function equivalentLabel(float $factor = 1): ?string
     {
         if ($this->unit === null || Units::dimension($this->unit) === Units::dimension($this->ingredient->base_unit)) {

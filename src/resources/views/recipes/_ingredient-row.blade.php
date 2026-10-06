@@ -1,4 +1,12 @@
 {{-- Une ligne d'ingrédient : titres des colonnes affichés une seule fois au-dessus de la liste (sur ordinateur) --}}
+@php
+    // v0.16.0 : unités propres de l'ingrédient de la ligne (« sachet », « gousse »…), en plus des unités générales
+    $ownUnits = ($ingredientUnits ?? [])[$row['name'] ?? ''] ?? [];
+    $currentUnit = $row['unit'] ?? '';
+    if (\App\Support\Units::isCustom($currentUnit) && ! isset($ownUnits[$currentUnit])) {
+        $ownUnits[$currentUnit] = str_replace('-', ' ', \App\Support\Units::customSlug($currentUnit));
+    }
+@endphp
 <div class="row ingredient-row @if (! empty($row['problem'])) has-problem @endif" data-row>
     <input type="hidden" name="ingredients[{{ $key }}][label]" value="{{ $row['label'] ?? '' }}">
     <label class="field ing-name">
@@ -11,11 +19,18 @@
     </label>
     <label class="field ing-unit">
         <span class="row-label">Unité</span>
-        <select name="ingredients[{{ $key }}][unit]">
+        <select name="ingredients[{{ $key }}][unit]" data-unit-select>
             <option value="">selon goût</option>
-            @foreach (\App\Support\Units::UNITS as $code => [$label])
-                <option value="{{ $code }}" @selected(($row['unit'] ?? '') === $code)>{{ $label }}</option>
-            @endforeach
+            <optgroup label="Unités de l'ingrédient" data-own-units @if ($ownUnits === []) hidden @endif>
+                @foreach ($ownUnits as $code => $label)
+                    <option value="{{ $code }}" @selected($currentUnit === $code)>{{ $label }}</option>
+                @endforeach
+            </optgroup>
+            <optgroup label="Unités générales">
+                @foreach (\App\Support\Units::UNITS as $code => [$label])
+                    <option value="{{ $code }}" @selected($currentUnit === $code)>{{ $label }}</option>
+                @endforeach
+            </optgroup>
         </select>
     </label>
     <label class="field ing-note">
@@ -46,9 +61,23 @@
                     @endforeach
                 </span>
             @endif
+            @if (! empty($row['ask']))
+                {{-- Une seule question, retenue sur l'ingrédient : « 1 sachet de Crevettes = … g » --}}
+                <label class="ask-unit">
+                    <input type="hidden" name="ingredients[{{ $key }}][ask_kind]" value="{{ $row['ask']['kind'] }}">
+                    <input type="hidden" name="ingredients[{{ $key }}][ask_word]" value="{{ $row['ask']['word'] }}">
+                    <span>{{ $row['ask']['label'] }} =</span>
+                    <input type="text" name="ingredients[{{ $key }}][ask_value]" inputmode="decimal" maxlength="12" placeholder="?" data-ask-value
+                           aria-label="Équivalence de {{ $row['ask']['label'] }} en {{ \App\Support\Units::label($row['ask']['base']) }}">
+                    <span>{{ \App\Support\Units::label($row['ask']['base']) }}</span>
+                </label>
+            @endif
             @if (empty($row['known']))
                 <a class="small" href="{{ route('ingredients.create', ['nom' => $row['label'] ?? $row['name']]) }}" target="_blank" rel="noopener">Créer cet ingrédient ↗</a>
             @endif
         </div>
+    @endif
+    @if (! empty($row['info']) && empty($row['problem']))
+        <p class="row-info">≈ {{ $row['info'] }}@if (! empty($row['info_slug'])) · <a href="{{ route('ingredients.show', $row['info_slug']) }}#unites" target="_blank" rel="noopener">corriger ↗</a>@endif</p>
     @endif
 </div>

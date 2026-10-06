@@ -46,7 +46,14 @@ class RecipeWriter
             'ingredients.*.name' => ['nullable', 'string', 'max:80'],
             'ingredients.*.label' => ['nullable', 'string', 'max:160'],
             'ingredients.*.quantity' => ['nullable', 'string', 'max:12'],
-            'ingredients.*.unit' => ['nullable', Rule::in(array_keys(Units::UNITS))],
+            'ingredients.*.unit' => ['nullable', 'string', 'max:40', function ($attribute, $value, $fail) {
+                if ($value !== null && $value !== '' && ! Units::validCode($value)) {
+                    $fail('Unité inconnue.');
+                }
+            }],
+            'ingredients.*.ask_kind' => ['nullable', Rule::in(['unit', 'piece', 'density'])],
+            'ingredients.*.ask_word' => ['nullable', 'string', 'max:36'],
+            'ingredients.*.ask_value' => ['nullable', 'string', 'max:12'],
             'ingredients.*.note' => ['nullable', 'string', 'max:120'],
             'ingredients.*.optional' => ['nullable', 'boolean'],
             'steps' => ['nullable', 'array', 'max:40'],
@@ -141,6 +148,12 @@ class RecipeWriter
             $quantityInput = str_replace(',', '.', trim((string) ($row['quantity'] ?? '')));
             $quantity = $quantityInput === '' ? null : (is_numeric($quantityInput) && (float) $quantityInput > 0 ? (float) $quantityInput : false);
             $unit = ($row['unit'] ?? null) ?: null;
+            $note = trim((string) ($row['note'] ?? '')) ?: null;
+
+            // v0.16.0 : réponse à « Combien vaut 1 sachet de … ? » posée à la relecture, retenue sur l'ingrédient
+            if ($unit !== null && ($learned = self::learnAnswer($row, $ingredient, $unit, $note)) !== null) {
+                [$unit, $note] = $learned;
+            }
 
             if ($quantity === false) {
                 $errors[] = "« {$name} » : quantité invalide.";
@@ -167,7 +180,7 @@ class RecipeWriter
                 'ingredient_id' => $ingredient->id,
                 'quantity' => $quantity,
                 'unit' => $unit,
-                'note' => trim((string) ($row['note'] ?? '')) ?: null,
+                'note' => $note,
                 'is_optional' => ! empty($row['optional']),
             ];
         }
@@ -180,6 +193,50 @@ class RecipeWriter
         }
 
         return $resolved;
+    }
+
+    /**
+     * Retient sur l'ingrédient la réponse donnée à la relecture : une unité propre (« 1 sachet = 10 g »), le poids
+     * d'une pièce ou la densité. Renvoie [unité, précision] de la ligne, ou null s'il n'y a rien à retenir.
+     */
+    private static function learnAnswer(array $row, Ingredient $ingredient, string $unit, ?string $note): ?array
+    {
+        $value = str_replace(',', '.', trim((string) ($row['ask_value'] ?? '')));
+        $kind = $row['ask_kind'] ?? null;
+        if ($kind === null || ! is_numeric($value) || (float) $value <= 0) {
+            return null;
+        }
+        $value = (float) $value;
+
+        if ($kind === 'unit') {
+            $slug = Str::slug((string) ($row['ask_word'] ?? ''));
+            if ($slug === '' || strlen($slug) > 36) {
+                return null;
+            }
+            $own = $ingredient->unitBySlug($slug);
+            if ($own) {
+                $own->update(['quantity' => $value, 'is_estimate' => false]);
+            } else {
+                $own = TypicalUnits::remember($ingredient, $slug, $value, false);
+            }
+            $ingredient->unsetRelation('units');
+            // La ligne passe dans la nouvelle unité si elle était encore « pièce » (« 1 pièce, sachet »)
+            if ($unit === 'piece' || $unit === $own->code()) {
+                return [$own->code(), TypicalUnits::wordFrom($note) === $slug ? TypicalUnits::noteWithout($note, $slug) : $note];
+            }
+
+            return [$unit, $note];
+        }
+
+        if ($kind === 'piece' && ! $ingredient->piece_weight_g) {
+            $ingredient->update(['piece_weight_g' => $value]);
+        } elseif ($kind === 'density' && ! $ingredient->density) {
+            $volume = (string) ($row['ask_word'] ?? 'cl');
+            $ml = Units::exists($volume) && Units::dimension($volume) === Units::VOLUME ? Units::UNITS[$volume][2] : 10;
+            $ingredient->update(['density' => round($value / $ml, 4)]);
+        }
+
+        return [$unit, $note];
     }
 
     /** Enregistre la recette et ses éléments (remplace ingrédients, étapes, étiquettes et appareils). */

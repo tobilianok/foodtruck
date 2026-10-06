@@ -159,6 +159,7 @@ Comptes et foyers
 
 Référentiel
 - Unités (définies dans le code, App\Support\Units, pas en base) : g, kg, pincée (0,5 g), ml, cl, dl, L, c. à café (5 ml), c. à soupe (15 ml), verre (200 ml), pièce ; trois dimensions (masse → g, volume → ml, pièce) ; conversions entre dimensions via la densité et le poids d'une pièce de l'ingrédient
+- Unités propres d'un ingrédient (v0.16.0, table ingredient_units : slug, nom, pluriel, équivalence dans l'unité de base, valeur typique oui/non) : « sachet », « gousse », « boîte »… Code dans une ligne de recette : « u:<slug> ». L'unité de base reste la référence (liste de courses, prix, stock). Affichage : unité de la recette + équivalent (« ½ sachet ≈ 5 g »). Valeurs typiques (App\Support\TypicalUnits) pré-remplies et marquées jusqu'à validation ; à l'import, une unité inconnue est estimée (conditionnement du même nom, valeur typique, conditionnement unique) ou fait l'objet d'UNE question retenue sur l'ingrédient.
 - ingredients : nom, slug (stable, sert d'URL), rayon, unité de base (g, ml ou pièce, verrouillée dès qu'un conditionnement existe), poids d'une pièce (g), densité (g/ml), mois de saison (null = toute l'année), produit frais, produit de base (listé « à vérifier »), créé par
 - ingredient_packs : conditionnements achetables (libellé, quantité dans l'unité de base, vrac oui/non)
 - aisles : 14 rayons avec ordre par défaut ; stores : 6 magasins (Leclerc Drive, Morin, Lidl, Carrefour, Hyper U, Grand Frais) ; households.main_store_id et produce_store_id ; ordre des rayons propre à chaque magasin : prévu avec la liste de courses (v0.8.0)
@@ -308,7 +309,7 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - Cartes HelloFresh : sachets et paquets comptés en pièces ; à décider avec Louis : (1) donner un poids à chaque sachet ou paquet par ingrédient (lu sur les emballages), ou (2) garder la quantité telle quelle, marquée « à estimer ». (3) Lecture avec coordonnées (Tesseract dans l'image PHP, PDF téléchargé depuis Paperless) : option mise de côté, à rouvrir seulement si les cartes à colonnes deviennent trop nombreuses.
 - Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.
 
-## Pour reprendre dans une nouvelle conversation (état au 2026-10-06, après la livraison de la v0.15.4)
+## Pour reprendre dans une nouvelle conversation (état au 2026-10-06, après la livraison de la v0.16.0)
 
 État
 - v0.12.0 (recettes scannées dans Paperless) : livrée et poussée sur GitHub (tag v0.12.0).
@@ -318,6 +319,7 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - v0.13.2 (supprimer une fiche Paperless l'efface complètement, elle est retraitée à la recherche suivante) : livrée, script foodtruck-update-v0.13.2.sh fourni (exige la v0.13.1 en place, une migration de nettoyage), en attente de validation de Louis. 226 tests automatisés.
 - v0.13.1 (boutons Supprimer / Tout supprimer, fiches mises de côté) : appliquée par Louis le 2026-10-05, remplacée par la v0.13.2.
 - v0.13.0 (menu automatique) : livrée, script foodtruck-update-v0.13.0.sh fourni, EN ATTENTE de validation de Louis (exige la v0.12.2 en place ; une migration). 222 tests automatisés. Louis a demandé de mettre de côté les fiches de recettes pour avancer sur le reste du projet.
+- v0.16.0 (plusieurs unités par ingrédient : sachet, gousse, boîte… ; import des fiches converti automatiquement, une seule question pour une unité inconnue, retenue ; valeurs typiques pré-remplies) : livrée le 2026-10-06, script foodtruck-update-v0.16.0.sh fourni (exige la v0.15.4, une migration, pré-remplit les unités et relit les fiches à relire), en attente de validation. 254 tests automatisés.
 - v0.15.4 (lecture des scans d'après le fichier original de Paperless et non plus la version archivée, dont les images recompressées collaient les mots) : livrée le 2026-10-06, script foodtruck-update-v0.15.4.sh fourni (s'installe sur la v0.15.2 ou la v0.15.3, aucune migration, relit les fiches à relire), en attente de validation. 248 tests automatisés.
 - v0.15.3 (bloc « L'essentiel » de la fiche recette en grille alignée de 4 colonnes, 2 sur téléphone) : livrée le 2026-10-06, script foodtruck-update-v0.15.3.sh fourni (exige la v0.15.2 en place, aucune migration), en attente de validation. 248 tests automatisés.
 - v0.15.2 (écran de relecture compact ; couleurs et petites fautes dans le rapprochement ; lecture plus précise : modèle « best », canal le plus sombre, seconde lecture ; Ratatouille Leclerc) : appliquée sur la VM par Louis le 2026-10-06 (248 tests passés, foodtruck-ocr en bonne santé, 3 fiches relues d'après le scan), commit et tag v0.15.2 poussés sur GitHub ; reste la validation à l'usage (écran de relecture, fiches Ratatouille, Croziflette, Orzo, Curry). 248 tests automatisés.

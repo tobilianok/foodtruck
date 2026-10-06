@@ -1,5 +1,16 @@
 # Journal des versions - Foodtruck
 
+## v0.16.0 - 2026-10-06 - Plusieurs unités par ingrédient (sachet, gousse, boîte…) : import des fiches presque sans retouche
+
+- Demande de Louis : les unités d'une fiche importée doivent se convertir toutes seules dans l'unité de l'ingrédient enregistré dans Foodtruck, pour n'avoir plus qu'un contrôle et une validation finale. Choix validés : la recette garde l'unité de la fiche (« ½ sachet ») avec l'équivalent en petit à côté (« ≈ 5 g ») ; les unités courantes sont pré-remplies avec des valeurs typiques, corrigées ensuite si besoin.
+- Nouveau : chaque ingrédient peut avoir ses propres unités (table ingredient_units) : « 1 sachet = 10 g », « 1 gousse = 5 g », « 1 boîte = 400 ml », « 1 cm = 5 g »… L'unité de base (g, ml, pièce) reste la référence pour la liste de courses, les prix et le stock ; les recettes peuvent utiliser n'importe quelle unité de l'ingrédient, toujours convertie.
+- Page d'un ingrédient : section « Unités de mesure » (ajouter, corriger, supprimer ; une valeur typique est marquée « valeur typique » jusqu'à ce qu'elle soit validée ; une unité utilisée par une recette ne peut pas être supprimée).
+- Valeurs typiques pré-remplies (commande foodtruck:unites, lancée par le script, et à la création d'un ingrédient) : ail (gousse, tête), gingembre (cm, morceau), herbes fraîches (sachet, botte, bouquet, brin, feuille, poignée), thym et romarin (brin, branche), laurier, sauge, citronnelle, levure, sucre vanillé, gélatine, épices en sachet, jambon, bacon, pain, fromage en tranches, conserves (boîte), lait de coco, crème (brique, pot), yaourt, beurre (noix, noisette), salade et fruits secs (poignée), chocolat (carré, tablette), pâtes à tarte (rouleau).
+- Import des fiches : « 4 gousses », « ½ sachet », « 1 boîte », « 2 cm », « 3 brins » deviennent l'unité de l'ingrédient. Si elle n'existe pas encore, Foodtruck l'estime d'après un conditionnement du même nom (« Boîte 40 cl »), une valeur typique, ou le seul conditionnement de l'ingrédient, et la rappelle en petit sous la ligne avec un lien « corriger ». Les cuillères d'un ingrédient pesé sans densité (« 2 c. à soupe de beurre ») sont estimées de la même façon.
+- Quand rien ne permet d'estimer (« 1 paquet de crevettes » sans conditionnement), la ligne pose UNE question : « 1 paquet = [ ] g ». La réponse est retenue sur l'ingrédient : les fiches suivantes passent toutes seules. Même chose pour le poids d'une pièce ou la densité manquants.
+- La relecture et le formulaire de recette proposent, pour chaque ligne, les unités de l'ingrédient en plus des unités générales.
+- Migration : table ingredient_units ; recipe_ingredients.unit passe à 40 caractères (une unité propre est notée « u:sachet »). 254 tests automatisés (6 nouveaux dans IngredientUnitsTest).
+
 ## v0.15.4 - 2026-10-06 - Lecture des scans d'après l'original Paperless (mots collés, étapes en désordre)
 
 - Signalé par Louis sur le curry thaï (fiche n° 28 sur la VM) : mots collés (« surfeumoyenavecunpetitfilet », « entemps », « personne2min »), première étape « msg 0e Chop, chop, chop » séparée de son texte, titre « Dernier coup de poêle » coupé en morceaux et mélangé à l'étape « Tout baigne ».

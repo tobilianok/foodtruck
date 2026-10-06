@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Aisle;
 use App\Models\Ingredient;
 use App\Models\IngredientPack;
+use App\Models\IngredientUnit;
+use App\Models\RecipeIngredient;
 use App\Models\Price;
 use App\Models\Store;
 use App\Support\Units;
@@ -94,6 +96,9 @@ class IngredientController extends Controller
                 }
             }
 
+            // v0.16.0 : unités courantes pré-remplies (gousse, botte, sachet…), valeurs typiques à corriger au besoin
+            \App\Support\TypicalUnits::seed($ingredient);
+
             return $ingredient;
         });
 
@@ -102,7 +107,7 @@ class IngredientController extends Controller
 
     public function show(Ingredient $ingredient)
     {
-        $ingredient->load(['aisle', 'creator', 'packs.prices.store', 'packs.prices.creator']);
+        $ingredient->load(['aisle', 'creator', 'packs.prices.store', 'packs.prices.creator', 'units']);
 
         $history = Price::with(['store', 'pack', 'creator'])
             ->whereIn('ingredient_pack_id', $ingredient->packs->pluck('id'))
@@ -190,6 +195,64 @@ class IngredientController extends Controller
             'observed_on' => $date,
             'created_by' => $userId,
         ]);
+    }
+
+    /** v0.16.0 : unité propre (« 1 sachet = 10 g »). */
+    public function storeUnit(Request $request, Ingredient $ingredient)
+    {
+        $data = $this->validateUnit($request);
+        $slug = Str::limit(Str::slug($data['name']), 36, '');
+        if ($slug === '' || $ingredient->units()->where('slug', $slug)->exists()) {
+            throw ValidationException::withMessages(['name' => "L'unité « {$data['name']} » existe déjà pour cet ingrédient."]);
+        }
+
+        $ingredient->units()->create($data + ['slug' => $slug, 'is_estimate' => false]);
+
+        return back()->with('status', "Unité « {$data['name']} » ajoutée.");
+    }
+
+    public function updateUnit(Request $request, Ingredient $ingredient, IngredientUnit $unit)
+    {
+        abort_unless($unit->ingredient_id === $ingredient->id, 404);
+
+        // Le code (« u:sachet ») ne change pas : les recettes qui l'utilisent restent justes
+        $unit->update($this->validateUnit($request) + ['is_estimate' => false]);
+
+        return back()->with('status', "Unité « {$unit->name} » enregistrée : les recettes et les listes de courses en tiennent compte.");
+    }
+
+    public function destroyUnit(Ingredient $ingredient, IngredientUnit $unit)
+    {
+        abort_unless($unit->ingredient_id === $ingredient->id, 404);
+
+        $used = RecipeIngredient::where('ingredient_id', $ingredient->id)->where('unit', $unit->code())->distinct()->count('recipe_id');
+        if ($used > 0) {
+            return back()->withErrors(['unit' => "« {$unit->name} » est utilisée par {$used} recette(s) : corrige sa valeur plutôt que de la supprimer."]);
+        }
+
+        $unit->delete();
+
+        return back()->with('status', "Unité « {$unit->name} » supprimée.");
+    }
+
+    private function validateUnit(Request $request): array
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:40'],
+            'plural' => ['nullable', 'string', 'max:40'],
+            'quantity' => ['required', 'string', 'max:12'],
+        ], [], ['name' => 'nom de l\'unité', 'plural' => 'pluriel', 'quantity' => 'équivalence']);
+
+        $quantity = str_replace(',', '.', trim($data['quantity']));
+        if (! is_numeric($quantity) || (float) $quantity <= 0 || (float) $quantity > 100000) {
+            throw ValidationException::withMessages(['quantity' => 'Équivalence invalide (ex. 10 ou 0,5).']);
+        }
+
+        return [
+            'name' => trim($data['name']),
+            'plural' => trim((string) ($data['plural'] ?? '')) ?: null,
+            'quantity' => (float) $quantity,
+        ];
     }
 
     private function validateIngredient(Request $request): array

@@ -26,7 +26,7 @@ use Throwable;
  */
 class RecipeController extends Controller
 {
-    private const RELATIONS = ['tags', 'equipment', 'author', 'ingredients.ingredient.packs.prices'];
+    private const RELATIONS = ['tags', 'equipment', 'author', 'ingredients.ingredient.packs.prices', 'ingredients.ingredient.units'];
 
     public function index(Request $request)
     {
@@ -256,6 +256,10 @@ class RecipeController extends Controller
             'ingredientRows' => $ingredients ?: [[]],
             'stepRows' => $steps ?: [[]],
             'ingredientNames' => Ingredient::orderBy('name')->pluck('name'),
+            // v0.16.0 : unités propres par ingrédient (« Ail » → gousse, tête), pour la liste des unités de chaque ligne
+            'ingredientUnits' => Ingredient::has('units')->with('units')->get()
+                ->mapWithKeys(fn (Ingredient $i) => [$i->name => $i->units->mapWithKeys(fn ($u) => [$u->code() => $u->name])->all()])
+                ->all(),
             'tags' => Tag::ordered(),
             'equipment' => Equipment::ordered(),
             'selectedTags' => array_map('intval', old('tags', $recipe->exists ? $recipe->tags->pluck('id')->all() : [])),

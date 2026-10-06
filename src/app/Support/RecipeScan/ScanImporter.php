@@ -10,6 +10,7 @@ use App\Models\RecipeAlias;
 use App\Models\RecipeImport;
 use App\Models\User;
 use App\Support\RecipeWriter;
+use App\Support\TypicalUnits;
 use App\Support\UnitConversionException;
 use App\Support\Units;
 use Illuminate\Support\Arr;
@@ -58,20 +59,30 @@ class ScanImporter
                 'raw' => $line['raw'],
                 'problem' => null,
                 'candidates' => $match['candidates'],
+                'info' => null,
+                'ask' => null,
             ];
+
+            // v0.16.0 : l'unité lue devient une unité de l'ingrédient (sachet, gousse, boîte…) dès que possible
+            if ($ingredient && $row['quantity'] !== null) {
+                $row = self::checkQuantity($row, $ingredient);
+            }
 
             if (! $ingredient) {
                 $row['problem'] = 'Ingrédient absent du référentiel.';
                 $unresolved[] = $line['name'];
             } elseif ($match['via'] === 'approchant') {
                 $row['problem'] = 'lecture approximative, rapproché de « '.$ingredient->name.' » : à confirmer.';
-            } elseif ($row['quantity'] !== null) {
-                $row = self::checkQuantity($row, $ingredient);
             }
 
-            // Lecture douteuse signalée par le lecteur (fraction perdue, ligne absorbée par la mise en page)
-            if ($row['problem'] === null && ! empty($line['check'])) {
-                $row['problem'] = $line['check'];
+            // Lecture douteuse signalée par le lecteur (fraction perdue, ligne absorbée par la mise en page) ;
+            // « 1 cm » de gingembre n'est plus un problème quand l'ingrédient connaît le centimètre
+            $check = $line['check'] ?? null;
+            if ($check && $row['unit'] === Units::CUSTOM_PREFIX.'cm' && str_contains($check, 'centimètres')) {
+                $check = null;
+            }
+            if ($row['problem'] === null && ! empty($check)) {
+                $row['problem'] = $check;
             }
 
             $rows[] = $row;
@@ -228,6 +239,9 @@ class ScanImporter
                 'problem' => $row['problem'] ?? null,
                 'candidates' => $row['candidates'] ?? [],
                 'known' => ! empty($row['ingredient_id']),
+                'info' => $row['info'] ?? null,
+                'info_slug' => $row['info_slug'] ?? null,
+                'ask' => $row['ask'] ?? null,
             ])->all(),
             'steps' => collect($parsed['recipe']['steps'] ?? [])->map(fn (array $step) => [
                 'body' => $step['body'], 'timer' => $step['timer'], 'equipment_id' => self::stepEquipment($step),
@@ -273,9 +287,44 @@ class ScanImporter
             ?? User::where('household_id', $household->id)->orderBy('id')->first();
     }
 
-    /** Vérifie que la quantité se convertit ; « 7 cl de bouillon » devient une fraction de cube. */
+    /**
+     * Unité de la ligne ramenée à une unité que l'ingrédient sait convertir (v0.16.0) :
+     * - « 4 gousses », « ½ sachet », « 1 boîte », « 2 cm » : unité propre de l'ingrédient, créée au besoin d'après son
+     *   conditionnement ou une valeur typique (marquée estimée, modifiable sur la fiche de l'ingrédient) ;
+     * - « 7 cl de bouillon » : fraction de cube ;
+     * - sinon, si rien ne permet de convertir : UNE question (« 1 sachet de Crevettes = … g ») posée à la relecture,
+     *   dont la réponse est retenue sur l'ingrédient pour toutes les fiches suivantes.
+     */
     private static function checkQuantity(array $row, Ingredient $ingredient): array
     {
+        $word = null;
+        if ($row['unit'] === 'piece' && preg_match('/^(\d+(?:[.,]\d+)?)\s*cm\b\s*(.*)$/u', trim((string) $row['note']), $cm) === 1) {
+            $word = 'cm';
+            $row['quantity'] = (float) str_replace(',', '.', $cm[1]);
+            $row['note'] = trim($cm[2]) ?: null;
+        } elseif ($row['unit'] === 'piece' && ($word = TypicalUnits::wordFrom($row['note'])) !== null) {
+            $row['note'] = TypicalUnits::noteWithout($row['note'], $word);
+        }
+
+        if ($word !== null) {
+            $own = $ingredient->unitBySlug($word);
+            if (! $own && ($estimate = TypicalUnits::estimate($ingredient, $word)) !== null) {
+                $own = TypicalUnits::remember($ingredient, $word, $estimate);
+            }
+            if ($own) {
+                $row['unit'] = $own->code();
+                $row = self::estimateInfo($row, $own, $ingredient);
+
+                return $row;
+            }
+
+            [$name] = TypicalUnits::display($word);
+            $row['ask'] = ['kind' => 'unit', 'word' => $word, 'label' => '1 '.$name, 'base' => $ingredient->base_unit];
+            $row['problem'] = "Combien vaut 1 {$name} de « {$ingredient->name} » ? Indique-le une fois, Foodtruck le retiendra.";
+
+            return $row;
+        }
+
         try {
             Units::toBase((float) $row['quantity'], $row['unit'], $ingredient);
 
@@ -296,10 +345,49 @@ class ScanImporter
                 return $row;
             }
 
-            $row['problem'] = $e->getMessage().' Choisis une autre unité ou complète la fiche de l\'ingrédient.';
+            // « 1 c. à soupe de beurre » sans densité connue : cuillère estimée (≈ 15 g), modifiable sur l'ingrédient
+            if (($spoon = TypicalUnits::spoon($ingredient, $row['unit'])) !== null) {
+                $row['unit'] = $spoon->code();
+                $row = self::estimateInfo($row, $spoon, $ingredient);
+
+                return $row;
+            }
+
+            $row['ask'] = self::question($row['unit'], $ingredient);
+            $row['problem'] = $row['ask']
+                ? "Combien pèse {$row['ask']['label']} de « {$ingredient->name} » ? Indique-le une fois, Foodtruck le retiendra."
+                : $e->getMessage().' Choisis une autre unité ou complète la fiche de l\'ingrédient.';
 
             return $row;
         }
+    }
+
+    /** Valeur typique utilisée : rappelée en petit sous la ligne, avec un lien pour la corriger une fois pour toutes. */
+    private static function estimateInfo(array $row, \App\Models\IngredientUnit $unit, Ingredient $ingredient): array
+    {
+        if ($unit->is_estimate) {
+            $row['info'] = $unit->equivalence($ingredient->base_unit).' (valeur typique)';
+            $row['info_slug'] = $ingredient->slug;
+        }
+
+        return $row;
+    }
+
+    /** Question posée quand il manque le poids d'une pièce ou la densité de l'ingrédient. */
+    public static function question(string $unit, Ingredient $ingredient): ?array
+    {
+        if (Units::isCustom($unit)) {
+            return null;
+        }
+        $from = Units::dimension($unit);
+        $to = Units::dimension($ingredient->base_unit);
+
+        if ($from === Units::PIECE || $to === Units::PIECE) {
+            return ['kind' => 'piece', 'word' => 'piece', 'label' => '1 pièce', 'base' => 'g'];
+        }
+        $volume = $from === Units::VOLUME ? $unit : 'cl';
+
+        return ['kind' => 'density', 'word' => $volume, 'label' => '1 '.Units::label($volume), 'base' => 'g'];
     }
 
     /** Protéine principale devinée d'après les ingrédients (vide si rien de net). */

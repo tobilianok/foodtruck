@@ -296,11 +296,62 @@
         row.classList.remove('has-problem');
         row.classList.add('is-resolved');
         var warning = row.querySelector('[data-row-warning]');
-        if (warning) {
-            warning.classList.add('is-done');
-            warning.textContent = '✓ ' + name + ' retenu.';
+        if (!warning) return;
+        warning.classList.add('is-done');
+        var ask = warning.querySelector('.ask-unit');
+        if (ask && ask.querySelector('[data-ask-value]').value.trim() !== '') {
+            // La réponse à « 1 sachet = … g » reste dans le formulaire : elle sera retenue sur l'ingrédient
+            var text = warning.querySelector('.row-warning-text');
+            if (text) text.textContent = '✓ ' + name;
+            warning.querySelectorAll('.pick-list, a').forEach(function (el) { el.remove(); });
+            return;
         }
+        warning.textContent = '✓ ' + name + ' retenu.';
     }
+
+    // v0.16.0 : unités propres de l'ingrédient choisi (« Ail » → gousse, tête) dans la liste des unités de la ligne
+    var unitsData = document.getElementById('ingredient-units');
+    var ownUnits = {};
+    try { ownUnits = unitsData ? JSON.parse(unitsData.textContent) : {}; } catch (e) { ownUnits = {}; }
+
+    function refreshUnits(row, name) {
+        var group = row.querySelector('[data-own-units]');
+        var select = row.querySelector('[data-unit-select]');
+        if (!group || !select) return;
+        var current = select.value;
+        var units = ownUnits[name] || {};
+        group.innerHTML = '';
+        Object.keys(units).forEach(function (code) {
+            var option = document.createElement('option');
+            option.value = code;
+            option.textContent = units[code];
+            group.appendChild(option);
+        });
+        group.hidden = group.children.length === 0;
+        select.value = Array.prototype.some.call(select.options, function (o) { return o.value === current; }) ? current : (current.indexOf('u:') === 0 ? '' : current);
+    }
+
+    document.addEventListener('change', function (event) {
+        var input = event.target.closest('[data-ingredient-name]');
+        if (!input) return;
+        var row = input.closest('[data-row]');
+        if (row) refreshUnits(row, input.value.trim());
+    });
+
+    // Réponse donnée à « 1 sachet de … = ? g » : la ligne est réglée
+    document.addEventListener('input', function (event) {
+        var input = event.target.closest('[data-ask-value]');
+        if (!input) return;
+        var row = input.closest('[data-row]');
+        var value = parseFloat(input.value.replace(',', '.'));
+        if (row && value > 0) {
+            row.classList.remove('has-problem');
+            row.classList.add('is-resolved');
+        } else if (row) {
+            row.classList.add('has-problem');
+            row.classList.remove('is-resolved');
+        }
+    });
 
     document.addEventListener('click', function (event) {
         var pick = event.target.closest('[data-pick]');
