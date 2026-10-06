@@ -91,7 +91,7 @@ class RecipeScanLayoutTest extends TestCase
             $this->assertStringNotContainsString('Colonnes', $issue, 'Plus besoin de séparer les colonnes : le scan les garde');
         }
 
-        Http::assertSent(fn (Request $r) => $r->url() === self::PAPERLESS.'/api/documents/487/download/' && $r->hasHeader('Authorization', 'Token '.str_repeat('a', 40)));
+        Http::assertSent(fn (Request $r) => $r->url() === self::PAPERLESS.'/api/documents/487/download/?original=true' && $r->hasHeader('Authorization', 'Token '.str_repeat('a', 40)));
         Http::assertSent(fn (Request $r) => $r->url() === self::OCR.'/lire' && $r->method() === 'POST' && $r->body() === '%PDF-1.4 scan');
 
         // La relecture affiche le texte lu sur le scan

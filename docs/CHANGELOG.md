@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.15.4 - 2026-10-06 - Lecture des scans d'après l'original Paperless (mots collés, étapes en désordre)
+
+- Signalé par Louis sur le curry thaï (fiche n° 28 sur la VM) : mots collés (« surfeumoyenavecunpetitfilet », « entemps », « personne2min »), première étape « msg 0e Chop, chop, chop » séparée de son texte, titre « Dernier coup de poêle » coupé en morceaux et mélangé à l'étape « Tout baigne ».
+- Cause trouvée : Foodtruck téléchargeait la version archivée de Paperless. Sa conversion en PDF/A recompresse les images du scan (JPEG plus dégradé que celui de la photocopieuse) ; les espaces entre les mots et les petits pictogrammes en souffrent. Reproduit à l'identique en recompressant le scan original du curry comme Paperless : mêmes mots collés. Avec l'original, la lecture est propre (6 étapes titrées dans l'ordre, aucun mot collé).
+- Correction : Foodtruck lit maintenant toujours le fichier original du document (API Paperless, paramètre original=true). Rien à changer dans Paperless.
+- « ¼ » lu « Y4 », « Ya » ou « Y » devant une unité (« avec Ya cc de curry ») remis en « ¼ ».
+- Le script s'installe sur la v0.15.2 (il contient aussi la v0.15.3) ou sur la v0.15.3, puis relit d'après le scan toutes les fiches encore à relire.
+- Aucune migration. 248 tests automatisés.
+
 ## v0.15.3 - 2026-10-06 - Fiche recette : bloc « L'essentiel » aligné et ordonné
 
 - Signalé par Louis : dans le formulaire d'une recette (et la relecture d'une fiche Paperless), les champs du bloc « L'essentiel » n'étaient ni alignés ni ordonnés (hauteurs différentes, libellés sur deux lignes, champs étirés).

@@ -85,7 +85,11 @@ class PaperlessClient
     }
 
     /**
-     * Fichier d'un document : la version archivée (PDF redressé par Paperless) si elle existe, sinon l'original.
+     * Fichier original d'un document (le scan tel qu'envoyé par la photocopieuse).
+     *
+     * v0.15.3 : plus la version archivée de Paperless : sa conversion en PDF/A recompresse les images (JPEG plus
+     * dégradé), et la lecture des petits caractères en souffre (mots collés « surfeumoyenavecunpetitfilet »,
+     * titres d'étape perdus). L'original est toujours disponible dans Paperless.
      *
      * @return array{body: string, mime: string}
      */
@@ -94,7 +98,7 @@ class PaperlessClient
         try {
             $response = Http::timeout(60)->connectTimeout(5)->withoutRedirecting()
                 ->withHeaders(['Authorization' => 'Token '.$this->token, 'Accept' => '*/*'])
-                ->get(rtrim($this->baseUrl, '/')."/api/documents/{$documentId}/download/");
+                ->get(rtrim($this->baseUrl, '/')."/api/documents/{$documentId}/download/", ['original' => 'true']);
         } catch (\Throwable $e) {
             throw new RuntimeException('Paperless injoignable : '.Str::limit($e->getMessage(), 160));
         }

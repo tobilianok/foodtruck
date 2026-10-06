@@ -253,8 +253,8 @@ class LayoutComposer
         // Puce ronde lue « e » ou « e_ » devant une phrase, ou recopiée en fin de ligne depuis la colonne voisine
         $line = preg_replace('/^e_?\s+(?=\p{Lu})/u', '', $line);
         $line = preg_replace('/(?:\s+e)+$/u', '', $line);
-        // « ¼ » lu « Y4 » (« ainsi que Y4 sachet de sauce »)
-        $line = preg_replace('/(?<=^|\s)Y4(?=\s)/u', '¼', $line);
+        // « ¼ » lu « Y4 », « Ya » ou « Y » devant une unité (« ainsi que Y4 sachet de sauce », « avec Ya cc de curry »)
+        $line = preg_replace('/(?<=^|\s)(?:Y4|Ya|Y)(?=\s+(?:cc|cs|c\.|sachets?|paquets?|pots?|pi[eè]ces?)\b)/u', '¼', $line);
 
         return trim($line);
     }
