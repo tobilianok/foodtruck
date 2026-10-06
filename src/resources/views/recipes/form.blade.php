@@ -138,6 +138,16 @@
                     <option value="{{ $name }}"></option>
                 @endforeach
             </datalist>
+            @php $toCheck = collect($ingredientRows)->filter(fn ($r) => ! empty($r['problem']))->count(); @endphp
+            @if ($toCheck > 0)
+                <div class="check-summary">
+                    <span><strong>{{ $toCheck }} ligne{{ $toCheck > 1 ? 's' : '' }} à vérifier</strong> sur {{ count($ingredientRows) }} : choisis l'ingrédient proposé, corrige le nom ou crée-le.</span>
+                    <label class="check"><input type="checkbox" data-only-problems> <span>Afficher seulement les lignes à vérifier</span></label>
+                </div>
+            @endif
+            <div class="ingredient-head" aria-hidden="true">
+                <span>Ingrédient</span><span>Quantité</span><span>Unité</span><span>Précision</span><span>Groupe</span><span title="Facultatif">Fac.</span><span></span>
+            </div>
             <div class="rows ingredient-rows" data-rows="ingredients">
                 @foreach ($ingredientRows as $key => $row)
                     @include('recipes._ingredient-row', ['key' => $key, 'row' => $row])

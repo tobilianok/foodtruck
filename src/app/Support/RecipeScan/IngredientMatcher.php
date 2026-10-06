@@ -12,7 +12,8 @@ use Illuminate\Support\Str;
  *
  * Ordre : libellé déjà validé par quelqu'un (alias appris) → synonymes courants → nom identique →
  * l'ingrédient est contenu dans le libellé (« comté » dans « comté 24 mois râpé ») → le libellé est contenu
- * dans l'ingrédient (« sauge » dans « Sauge fraîche »). En cas d'égalité, aucun choix n'est fait : la fiche est relue.
+ * dans l'ingrédient (« sauge » dans « Sauge fraîche ») → lecture approximative (« courgeties » → Courgette, à confirmer).
+ * En cas d'égalité, aucun choix n'est fait : la fiche est relue.
  */
 class IngredientMatcher
 {
@@ -53,6 +54,9 @@ class IngredientMatcher
 
     /** Mots qui décrivent le produit sans le changer : ignorés quand on cherche le libellé dans un nom d'ingrédient. */
     private const DESCRIPTORS = ['rape', 'rapee', 'emince', 'emincee', 'hache', 'hachee', 'coupe', 'coupee', 'fondu', 'fondue', 'mou', 'molle', 'pele', 'lave', 'cuit', 'cuite', 'cru', 'crue', 'frais', 'fraiche', 'moulu', 'moulue', 'entier', 'entiere', 'mur', 'mure', 'gros', 'petit', 'moyen', 'bio', 'vierge', 'extra', 'pressee', 'premiere', 'froid', 'fermier', 'label', 'affine', 'affinee', 'vieux', 'jeune', 'moi', 'mois', 'an'];
+
+    /** Couleurs : ignorées seulement si l'ingrédient n'en précise pas (« poivron vert » → Poivron), jamais si elles le contredisent (« vin blanc » ≠ Vin rouge). */
+    private const COLORS = ['vert', 'verte', 'rouge', 'jaune', 'orange', 'blanc', 'blanche', 'noir', 'noire', 'violet', 'violette'];
 
     /** @var Collection<int, array{ingredient: Ingredient, tokens: array<int, string>}> */
     private Collection $index;
@@ -97,8 +101,10 @@ class IngredientMatcher
         // L'ingrédient est contenu dans le libellé, et ce qui reste n'est qu'une précision (« râpé », « 24 mois ») :
         // le plus précis (le plus de mots) l'emporte. « Pâte à tartiner » ne doit pas devenir « Pâtes ».
         $ignorable = array_map(fn ($d) => self::singular($d), self::DESCRIPTORS);
+        $colors = array_map(fn ($c) => self::singular($c), self::COLORS);
         $contained = $this->index->filter(fn ($row) => array_diff($row['tokens'], $tokens) === []
-                && collect(array_diff($tokens, $row['tokens']))->every(fn ($t) => ctype_digit($t) || in_array($t, $ignorable, true)))
+                && collect(array_diff($tokens, $row['tokens']))->every(fn ($t) => ctype_digit($t) || in_array($t, $ignorable, true)
+                    || (in_array($t, $colors, true) && array_intersect($row['tokens'], $colors) === [])))
             ->groupBy(fn ($row) => count($row['tokens']))->sortKeysDesc()->first();
         $best = $contained?->pluck('ingredient')->unique('id');
         if ($best && $best->count() === 1) {
@@ -114,7 +120,39 @@ class IngredientMatcher
             }
         }
 
+        // Lecture approximative du scan (« courgeties ») : une lettre ou deux de différence avec un seul ingrédient.
+        // Proposé mais toujours à confirmer à la relecture (via « approchant »).
+        if (($near = $this->approximate($significant !== [] ? $significant : $tokens)) !== null) {
+            return ['ingredient' => $near, 'via' => 'approchant', 'candidates' => [$near->name]];
+        }
+
         return ['ingredient' => null, 'via' => null, 'candidates' => $this->candidates($tokens)];
+    }
+
+    /** Un seul ingrédient dont chaque mot est à une ou deux lettres près d'un mot du libellé. */
+    private function approximate(array $tokens): ?Ingredient
+    {
+        $close = function (string $a, string $b): bool {
+            $length = min(strlen($a), strlen($b));
+            $allowed = $length >= 8 ? 2 : ($length >= 5 ? 1 : 0);
+
+            return $allowed > 0 && levenshtein($a, $b) <= $allowed;
+        };
+
+        $found = $this->index->filter(function ($row) use ($tokens, $close) {
+            if (count($row['tokens']) !== count($tokens)) {
+                return false;
+            }
+            foreach ($row['tokens'] as $i => $token) {
+                if ($token !== $tokens[$i] && ! $close($token, $tokens[$i])) {
+                    return false;
+                }
+            }
+
+            return $row['tokens'] !== $tokens;
+        })->pluck('ingredient')->unique('id');
+
+        return $found->count() === 1 ? $found->first() : null;
     }
 
     /** Libellé normalisé servant de clé d'alias. */
@@ -155,9 +193,13 @@ class IngredientMatcher
     /** @return array<int, string> noms proches, pour aider à choisir à la relecture */
     private function candidates(array $tokens): array
     {
+        // Une couleur ou une précision en commun ne suffit pas à proposer un ingrédient (« curry rouge » ≠ Oignon rouge)
+        $weak = array_map(fn ($w) => self::singular($w), array_merge(self::COLORS, self::DESCRIPTORS));
+
         return $this->index
-            ->map(fn ($row) => ['ingredient' => $row['ingredient'], 'score' => count(array_intersect($row['tokens'], $tokens))])
-            ->filter(fn ($row) => $row['score'] > 0)
+            ->map(fn ($row) => ['ingredient' => $row['ingredient'], 'score' => collect(array_intersect($row['tokens'], $tokens))
+                ->sum(fn ($t) => in_array($t, $weak, true) ? 0.1 : 1)])
+            ->filter(fn ($row) => $row['score'] >= 1)
             ->sortByDesc('score')
             ->pluck('ingredient.name')->unique()->take(5)->values()->all();
     }

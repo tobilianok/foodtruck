@@ -195,6 +195,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - Commandes utiles : docker compose ps ocr ; docker compose logs --tail=50 ocr ; ./ft php artisan foodtruck:check (ligne « Lecture des scans ») ; ./ft php artisan foodtruck:lire-fiches (lecture des fiches en attente) et --toutes (relire toutes les fiches à relire).
 - Désactiver la lecture des scans sans rien désinstaller : retirer FOODTRUCK_OCR_URL des services app et scheduler dans compose.yaml puis docker compose up -d app scheduler (le texte de Paperless sert, comme avant).
 - v0.15.1 : le script (foodtruck-update-v0.15.1.sh) exige la v0.15.0, reconstruit l'image foodtruck-ocr (docker compose build ocr), lance les tests, recrée le conteneur (docker compose up -d ocr), attend qu'il soit prêt puis relit d'après le scan les fiches encore à relire. Aucune migration.
+- v0.15.2 : le script (foodtruck-update-v0.15.2.sh) exige la v0.15.1, reconstruit l'image foodtruck-ocr (la construction télécharge le modèle français « best » depuis github.com, environ 4 Mo, vérifié par somme de contrôle : si la VM n'a pas accès à GitHub, la construction échoue et rien n'est changé), lance les tests, recrée le conteneur, attend qu'il soit prêt puis relit d'après le scan toutes les fiches encore à relire. Aucune migration.
 - Performance mesurée sur 2 vCPU à 2,1 GHz : 9 s pour une page Leclerc, 21 s pour une carte HelloFresh de deux pages ; un fil de calcul par lecture (OMP_THREAD_LIMIT=1, plus rapide que plusieurs).
 
 ## Fiches à colonnes mélangées (v0.14.0)
@@ -234,7 +235,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0, v0.15.0 et v0.15.1 livrées le 2026-10-05, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0, v0.15.0 et v0.15.1 livrées le 2026-10-05, v0.15.2 livrée le 2026-10-06, en attente de validation) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

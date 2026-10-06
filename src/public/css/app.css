@@ -808,3 +808,45 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 /* ---- v0.15.0 : lecture des scans par foodtruck-ocr ---- */
 .badge-reading { font-size: .75rem; padding: .15em .6em; border-radius: 999px; background: var(--sun-soft); color: var(--sun-ink); font-weight: 700; white-space: nowrap; }
 @media (prefers-color-scheme: dark) { .badge-reading { background: color-mix(in srgb, var(--sun) 22%, var(--surface)); color: var(--sun); } }
+
+/* ---- v0.15.2 : liste d'ingrédients compacte (formulaire de recette et relecture des fiches) ---- */
+.ingredient-head, .ingredient-row {
+    display: grid; grid-template-columns: minmax(180px, 2.2fr) 78px 132px minmax(120px, 1.4fr) 110px 40px 36px;
+    gap: 6px 8px; align-items: center;
+}
+.ingredient-head { padding: 0 0 6px; border-bottom: 1px solid var(--line); font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.ingredient-row { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.ingredient-row input, .ingredient-row select { min-height: 38px; padding-block: .35em; }
+.ingredient-row .row-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ingredient-row .ing-optional { justify-content: center; }
+.ingredient-row .ing-optional span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.ingredient-row .ing-remove { min-height: 34px; width: 34px; padding: 0; }
+.ingredient-row.has-problem { background: color-mix(in srgb, var(--tomato) 8%, transparent); border-left: 3px solid var(--tomato); border-radius: 0 8px 8px 0; padding-inline: 8px 4px; }
+.ingredient-row.is-resolved { border-left: 3px solid var(--accent); padding-left: 8px; }
+.row-warning { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; font-size: .84rem; color: var(--tomato-ink); }
+.row-warning.is-done { color: var(--accent-strong); }
+.pick-list { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.pick { font: inherit; font-size: .8rem; padding: .15em .65em; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); cursor: pointer; }
+.pick:hover { border-color: var(--accent); background: var(--accent-soft); }
+.check-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 10px 12px; margin-bottom: 10px; border-radius: var(--radius-s); background: color-mix(in srgb, var(--tomato) 8%, transparent); font-size: .92rem; }
+.ingredient-rows.only-problems .ingredient-row:not(.has-problem) { display: none; }
+@media (prefers-color-scheme: dark) { .row-warning { color: #ef9a8e; } .row-warning.is-done { color: var(--accent-strong); } }
+@media (max-width: 860px) {
+    /* Téléphone : trois lignes par ingrédient (nom ; quantité, unité ; précision, groupe), sans libellés répétés */
+    .ingredient-head { display: none; }
+    .ingredient-row {
+        grid-template-columns: 76px 1fr 1fr 44px; padding: 8px 0;
+        grid-template-areas: "name name name rm" "qty unit unit opt" "note note group group";
+    }
+    .ingredient-row .ing-name { grid-area: name; }
+    .ingredient-row .ing-qty { grid-area: qty; }
+    .ingredient-row .ing-unit { grid-area: unit; }
+    .ingredient-row .ing-optional { grid-area: opt; }
+    .ingredient-row .ing-note { grid-area: note; }
+    .ingredient-row .ing-group { grid-area: group; }
+    .ingredient-row .ing-remove { grid-area: rm; justify-self: end; }
+    .ingredient-row .ing-optional span { position: static; width: auto; height: auto; overflow: visible; clip: auto; font-size: .72rem; }
+    .ingredient-row .ing-optional { flex-direction: column; gap: 0; }
+    .ingredient-row.has-problem { padding-inline: 8px; }
+}
+}

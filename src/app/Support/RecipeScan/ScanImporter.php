@@ -63,6 +63,8 @@ class ScanImporter
             if (! $ingredient) {
                 $row['problem'] = 'Ingrédient absent du référentiel.';
                 $unresolved[] = $line['name'];
+            } elseif ($match['via'] === 'approchant') {
+                $row['problem'] = 'lecture approximative, rapproché de « '.$ingredient->name.' » : à confirmer.';
             } elseif ($row['quantity'] !== null) {
                 $row = self::checkQuantity($row, $ingredient);
             }
@@ -225,6 +227,7 @@ class ScanImporter
                 'optional' => $row['optional'],
                 'problem' => $row['problem'] ?? null,
                 'candidates' => $row['candidates'] ?? [],
+                'known' => ! empty($row['ingredient_id']),
             ])->all(),
             'steps' => collect($parsed['recipe']['steps'] ?? [])->map(fn (array $step) => [
                 'body' => $step['body'], 'timer' => $step['timer'], 'equipment_id' => self::stepEquipment($step),

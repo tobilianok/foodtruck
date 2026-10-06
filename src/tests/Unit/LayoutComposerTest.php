@@ -9,8 +9,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * v0.15.0 : fiches lues par foodtruck-ocr (blocs avec leur position) puis remises en forme par LayoutComposer.
  * Les fichiers tests/Fixtures/layout/*.json sont les vraies réponses du service sur les scans de Louis
- * (Croziflette n° 487, Orzo HelloFresh n° 483, Curry thaï HelloFresh n° 481) et sur une page générique
- * (une colonne, étapes numérotées).
+ * (Croziflette n° 487, Orzo HelloFresh n° 483, Curry thaï HelloFresh n° 481, Ratatouille Leclerc) et sur une page
+ * générique (une colonne, étapes numérotées).
+ * v0.15.2 : relues avec le modèle français « best », le gris par le canal le plus sombre et la seconde lecture
+ * « texte épars » (bandeau « À table dans : 35 - 45 Min » du curry, sauté jusque-là).
  * Test sans base de données.
  */
 class LayoutComposerTest extends TestCase
@@ -66,8 +68,8 @@ class LayoutComposerTest extends TestCase
         $byName = collect($this->read('hellofresh-orzo', 'Orzo')['ingredients'])->keyBy('name');
 
         $this->assertSame([320.0, 'g'], [$byName['Crevettes']['quantity'], $byName['Crevettes']['unit']]);
-        $this->assertStringContainsString('« 3208 »', $byName['Crevettes']['check']);
-        $this->assertSame(1.25, $byName['Épices italiennes']['quantity']);
+        $this->assertArrayNotHasKey('check', $byName['Crevettes'], 'v0.15.2 : « 320 g » lu sans faute avec le modèle « best »');
+        $this->assertSame(1.5, $byName['Épices italiennes']['quantity']);
         $this->assertStringContainsString('fraction perdue', $byName['Épices italiennes']['check']);
         $this->assertSame(2.5, $byName['Beurre']['quantity']);
         $this->assertArrayNotHasKey('check', $byName['Orzo'], 'Une quantité bien lue n\'est pas signalée');
@@ -99,9 +101,12 @@ class LayoutComposerTest extends TestCase
         $steps = array_column($r['steps'], 'body');
         $this->assertCount(6, $steps, 'Six étapes, plus une seule grande étape mélangée');
         $titles = array_map(fn ($s) => explode(' : ', $s, 2)[0], $steps);
-        $this->assertSame(['Chop, chop, chop', 'Tout baigne', 'Revettes au chaud', 'La cuisson, la suite', 'Dernier coup de poêle', 'Comment est votre curry ?'], $titles);
+        $this->assertSame(['Chop, chop, chop', 'Tout baigne', 'Crevettes au chaud', 'La cuisson, la suite', 'Dernier coup de poêle', 'Comment est votre curry ?'], $titles,
+            'Grille de 2 rangées de 3 étapes lue rangée par rangée');
         $this->assertStringContainsString('Faites cuire le riz 12-14 min', $steps[1]);
         $this->assertStringContainsString('jusqu\'au service.', $steps[1], 'Le bout de ligne « jusqu\'au » reste dans sa colonne');
+        $this->assertStringContainsString('sachet de sauce poisson par personne', $steps[4], 'v0.15.2 : bouts de lignes des deux rangées rattachés à leur colonne');
+        $this->assertStringContainsString('ainsi que ¼ sachet', $steps[4], '« Y4 » lu pour « ¼ »');
         $this->assertStringNotContainsString('Veillez', $steps[0], 'Consigne générale de la carte écartée');
         $this->assertStringContainsString('vitamine B12', $r['tip'], 'Encadré « ZOOM NUTRITION » en conseil');
         $this->assertStringContainsString('Si cela accroche', $r['tip'], 'Encadré « L\'ASTUCE DU CHEF » en conseil');
@@ -114,11 +119,38 @@ class LayoutComposerTest extends TestCase
         $this->assertSame(['Riz', 'Échalote', 'ail', 'Gingembre frais', 'Carotte', 'Coriandre et basilic thaï', 'Citron', 'Crevettes', 'Curry vert',
             'Lait de coco', 'Sauce poisson', 'Huile de tournesol', 'Poivre', 'sel'], $byName->keys()->all());
         $this->assertSame([1.0, 'piece', 'paquet'], [$byName['Crevettes']['quantity'], $byName['Crevettes']['unit'], $byName['Crevettes']['note']]);
-        $this->assertSame([0.5, 'sachet'], [$byName['Coriandre et basilic thaï']['quantity'], $byName['Coriandre et basilic thaï']['note']]);
-        $this->assertStringContainsString('illisible', $byName['Coriandre et basilic thaï']['check']);
+        $this->assertSame([4.0, 'sachet'], [$byName['Coriandre et basilic thaï']['quantity'], $byName['Coriandre et basilic thaï']['note']]);
+        $this->assertStringContainsString('souvent lue « 4 »', $byName['Coriandre et basilic thaï']['check'], '½ lu « 4 » : signalé');
+        $this->assertSame(0.5, $byName['Citron']['quantity']);
+        $this->assertStringContainsString('illisible', $byName['Citron']['check']);
+        $this->assertSame('À ajouter vous-même', $byName['Huile de tournesol']['group'], '« A ajouter vous-meme » remis au propre');
         $this->assertSame(1.5, $byName['Huile de tournesol']['quantity'], '« 1% cs » lu pour 1½ cs');
         $this->assertStringContainsString('« 1% »', $byName['Huile de tournesol']['check']);
         $this->assertStringContainsString('centimètres', $byName['Gingembre frais']['check']);
+    }
+
+    public function test_ratatouille_leclerc_ingredients_bandeau_et_pied_de_page(): void
+    {
+        $r = $this->read('leclerc-ratatouille', 'Ratatouille');
+
+        $this->assertSame([4.0, 16], [$r['yield_quantity'], $r['prep_minutes']]);
+        $this->assertSame('mesrecettes.leclerc', $r['source'], 'Pied de page lu « www,mesrecettes,leclerc »');
+        $this->assertSame([], $r['issues'], 'Plus de « texte après la dernière étape » (pied de page reconnu)');
+
+        $lines = collect($r['ingredients']);
+        $this->assertSame(['oignon jaune', 'courgettes', 'aubergine', 'poivron vert', 'poivron rouge', 'tomates', 'ail', "huile d'olive",
+            'concentré de tomates', 'eau', 'laurier', 'thym', "piment d'Espelette", 'Sel', 'poivre'], $lines->pluck('name')->all());
+        $byName = $lines->keyBy('name');
+        $this->assertSame([2.0, 'piece'], [$byName['courgettes']['quantity'], $byName['courgettes']['unit']]);
+        $this->assertSame([4.0, 'gousses'], [$byName['ail']['quantity'], $byName['ail']['note']]);
+        $this->assertSame([3.0, 'cas'], [$byName["huile d'olive"]['quantity'], $byName["huile d'olive"]['unit']]);
+        $this->assertSame([10.0, 'cl'], [$byName['eau']['quantity'], $byName['eau']['unit']]);
+        $this->assertSame([1.0, 'pincee'], [$byName["piment d'Espelette"]['quantity'], $byName["piment d'Espelette"]['unit']]);
+
+        $steps = array_column($r['steps'], 'body');
+        $this->assertCount(4, $steps);
+        $this->assertStringStartsWith('Peler et émincer votre oignon.', $steps[0]);
+        $this->assertStringEndsWith('Servir aussitôt.', $steps[3]);
     }
 
     public function test_page_generique_une_colonne_etapes_numerotees(): void

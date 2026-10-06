@@ -75,6 +75,8 @@ class LayoutComposer
         $kit = preg_match('/ingr[ée]dients?\s+pour\s+\d+\s+personnes?/iu', $all) === 1
             && preg_match('/hello\s*fresh|mes\s+ustensiles/iu', $all) === 1;
         $footer = preg_match('/^.*retrouvez[^\n]*\bsur\b[^\n]*$/imu', $all, $f) ? trim($f[0]) : null;
+        $footerLine = $footer === null ? null : self::cleanLine($footer);
+        $footer = $footer === null ? null : preg_replace('/\b(www)[,.](\w+)[,.](\w+)\b/iu', '$1.$2.$3', $footer);
 
         $title = self::title($blocks);
         $meta = [];
@@ -91,6 +93,11 @@ class LayoutComposer
                 continue;
             }
             $lines = $block['lines'];
+            if (count($lines) >= 2 && mb_strlen($lines[0]) <= 4 && ! preg_match('/\d/u', $lines[0]) && self::isStepTitle($lines[1])
+                && ! in_array($section, ['ingredients', 'head'], true)) {
+                array_shift($lines);
+                $block['lines'] = $lines;
+            }
             $sameColumn = $ingredientsAt !== null && $block['page'] === $ingredientsAt['page'] && abs($block['x'] - $ingredientsAt['x']) < 0.05;
 
             // Un encadré (conseil, astuce) ne s'étend pas au bloc suivant
@@ -113,7 +120,7 @@ class LayoutComposer
 
             foreach ($lines as $n => $line) {
                 // Pied de page « Retrouvez toutes nos recettes sur … » : repris à la fin pour la source
-                if ($footer !== null && $line === $footer) {
+                if ($footerLine !== null && ($line === $footerLine || $line === $footer)) {
                     continue;
                 }
                 if (preg_match(self::INGREDIENTS_HEADING, $line, $m)) {
@@ -246,6 +253,8 @@ class LayoutComposer
         // Puce ronde lue « e » ou « e_ » devant une phrase, ou recopiée en fin de ligne depuis la colonne voisine
         $line = preg_replace('/^e_?\s+(?=\p{Lu})/u', '', $line);
         $line = preg_replace('/(?:\s+e)+$/u', '', $line);
+        // « ¼ » lu « Y4 » (« ainsi que Y4 sachet de sauce »)
+        $line = preg_replace('/(?<=^|\s)Y4(?=\s)/u', '¼', $line);
 
         return trim($line);
     }
@@ -343,9 +352,12 @@ class LayoutComposer
     {
         $line = trim(preg_replace('/^(?:[°©‘•·*\-–]|e(?=\s))\s+/u', '', $line));
         $line = preg_replace('/(?<=\p{L})[*“”"]+/u', '', $line);
-        $line = trim(preg_replace('/\s+[,.]\s+/u', ' ', $line));
+        $line = trim(preg_replace(['/\s+[,.]\s+/u', '/\s+[_|]+(?=\s|$)/u'], ' ', $line));
 
-        if (preg_match('/^(?:[àa] ajouter vous-m[êe]me|pour (?:la|le|les)\s.+)$/iu', $line)) {
+        if (preg_match('/^[àa] ajouter vous-m[êe]me\W*$/iu', $line)) {
+            return 'À ajouter vous-même :';
+        }
+        if (preg_match('/^pour (?:la|le|les)\s.+$/iu', $line)) {
             return rtrim($line, ' :').' :';
         }
 
@@ -405,6 +417,9 @@ class LayoutComposer
 
             return [$whole.$fraction, "« {$qty} {$unit} » lu pour « {$whole}{$fraction} {$unit} » (fraction perdue) : à vérifier avec la fiche."];
         }
+        if ($qty === '4' && preg_match('/^(?:sachet|paquet|pot|pi[eè]ce)/u', $unit)) {
+            return [$qty, "« 4 {$unit} » : la fraction ½ ou ¼ est souvent lue « 4 », à vérifier avec la fiche."];
+        }
         if (in_array($qty, ['%', '#', 'Z'], true)) {
             return ['½', "Fraction lue « {$qty} » : ½ supposé, à vérifier avec la fiche."];
         }
@@ -419,7 +434,7 @@ class LayoutComposer
     private static function addStepLine(array &$steps, array $block, int $n, string $line): void
     {
         if (ColumnSplitter::isStepMarker($line)) {
-            $steps[] = ['x' => $block['x'], 'page' => $block['page'], 'title' => null, 'lines' => [], 'marker' => true];
+            $steps[] = ['x' => $block['x'], 'y' => $block['y'], 'page' => $block['page'], 'title' => null, 'lines' => [], 'marker' => true];
 
             return;
         }
@@ -429,7 +444,7 @@ class LayoutComposer
 
         // « 1. Mélanger… », « 2) Ajouter… » : étape numérotée
         if (preg_match('/^\d{1,2}\s*[.)\-–]\s+(\S.*)$/u', $line, $m) === 1) {
-            $steps[] = ['x' => $block['x'], 'page' => $block['page'], 'title' => null, 'lines' => [$m[1]], 'marked' => true];
+            $steps[] = ['x' => $block['x'], 'y' => $block['y'], 'page' => $block['page'], 'title' => null, 'lines' => [$m[1]], 'marker' => true];
 
             return;
         }
@@ -438,7 +453,7 @@ class LayoutComposer
             $sameColumn = $current !== null && $current['page'] === $block['page'] && abs($current['x'] - $block['x']) < 0.05;
 
             if (self::isStepTitle($line) || (! empty($block['big']) && count(preg_split('/\s+/u', $line)) <= 6 && preg_match('/[.:,;]$/u', $line) !== 1)) {
-                $steps[] = ['x' => $block['x'], 'page' => $block['page'], 'title' => self::ucfirst($line), 'lines' => []];
+                $steps[] = ['x' => $block['x'], 'y' => $block['y'], 'page' => $block['page'], 'title' => self::ucfirst($line), 'lines' => []];
 
                 return;
             }
@@ -448,13 +463,34 @@ class LayoutComposer
             $completes = $current !== null && $sameColumn
                 && ($current['title'] !== null || ! empty($current['marker']) || $current['lines'] === [] || preg_match('/^\p{Ll}/u', $line) === 1);
             if (! $completes) {
-                $steps[] = ['x' => $block['x'], 'page' => $block['page'], 'title' => null, 'lines' => [$line]];
+                $steps[] = ['x' => $block['x'], 'y' => $block['y'], 'page' => $block['page'], 'title' => null, 'lines' => [$line]];
 
                 return;
             }
         }
 
         $steps[array_key_last($steps)]['lines'][] = $line;
+    }
+
+    /**
+     * Étapes titrées d'une carte de kit, imprimées en grille (2 ou 3 colonnes, 2 rangées) : lues rangée par rangée,
+     * de gauche à droite. Les étapes numérotées ou repérées (« Étape 3 ») gardent l'ordre lu.
+     */
+    private static function readingOrder(array $steps): array
+    {
+        if (count($steps) < 3 || collect($steps)->contains(fn ($s) => $s['title'] === null)) {
+            return $steps;
+        }
+
+        usort($steps, function ($a, $b) {
+            if ($a['page'] !== $b['page']) {
+                return $a['page'] <=> $b['page'];
+            }
+            // Même rangée : titres à moins de 4 % de la hauteur de page l'un de l'autre
+            return abs($a['y'] - $b['y']) < 0.04 ? $a['x'] <=> $b['x'] : $a['y'] <=> $b['y'];
+        });
+
+        return $steps;
     }
 
     private static function ucfirst(string $text): string
@@ -496,7 +532,7 @@ class LayoutComposer
             array_push($out, '', 'Conseil', mb_strtoupper(mb_substr($tipText, 0, 1)).mb_substr($tipText, 1));
         }
 
-        $steps = array_values(array_filter($steps, fn ($s) => $s['lines'] !== []));
+        $steps = self::readingOrder(array_values(array_filter($steps, fn ($s) => $s['lines'] !== [])));
         if ($steps !== []) {
             $out[] = '';
             $out[] = 'La recette';

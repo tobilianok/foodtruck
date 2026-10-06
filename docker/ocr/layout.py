@@ -46,6 +46,35 @@ def words_from_tsv(tsv: str) -> list:
     return words
 
 
+def _overlaps(a, b):
+    """Les deux boîtes se recouvrent sur plus d'un tiers de la plus petite."""
+    dx = min(a['x'] + a['w'], b['x'] + b['w']) - max(a['x'], b['x'])
+    dy = min(a['y'] + a['h'], b['y'] + b['h']) - max(a['y'], b['y'])
+    return dx > 0 and dy > 0 and dx * dy > min(a['w'] * a['h'], b['w'] * b['h']) / 3
+
+
+def add_missed_lines(words, sparse):
+    """Lignes que la lecture normale a sautées, reprises de la lecture « texte épars » (--psm 11).
+
+    La lecture normale de Tesseract range parfois une zone en « image » et n'y lit rien : bandeau « À table dans :
+    35 - 45 Min » à côté d'une pastille de couleur, légende sur une photo. La lecture « texte épars » lit tout, mais
+    découpe les tableaux en morceaux : on garde donc la lecture normale et on n'y ajoute que les lignes éparses dont
+    aucun mot ne recouvre un mot déjà lu, nettes (confiance moyenne d'au moins 70) et faites de vrais mots.
+    """
+    by_line = {}
+    for w in sparse:
+        by_line.setdefault(w['line'], []).append(w)
+    added = []
+    for key, line in by_line.items():
+        text = ''.join(w['t'] for w in line)
+        if sum(1 for c in text if c.isalnum()) < 3 or statistics.mean(w['conf'] for w in line) < 70:
+            continue
+        if any(_overlaps(w, o) for w in line for o in words):
+            continue
+        added.extend(dict(w, line=('epars',) + key) for w in line)
+    return words + added
+
+
 def _gaps(intervals, minimum):
     out, end = [], None
     for a, b in sorted(intervals):
@@ -132,8 +161,14 @@ def _is_fragment(side, other, line_height):
     """Quelques bouts de lignes (« péremption », « casserole, ou ») en face de lignes de l'autre côté : c'est la fin
     de ces lignes, pas une colonne."""
     rows, others = _rows(side), _rows(other)
-    if not rows or not others or len(rows) > 3 or len(rows) > 0.5 * len(others):
+    if not rows or not others or len(rows) > 0.5 * len(others):
         return False
+    if len(rows) > 3:
+        # Plus de 3 bouts : seulement des bouts de 1 à 3 mots, sur une bande bien plus étroite que les lignes d'en face
+        # (deux rangées d'étapes dont les fins de lignes débordent dans la même gouttière)
+        span = lambda ws: max(w['x'] + w['w'] for w in ws) - min(w['x'] for w in ws)
+        if len(rows) > 8 or any(len(r) > 3 for r in rows) or span([w for r in rows for w in r]) > 0.45 * span([w for r in others for w in r]):
+            return False
     ys = [min(w['y'] for w in r) for r in others]
     aligned = sum(1 for r in rows if any(abs(min(w['y'] for w in r) - y) < line_height * 0.7 for y in ys))
     return aligned >= 0.8 * len(rows)

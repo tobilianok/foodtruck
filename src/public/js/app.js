@@ -287,3 +287,47 @@
 
     recount();
 })();
+
+// v0.15.2 : relecture des fiches — choisir un ingrédient proposé, n'afficher que les lignes à vérifier
+(function () {
+    'use strict';
+
+    function resolve(row, name) {
+        row.classList.remove('has-problem');
+        row.classList.add('is-resolved');
+        var warning = row.querySelector('[data-row-warning]');
+        if (warning) {
+            warning.classList.add('is-done');
+            warning.textContent = '✓ ' + name + ' retenu.';
+        }
+    }
+
+    document.addEventListener('click', function (event) {
+        var pick = event.target.closest('[data-pick]');
+        if (!pick) return;
+        var row = pick.closest('[data-row]');
+        var input = row && row.querySelector('[data-ingredient-name]');
+        if (!input) return;
+        input.value = pick.getAttribute('data-pick');
+        resolve(row, input.value);
+    });
+
+    // Nom tapé à la main qui existe dans le référentiel : la ligne est réglée
+    document.addEventListener('change', function (event) {
+        var input = event.target.closest('[data-ingredient-name]');
+        if (!input) return;
+        var row = input.closest('[data-row]');
+        if (!row || !row.classList.contains('has-problem')) return;
+        var known = Array.prototype.some.call(document.querySelectorAll('#ingredient-names option'), function (o) {
+            return o.value.toLowerCase() === input.value.trim().toLowerCase();
+        });
+        if (known) resolve(row, input.value.trim());
+    });
+
+    document.addEventListener('change', function (event) {
+        var toggle = event.target.closest('[data-only-problems]');
+        if (!toggle) return;
+        var rows = document.querySelector('.ingredient-rows');
+        if (rows) rows.classList.toggle('only-problems', toggle.checked);
+    });
+})();

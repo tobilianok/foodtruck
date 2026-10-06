@@ -57,7 +57,8 @@ class TextCleaner
             if (preg_match('~^(?:\[[^\]]*\]\(https?://[^)]*\)|https?://\S+|www\.\S+)$~iu', $line)
                 || preg_match('~^\d+\s+(?:sur|/)\s+\d+(?:\s+\d{1,2}/\d{1,2}/\d{2,4}.*)?$~u', $line)
                 || preg_match('~^\d{1,2}/\d{1,2}/\d{2,4},?\s+\d{1,2}:\d{2}$~', $line)
-                || preg_match('~^(?:©|\(c\)|copyright)~iu', $line)) {
+                // (« © 4 pers » : pictogramme d'horloge ou de couverts lu « © », c'est le bandeau, pas un copyright)
+                || preg_match('~^(?:©|\(c\)|copyright)(?!\s*\d{1,2}\s*(?:pers|personnes?|parts?|portions?)\b)~iu', $line)) {
                 continue;
             }
 
