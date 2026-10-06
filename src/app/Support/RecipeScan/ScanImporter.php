@@ -60,6 +60,7 @@ class ScanImporter
                 'candidates' => $match['candidates'],
                 'info' => null,
                 'ask' => null,
+                'kind' => null,  // v0.17.0 : type de correction (unknown, approx, ask, quantity, other) pour la fenêtre de correction
             ];
 
             // v0.16.0 : l'unité lue devient une unité de l'ingrédient (sachet, gousse, boîte…) dès que possible
@@ -69,9 +70,13 @@ class ScanImporter
 
             if (! $ingredient) {
                 $row['problem'] = 'Ingrédient absent du référentiel.';
+                $row['kind'] = 'unknown';
                 $unresolved[] = $line['name'];
             } elseif ($match['via'] === 'approchant') {
                 $row['problem'] = 'lecture approximative, rapproché de « '.$ingredient->name.' » : à confirmer.';
+                $row['kind'] = 'approx';
+            } elseif ($row['problem'] !== null) {
+                $row['kind'] = $row['ask'] ? 'ask' : 'other';
             }
 
             // Lecture douteuse signalée par le lecteur (fraction perdue, ligne absorbée par la mise en page) ;
@@ -82,6 +87,7 @@ class ScanImporter
             }
             if ($row['problem'] === null && ! empty($check)) {
                 $row['problem'] = $check;
+                $row['kind'] = 'quantity';
             }
 
             $rows[] = $row;
@@ -221,7 +227,8 @@ class ScanImporter
                 'group' => $row['group'],
                 'name' => $row['name'],
                 'label' => $row['label'] ?? $row['name'],
-                'quantity' => $row['quantity'] === null ? '' : Units::number((float) $row['quantity'], 2),
+                'raw' => $row['raw'] ?? null,
+                'quantity' => $row['quantity'] === null ? '' : Units::number((float) $row['quantity'], 3),
                 'unit' => $row['unit'],
                 'note' => $row['note'],
                 'optional' => $row['optional'],
@@ -231,6 +238,7 @@ class ScanImporter
                 'info' => $row['info'] ?? null,
                 'info_slug' => $row['info_slug'] ?? null,
                 'ask' => $row['ask'] ?? null,
+                'kind' => $row['kind'] ?? (empty($row['problem']) ? null : (empty($row['ingredient_id']) ? 'unknown' : 'quantity')),
             ])->all(),
             'steps' => collect($parsed['recipe']['steps'] ?? [])->map(fn (array $step) => [
                 'body' => $step['body'], 'timer' => $step['timer'], 'equipment_id' => self::stepEquipment($step),

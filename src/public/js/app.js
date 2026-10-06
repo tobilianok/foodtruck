@@ -288,28 +288,10 @@
     recount();
 })();
 
-// v0.15.2 : relecture des fiches — choisir un ingrédient proposé, n'afficher que les lignes à vérifier
+// v0.15.2 / v0.16.0 : liste des unités de chaque ligne (unités propres de l'ingrédient choisi), filtre « lignes à vérifier »
 (function () {
     'use strict';
 
-    function resolve(row, name) {
-        row.classList.remove('has-problem');
-        row.classList.add('is-resolved');
-        var warning = row.querySelector('[data-row-warning]');
-        if (!warning) return;
-        warning.classList.add('is-done');
-        var ask = warning.querySelector('.ask-unit');
-        if (ask && ask.querySelector('[data-ask-value]').value.trim() !== '') {
-            // La réponse à « 1 sachet = … g » reste dans le formulaire : elle sera retenue sur l'ingrédient
-            var text = warning.querySelector('.row-warning-text');
-            if (text) text.textContent = '✓ ' + name;
-            warning.querySelectorAll('.pick-list, a').forEach(function (el) { el.remove(); });
-            return;
-        }
-        warning.textContent = '✓ ' + name + ' retenu.';
-    }
-
-    // v0.16.0 : unités propres de l'ingrédient choisi (« Ail » → gousse, tête) dans la liste des unités de la ligne
     var unitsData = document.getElementById('ingredient-units');
     var ownUnits = {};
     try { ownUnits = unitsData ? JSON.parse(unitsData.textContent) : {}; } catch (e) { ownUnits = {}; }
@@ -319,7 +301,8 @@
         var select = row.querySelector('[data-unit-select]');
         if (!group || !select) return;
         var current = select.value;
-        var units = ownUnits[name] || {};
+        var catalog = window.foodtruckCatalog || {};
+        var units = (catalog[name] && catalog[name].units) || ownUnits[name] || {};
         group.innerHTML = '';
         Object.keys(units).forEach(function (code) {
             var option = document.createElement('option');
@@ -331,48 +314,14 @@
         select.value = Array.prototype.some.call(select.options, function (o) { return o.value === current; }) ? current : (current.indexOf('u:') === 0 ? '' : current);
     }
 
-    document.addEventListener('change', function (event) {
-        var input = event.target.closest('[data-ingredient-name]');
-        if (!input) return;
-        var row = input.closest('[data-row]');
-        if (row) refreshUnits(row, input.value.trim());
-    });
-
-    // Réponse donnée à « 1 sachet de … = ? g » : la ligne est réglée
-    document.addEventListener('input', function (event) {
-        var input = event.target.closest('[data-ask-value]');
-        if (!input) return;
-        var row = input.closest('[data-row]');
-        var value = parseFloat(input.value.replace(',', '.'));
-        if (row && value > 0) {
-            row.classList.remove('has-problem');
-            row.classList.add('is-resolved');
-        } else if (row) {
-            row.classList.add('has-problem');
-            row.classList.remove('is-resolved');
-        }
-    });
-
-    document.addEventListener('click', function (event) {
-        var pick = event.target.closest('[data-pick]');
-        if (!pick) return;
-        var row = pick.closest('[data-row]');
-        var input = row && row.querySelector('[data-ingredient-name]');
-        if (!input) return;
-        input.value = pick.getAttribute('data-pick');
-        resolve(row, input.value);
-    });
-
-    // Nom tapé à la main qui existe dans le référentiel : la ligne est réglée
-    document.addEventListener('change', function (event) {
-        var input = event.target.closest('[data-ingredient-name]');
-        if (!input) return;
-        var row = input.closest('[data-row]');
-        if (!row || !row.classList.contains('has-problem')) return;
-        var known = Array.prototype.some.call(document.querySelectorAll('#ingredient-names option'), function (o) {
-            return o.value.toLowerCase() === input.value.trim().toLowerCase();
+    // « foodtruck:units » : demandé par les fenêtres de correction après le choix ou la création d'un ingrédient
+    ['change', 'foodtruck:units'].forEach(function (type) {
+        document.addEventListener(type, function (event) {
+            var input = event.target.closest && event.target.closest('[data-ingredient-name]');
+            if (!input) return;
+            var row = input.closest('[data-row]');
+            if (row) refreshUnits(row, input.value.trim());
         });
-        if (known) resolve(row, input.value.trim());
     });
 
     document.addEventListener('change', function (event) {
@@ -381,4 +330,437 @@
         var rows = document.querySelector('.ingredient-rows');
         if (rows) rows.classList.toggle('only-problems', toggle.checked);
     });
+})();
+
+// v0.17.0 : corrections en fenêtre, sans quitter la recette (relecture d'une fiche Paperless ou saisie d'une recette).
+// Ingrédient à choisir ou à créer, équivalence d'unité, quantité douteuse : la ligne passe au vert dès que c'est réglé.
+(function () {
+    'use strict';
+
+    var dialog = document.getElementById('fix-dialog');
+    var rowsBox = document.querySelector('.ingredient-rows');
+    if (!dialog || !rowsBox || typeof dialog.showModal !== 'function') return;
+
+    function readJson(id, fallback) {
+        var node = document.getElementById(id);
+        try { return node ? JSON.parse(node.textContent) : fallback; } catch (e) { return fallback; }
+    }
+
+    var catalog = readJson('ingredient-catalog', {});
+    var routes = readJson('fix-routes', {});
+    window.foodtruckCatalog = catalog;
+    var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    var body = dialog.querySelector('[data-fix-body]');
+    var errorBox = dialog.querySelector('[data-fix-error]');
+    var titleBox = dialog.querySelector('#fix-title');
+
+    var WORDS = {
+        sachet: 'sachet', paquet: 'paquet', pot: 'pot', boite: 'boîte', brique: 'brique', barquette: 'barquette', bouteille: 'bouteille',
+        botte: 'botte', bouquet: 'bouquet', brin: 'brin', branche: 'branche', tige: 'tige', feuille: 'feuille', gousse: 'gousse',
+        tete: 'tête', tranche: 'tranche', morceau: 'morceau', cm: 'cm', poignee: 'poignée', noix: 'noix', noisette: 'noisette',
+        carre: 'carré', tablette: 'tablette', rouleau: 'rouleau', cube: 'cube', pave: 'pavé', filet: 'filet', boule: 'boule', portion: 'portion'
+    };
+    var FRACTIONS = [['¼', 0.25], ['⅓', 0.333], ['½', 0.5], ['⅔', 0.667], ['¾', 0.75], ['1', 1], ['1 ½', 1.5], ['2', 2]];
+
+    // ---------------------------------------------------------------- outils
+    function make(tag, attrs, children) {
+        var node = document.createElement(tag);
+        Object.keys(attrs || {}).forEach(function (key) {
+            if (key === 'text') node.textContent = attrs[key];
+            else if (key === 'class') node.className = attrs[key];
+            else node.setAttribute(key, attrs[key]);
+        });
+        (children || []).forEach(function (child) { if (child) node.appendChild(child); });
+        return node;
+    }
+    function slug(text) {
+        return (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+    function find(name) {
+        name = (name || '').trim();
+        if (catalog[name]) return catalog[name];
+        var key = slug(name);
+        var hit = null;
+        Object.keys(catalog).forEach(function (n) { if (!hit && catalog[n].slug === key) hit = catalog[n]; });
+        return hit;
+    }
+    function field(row, name) { return row.querySelector('[name$="[' + name + ']"]'); }
+    function number(text) {
+        var value = parseFloat(String(text || '').replace(',', '.'));
+        return isNaN(value) ? null : value;
+    }
+    function show(value) {
+        return String(Math.round(value * 1000) / 1000).replace('.', ',');
+    }
+    function noteWord(row) {
+        var note = field(row, 'note');
+        var first = slug((note && note.value || '').split(/[\s,(]+/)[0]);
+        if (WORDS[first]) return first;
+        if (WORDS[first.replace(/x$/, '')]) return first.replace(/x$/, '');
+        if (WORDS[first.replace(/s$/, '')]) return first.replace(/s$/, '');
+        return null;
+    }
+    function stripNoteWord(row) {
+        var note = field(row, 'note');
+        if (note) note.value = note.value.replace(/^\S+\s*(?:de\s+|d['’]\s*)?[,;:]?\s*/, '').trim();
+    }
+    function unitLabel(code) {
+        return routes.units && routes.units[code] ? routes.units[code].label : code;
+    }
+
+    function post(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(data)
+        }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (json) {
+                if (response.status === 419) throw new Error('Session expirée : recharge la page (tes corrections déjà faites sont gardées sur les ingrédients).');
+                if (!response.ok) throw new Error(json.message || ('Erreur ' + response.status + ', réessaie.'));
+                return json;
+            });
+        });
+    }
+
+    // ---------------------------------------------------------------- état des lignes
+    function recount() {
+        var left = rowsBox.querySelectorAll('.ingredient-row.has-problem').length;
+        var text = document.querySelector('[data-check-text]');
+        var summary = text && text.closest('.check-summary');
+        if (text) {
+            text.innerHTML = '';
+            if (left === 0) {
+                text.appendChild(make('strong', { text: '✓ Tout est vérifié' }));
+                text.appendChild(document.createTextNode(' : tu peux valider la recette.'));
+            } else {
+                text.appendChild(make('strong', { text: left + ' ligne' + (left > 1 ? 's' : '') + ' à vérifier' }));
+                text.appendChild(document.createTextNode(' : « Corriger » sur chaque ligne, la recette reste ouverte.'));
+            }
+            if (summary) summary.classList.toggle('is-done', left === 0);
+        }
+        var issue = document.querySelector('[data-problems-issue]');
+        if (issue) {
+            issue.textContent = left === 0 ? '✓ Tous les ingrédients sont vérifiés.' : (left === 1 ? '1 ingrédient à vérifier.' : left + ' ingrédients à vérifier.');
+            issue.classList.toggle('is-done', left === 0);
+        }
+    }
+
+    function warning(row, text, kind) {
+        var box = row.querySelector('[data-row-warning]');
+        if (!box) {
+            box = make('div', { class: 'row-warning', 'data-row-warning': '' });
+            var info = row.querySelector('[data-row-info]');
+            row.insertBefore(box, info || null);
+        }
+        box.className = 'row-warning';
+        box.innerHTML = '';
+        box.appendChild(make('span', { class: 'row-warning-text' }, [make('strong', { text: 'À vérifier' }), document.createTextNode(' · ' + text)]));
+        var labels = { unknown: 'Choisir ou créer l\'ingrédient', ask: 'Indiquer l\'équivalence' };
+        box.appendChild(make('button', { type: 'button', class: 'btn btn-small fix-btn', 'data-fix': '', 'data-kind': kind, 'data-problem': text,
+            'data-label': (field(row, 'label') && field(row, 'label').value) || field(row, 'name').value, text: labels[kind] || 'Corriger' }));
+        row.classList.add('has-problem');
+        row.classList.remove('is-resolved');
+        recount();
+        return box.querySelector('[data-fix]');
+    }
+
+    function resolved(row, message) {
+        row.classList.remove('has-problem');
+        row.classList.add('is-resolved');
+        var box = row.querySelector('[data-row-warning]');
+        if (box) {
+            box.className = 'row-warning is-done';
+            box.textContent = '✓ ' + message;
+        }
+        recount();
+    }
+
+    function refreshUnits(row) {
+        var input = field(row, 'name');
+        if (input) input.dispatchEvent(new Event('foodtruck:units', { bubbles: true }));
+    }
+
+    function addNameOption(name) {
+        var list = document.getElementById('ingredient-names');
+        if (list && !Array.prototype.some.call(list.options, function (o) { return o.value === name; })) {
+            list.appendChild(make('option', { value: name }));
+        }
+    }
+
+    function setUnit(row, code, label) {
+        var select = field(row, 'unit');
+        if (!select) return;
+        if (!Array.prototype.some.call(select.options, function (o) { return o.value === code; })) {
+            var group = select.querySelector('[data-own-units]') || select;
+            group.appendChild(make('option', { value: code, text: label }));
+            if (group.hidden) group.hidden = false;
+        }
+        select.value = code;
+    }
+
+    /** Ce qui manque encore pour convertir la ligne dans l'unité de référence de l'ingrédient (null = rien). */
+    function missing(row) {
+        var info = find(field(row, 'name').value);
+        if (!info) return { kind: 'unknown' };
+        var quantity = field(row, 'quantity').value.trim();
+        var unit = field(row, 'unit').value;
+        if (quantity === '' || unit === '') return null;
+
+        var word = unit === 'piece' ? noteWord(row) : null;
+        if (unit.indexOf('u:') === 0) word = unit.slice(2);
+        if (word) {
+            if (info.units['u:' + word]) {
+                if (unit === 'piece') { setUnit(row, 'u:' + word, info.units['u:' + word]); stripNoteWord(row); }
+                return null;
+            }
+            if (WORDS[word] || unit.indexOf('u:') === 0) return { kind: 'unit', word: word, info: info };
+        }
+        var from = routes.units[unit], to = routes.units[info.base];
+        if (!from || !to || from.dim === to.dim) return null;
+        if (from.dim === 'piece' || to.dim === 'piece') return info.piece ? null : { kind: 'piece', info: info };
+        return info.density ? null : { kind: 'density', unit: from.dim === 'volume' ? unit : 'cl', info: info };
+    }
+
+    /** Après une correction : s'il manque une équivalence, la question suit tout de suite, sinon la ligne passe au vert. */
+    function settle(row, message) {
+        var need = missing(row);
+        if (!need) {
+            resolved(row, message);
+            dialog.close();
+            return;
+        }
+        if (need.kind === 'unknown') {
+            openFix(warning(row, 'Ingrédient absent du référentiel.', 'unknown'));
+            return;
+        }
+        openAsk(row, need);
+    }
+
+    // ---------------------------------------------------------------- fenêtre
+    function open(title) {
+        titleBox.textContent = title;
+        body.innerHTML = '';
+        errorBox.hidden = true;
+        if (!dialog.open) dialog.showModal();
+    }
+    function fail(error) {
+        errorBox.textContent = error.message || String(error);
+        errorBox.hidden = false;
+    }
+    function busy(button, on) {
+        button.disabled = on;
+        button.classList.toggle('is-busy', on);
+    }
+    function section(title, children) {
+        return make('section', { class: 'fix-section' }, [make('h3', { text: title })].concat(children));
+    }
+    function labelled(text, control) {
+        return make('label', { class: 'field' }, [make('span', { text: text }), control]);
+    }
+    function options(templateId, selected) {
+        var select = make('select');
+        var tpl = document.getElementById(templateId);
+        if (tpl) select.innerHTML = tpl.innerHTML;
+        if (selected) select.value = selected;
+        return select;
+    }
+
+    function useIngredient(row, name, message) {
+        field(row, 'name').value = name;
+        refreshUnits(row);
+        settle(row, message || name + ' retenu.');
+    }
+
+    function openUnknown(row, button, approx) {
+        var read = button.getAttribute('data-label') || field(row, 'name').value;
+        open(approx ? 'Confirmer l\'ingrédient' : 'Choisir ou créer l\'ingrédient');
+        var fromScan = !!document.querySelector('input[name="import_id"]');
+        body.appendChild(make('p', { class: 'fix-read' }, [document.createTextNode(fromScan ? 'Lu sur la fiche : ' : 'Saisi : '), make('strong', { text: '« ' + read + ' »' })]));
+
+        if (approx) {
+            var current = field(row, 'name').value;
+            var yes = make('button', { type: 'button', class: 'btn', text: 'Oui, c\'est « ' + current + ' »' });
+            yes.addEventListener('click', function () { useIngredient(row, current, current + ' confirmé.'); });
+            body.appendChild(make('div', { class: 'fix-actions' }, [yes]));
+        }
+
+        var candidates = [];
+        try { candidates = JSON.parse(button.getAttribute('data-candidates') || '[]') || []; } catch (e) { candidates = []; }
+        var search = make('input', { type: 'text', list: 'ingredient-names', placeholder: 'Commence à taper…', autocomplete: 'off' });
+        var choose = make('button', { type: 'button', class: 'btn btn-ghost', text: 'Utiliser' });
+        choose.addEventListener('click', function () {
+            var info = find(search.value);
+            if (!info) { fail('« ' + search.value + ' » n\'est pas dans les ingrédients : crée-le juste en dessous.'); return; }
+            useIngredient(row, info.name);
+        });
+        var picks = candidates.map(function (name) {
+            var pick = make('button', { type: 'button', class: 'pick', text: name });
+            pick.addEventListener('click', function () { useIngredient(row, name); });
+            return pick;
+        });
+        body.appendChild(section(approx ? 'Ou un autre ingrédient' : 'Un ingrédient existant', [
+            picks.length ? make('div', { class: 'pick-list' }, picks) : null,
+            make('div', { class: 'fix-inline' }, [search, choose])
+        ]));
+
+        var suggested = read.replace(/[*_]+/g, '').trim();
+        suggested = suggested.charAt(0).toUpperCase() + suggested.slice(1);
+        var name = make('input', { type: 'text', value: suggested, maxlength: '80', required: '' });
+        var aisle = options('fix-aisles');
+        var base = options('fix-bases', field(row, 'unit').value === 'piece' && !noteWord(row) ? 'piece' : 'g');
+        var piece = make('input', { type: 'text', inputmode: 'decimal', maxlength: '8', placeholder: 'facultatif' });
+        var create = make('button', { type: 'button', class: 'btn', text: 'Créer et utiliser' });
+        create.addEventListener('click', function () {
+            if (name.value.trim() === '') { fail('Indique le nom de l\'ingrédient.'); return; }
+            busy(create, true);
+            post(routes.create, { name: name.value, aisle_id: aisle.value, base_unit: base.value, piece_weight_g: number(piece.value) })
+                .then(function (data) {
+                    catalog[data.name] = data;
+                    addNameOption(data.name);
+                    useIngredient(row, data.name, data.message);
+                })
+                .catch(fail)
+                .then(function () { busy(create, false); });
+        });
+        body.appendChild(section('Ou créer un nouvel ingrédient', [
+            make('div', { class: 'fix-grid' }, [
+                labelled('Nom', name),
+                labelled('Rayon', aisle),
+                labelled('Se compte', base),
+                labelled('Poids d\'une pièce (g)', piece)
+            ]),
+            make('div', { class: 'fix-actions' }, [create])
+        ]));
+        setTimeout(function () { (approx ? body.querySelector('.btn') : search).focus(); }, 30);
+    }
+
+    function openAsk(row, need) {
+        var info = need.info || find(field(row, 'name').value);
+        if (!info) { openFix(warning(row, 'Ingrédient absent du référentiel.', 'unknown')); return; }
+        var what = need.kind === 'unit' ? '1 ' + (WORDS[need.word] || need.word.replace(/-/g, ' '))
+            : need.kind === 'piece' ? '1 pièce' : '1 ' + unitLabel(need.unit);
+        var base = need.kind === 'unit' ? unitLabel(info.base) : 'g';
+        row.setAttribute('data-need', JSON.stringify({ kind: need.kind, word: need.word || null, unit: need.unit || null }));
+        warning(row, 'Combien vaut ' + what + ' de « ' + info.name + ' » ?', 'ask');
+
+        open('Indiquer l\'équivalence');
+        body.appendChild(make('p', { text: 'Combien vaut ' + what + ' de « ' + info.name + ' » ? Foodtruck le retient pour toutes les recettes.' }));
+        var value = make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', placeholder: '?', class: 'fix-number' });
+        var save = make('button', { type: 'button', class: 'btn', text: 'Enregistrer' });
+        body.appendChild(make('div', { class: 'fix-inline' }, [make('strong', { text: what + ' =' }), value, make('span', { text: base }), save]));
+        save.addEventListener('click', function () {
+            if (!(number(value.value) > 0)) { fail('Indique un nombre (ex. 200 ou 0,5).'); return; }
+            busy(save, true);
+            var request = need.kind === 'unit'
+                ? post(routes.unit.replace('__SLUG__', info.slug), { word: need.word, quantity: value.value })
+                : post(routes.measure.replace('__SLUG__', info.slug), { kind: need.kind, quantity: value.value, unit: need.unit });
+            request.then(function (data) {
+                catalog[data.name] = data;
+                if (need.kind === 'unit') {
+                    setUnit(row, data.unit, data.units[data.unit]);
+                    if (noteWord(row) === need.word) stripNoteWord(row);
+                }
+                settle(row, data.message);
+            }).catch(fail).then(function () { busy(save, false); });
+        });
+        setTimeout(function () { value.focus(); }, 30);
+    }
+
+    function openQuantity(row, button) {
+        open('Corriger la quantité');
+        var raw = button.getAttribute('data-raw');
+        if (raw) body.appendChild(make('p', { class: 'fix-read' }, [document.createTextNode('Lu sur la fiche : '), make('strong', { text: '« ' + raw + ' »' })]));
+        body.appendChild(make('p', { class: 'muted', text: button.getAttribute('data-problem') || '' }));
+
+        var quantity = make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', value: field(row, 'quantity').value, class: 'fix-number' });
+        var unit = field(row, 'unit').cloneNode(true);
+        unit.removeAttribute('name');
+        unit.value = field(row, 'unit').value;
+        var fractions = FRACTIONS.map(function (f) {
+            var b = make('button', { type: 'button', class: 'pick', text: f[0] });
+            b.addEventListener('click', function () { quantity.value = show(f[1]); });
+            return b;
+        });
+        var apply = make('button', { type: 'button', class: 'btn', text: 'Appliquer' });
+        apply.addEventListener('click', function () {
+            if (quantity.value.trim() !== '' && !(number(quantity.value) > 0)) { fail('Quantité invalide (ex. 0,5).'); return; }
+            field(row, 'quantity').value = quantity.value.trim();
+            field(row, 'unit').value = unit.value;
+            var label = quantity.value.trim() === '' ? 'selon goût' : quantity.value.trim() + ' ' + (unit.options[unit.selectedIndex] ? unit.options[unit.selectedIndex].text : '');
+            settle(row, 'Quantité corrigée : ' + label + '.');
+        });
+        body.appendChild(make('div', { class: 'pick-list' }, fractions));
+        body.appendChild(make('div', { class: 'fix-inline' }, [quantity, unit, apply]));
+        setTimeout(function () { quantity.focus(); quantity.select(); }, 30);
+    }
+
+    function openTypical(row, button) {
+        var info = find(field(row, 'name').value);
+        var word = button.getAttribute('data-word');
+        if (!info || !word) return;
+        var current = info.units['u:' + word];
+        open('Corriger la valeur typique');
+        body.appendChild(make('p', { text: 'Valeur proposée par Foodtruck : corrige-la, elle servira pour toutes les recettes.' }));
+        var value = make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', class: 'fix-number', placeholder: '?' });
+        var save = make('button', { type: 'button', class: 'btn', text: 'Enregistrer' });
+        var what = '1 ' + (current || WORDS[word] || word);
+        body.appendChild(make('div', { class: 'fix-inline' }, [make('strong', { text: what + ' de « ' + info.name + ' » =' }), value, make('span', { text: unitLabel(info.base) }), save]));
+        save.addEventListener('click', function () {
+            if (!(number(value.value) > 0)) { fail('Indique un nombre (ex. 12).'); return; }
+            busy(save, true);
+            post(routes.unit.replace('__SLUG__', info.slug), { word: word, quantity: value.value }).then(function (data) {
+                catalog[data.name] = data;
+                var text = row.querySelector('[data-info-text]');
+                if (text) text.textContent = data.message;
+                var line = row.querySelector('[data-row-info]');
+                if (line) line.classList.add('is-done');
+                button.remove();
+                dialog.close();
+            }).catch(fail).then(function () { busy(save, false); });
+        });
+        setTimeout(function () { value.focus(); }, 30);
+    }
+
+    function openFix(button) {
+        var row = button.closest('[data-row]');
+        if (!row) return;
+        var kind = button.getAttribute('data-kind') || 'other';
+        if (kind === 'unknown') return openUnknown(row, button, false);
+        if (kind === 'approx') return openUnknown(row, button, true);
+        if (kind === 'typical') return openTypical(row, button);
+        if (kind === 'ask') {
+            var ask = null;
+            try { ask = JSON.parse(row.getAttribute('data-need') || button.getAttribute('data-ask') || 'null'); } catch (e) { ask = null; }
+            var need = ask ? { kind: ask.kind, word: ask.word, unit: ask.kind === 'density' ? (ask.unit || ask.word || 'cl') : null } : missing(row);
+            if (ask && ask.kind === 'piece') need = { kind: 'piece' };
+            if (!need) { resolved(row, 'Équivalence déjà connue.'); return; }
+            return openAsk(row, need);
+        }
+        return openQuantity(row, button);
+    }
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-fix]');
+        if (!button) return;
+        event.preventDefault();
+        openFix(button);
+    });
+
+    // Saisie à la main d'un ingrédient inconnu (nouvelle recette comprise) : proposition de le créer, sans quitter la page
+    document.addEventListener('change', function (event) {
+        var input = event.target.closest('[data-ingredient-name]');
+        if (!input) return;
+        var row = input.closest('[data-row]');
+        var name = input.value.trim();
+        if (!row || name === '') return;
+        var box = row.querySelector('[data-row-warning]');
+        if (!find(name)) {
+            warning(row, '« ' + name + ' » n\'est pas dans les ingrédients.', 'unknown');
+        } else if (box && row.classList.contains('has-problem') && /n'est pas dans les ingrédients|absent du référentiel/.test(box.textContent)) {
+            settle(row, find(name).name + ' retenu.');
+        }
+    });
+
+    recount();
 })();

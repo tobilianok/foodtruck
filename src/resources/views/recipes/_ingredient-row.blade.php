@@ -47,37 +47,28 @@
     </label>
     <button type="button" class="btn btn-icon ing-remove" data-remove-row aria-label="Retirer cet ingrédient" title="Retirer">✕</button>
     @if (! empty($row['problem']))
+        {{-- v0.17.0 : chaque correction se fait dans une fenêtre, sans quitter la recette ; la ligne passe au vert --}}
         <div class="row-warning" data-row-warning>
             <span class="row-warning-text">
                 <strong>À vérifier</strong>
                 @if (($row['label'] ?? '') !== '' && ($row['label'] ?? '') !== ($row['name'] ?? '')) · lu « {{ $row['label'] }} » @endif
                 · {{ $row['problem'] }}
             </span>
-            @if (! empty($row['candidates']))
-                <span class="pick-list">
-                    <span class="muted">C'est :</span>
-                    @foreach ($row['candidates'] as $candidate)
-                        <button type="button" class="pick" data-pick="{{ $candidate }}">{{ $candidate }}</button>
-                    @endforeach
-                </span>
-            @endif
-            @if (! empty($row['ask']))
-                {{-- Une seule question, retenue sur l'ingrédient : « 1 sachet de Crevettes = … g » --}}
-                <label class="ask-unit">
-                    <input type="hidden" name="ingredients[{{ $key }}][ask_kind]" value="{{ $row['ask']['kind'] }}">
-                    <input type="hidden" name="ingredients[{{ $key }}][ask_word]" value="{{ $row['ask']['word'] }}">
-                    <span>{{ $row['ask']['label'] }} =</span>
-                    <input type="text" name="ingredients[{{ $key }}][ask_value]" inputmode="decimal" maxlength="12" placeholder="?" data-ask-value
-                           aria-label="Équivalence de {{ $row['ask']['label'] }} en {{ \App\Support\Units::label($row['ask']['base']) }}">
-                    <span>{{ \App\Support\Units::label($row['ask']['base']) }}</span>
-                </label>
-            @endif
-            @if (empty($row['known']))
-                <a class="small" href="{{ route('ingredients.create', ['nom' => $row['label'] ?? $row['name']]) }}" target="_blank" rel="noopener">Créer cet ingrédient ↗</a>
-            @endif
+            <button type="button" class="btn btn-small fix-btn" data-fix
+                    data-kind="{{ $row['kind'] ?? 'other' }}"
+                    data-label="{{ $row['label'] ?? $row['name'] ?? '' }}"
+                    data-raw="{{ $row['raw'] ?? '' }}"
+                    data-problem="{{ $row['problem'] }}"
+                    data-candidates='@json($row['candidates'] ?? [])'
+                    data-ask='@json($row['ask'] ?? null)'>{{ match ($row['kind'] ?? 'other') {
+                        'unknown' => 'Choisir ou créer l\'ingrédient',
+                        'approx' => 'Confirmer l\'ingrédient',
+                        'ask' => 'Indiquer l\'équivalence',
+                        default => 'Corriger',
+                    } }}</button>
         </div>
     @endif
     @if (! empty($row['info']) && empty($row['problem']))
-        <p class="row-info">≈ {{ $row['info'] }}@if (! empty($row['info_slug'])) · <a href="{{ route('ingredients.show', $row['info_slug']) }}#unites" target="_blank" rel="noopener">corriger ↗</a>@endif</p>
+        <p class="row-info" data-row-info>≈ <span data-info-text>{{ $row['info'] }}</span>@if (! empty($row['info_slug']) && Str::startsWith($row['unit'] ?? '', 'u:')) · <button type="button" class="link-btn" data-fix data-kind="typical" data-word="{{ Str::after($row['unit'], 'u:') }}">corriger</button>@endif</p>
     @endif
 </div>

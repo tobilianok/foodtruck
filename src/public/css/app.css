@@ -874,3 +874,37 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
     .unit-row { grid-template-columns: 1fr 1fr; }
     .unit-row .row-actions { grid-column: 1 / -1; }
 }
+
+/* v0.17.0 : fenêtre de correction (relecture d'une fiche, saisie d'une recette) */
+.fix-btn { margin-left: auto; white-space: nowrap; }
+.row-warning .fix-btn { min-height: 30px; padding: .2em .8em; font-size: .82rem; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-strong); text-decoration: underline; cursor: pointer; }
+.row-info.is-done { color: var(--accent-strong); }
+.check-summary.is-done { background: var(--accent-soft); }
+[data-problems-issue].is-done { color: var(--accent-strong); list-style: none; }
+.fix-dialog { width: min(640px, calc(100vw - 24px)); max-height: calc(100vh - 32px); padding: 0; border: 1px solid var(--line-strong); border-radius: 16px;
+    background: var(--surface); color: var(--text); box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
+.fix-dialog::backdrop { background: rgba(10, 18, 14, .55); backdrop-filter: blur(2px); }
+.fix-form { display: grid; gap: 14px; padding: 18px 20px 20px; }
+.fix-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fix-head h2 { margin: 0; font-size: 1.15rem; }
+.fix-body { display: grid; gap: 14px; }
+.fix-body p { margin: 0; }
+.fix-read strong { font-weight: 700; }
+.fix-section { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.fix-section h3 { margin: 0; font-size: .9rem; color: var(--text-2); }
+.fix-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fix-inline input[type=text] { flex: 1 1 160px; }
+.fix-inline select { flex: 0 1 160px; }
+.fix-inline .fix-number { flex: 0 0 7em; }
+.fix-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.fix-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.fix-error { margin: 0; padding: 8px 10px; border-radius: var(--radius-s); background: color-mix(in srgb, var(--tomato) 12%, transparent); color: var(--tomato-ink); font-size: .9rem; }
+.btn.is-busy { opacity: .6; cursor: progress; }
+@media (prefers-color-scheme: dark) { .fix-error { color: #ef9a8e; } }
+@media (max-width: 560px) {
+    .fix-grid { grid-template-columns: 1fr; }
+    .fix-btn { margin-left: 0; }
+}
+
+.fix-dialog .pick { font-size: 1rem; padding: .35em .9em; }

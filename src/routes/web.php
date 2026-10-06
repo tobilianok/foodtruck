@@ -105,6 +105,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/ingredients', [IngredientController::class, 'index'])->name('ingredients.index');
         Route::get('/ingredients/nouveau', [IngredientController::class, 'create'])->name('ingredients.create');
         Route::post('/ingredients', [IngredientController::class, 'store'])->name('ingredients.store');
+        // v0.17.0 : corrections en fenêtre depuis une recette en cours (réponses JSON)
+        Route::post('/ingredients/rapide', [\App\Http\Controllers\IngredientQuickController::class, 'store'])->name('ingredients.quick.store');
+        Route::post('/ingredients/{ingredient:slug}/unites/rapide', [\App\Http\Controllers\IngredientQuickController::class, 'storeUnit'])->name('ingredients.quick.unit');
+        Route::post('/ingredients/{ingredient:slug}/mesures/rapide', [\App\Http\Controllers\IngredientQuickController::class, 'storeMeasure'])->name('ingredients.quick.measure');
         Route::get('/ingredients/{ingredient:slug}', [IngredientController::class, 'show'])->name('ingredients.show');
         Route::put('/ingredients/{ingredient:slug}', [IngredientController::class, 'update'])->name('ingredients.update');
         Route::post('/ingredients/{ingredient:slug}/conditionnements', [IngredientController::class, 'storePack'])->name('ingredients.packs.store');

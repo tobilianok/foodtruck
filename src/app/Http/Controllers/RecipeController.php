@@ -260,6 +260,11 @@ class RecipeController extends Controller
             'ingredientUnits' => Ingredient::has('units')->with('units')->get()
                 ->mapWithKeys(fn (Ingredient $i) => [$i->name => $i->units->mapWithKeys(fn ($u) => [$u->code() => $u->name])->all()])
                 ->all(),
+            // v0.17.0 : catalogue pour les corrections en fenêtre (slug, unité de base, poids d'une pièce, unités propres)
+            'ingredientCatalog' => Ingredient::with('units')->orderBy('name')->get()
+                ->mapWithKeys(fn (Ingredient $i) => [$i->name => \App\Http\Controllers\IngredientQuickController::payload($i)])
+                ->all(),
+            'aisles' => \App\Models\Aisle::ordered(),
             'tags' => Tag::ordered(),
             'equipment' => Equipment::ordered(),
             'selectedTags' => array_map('intval', old('tags', $recipe->exists ? $recipe->tags->pluck('id')->all() : [])),

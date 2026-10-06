@@ -1,5 +1,19 @@
 # Journal des versions - Foodtruck
 
+## v0.17.0 - 2026-10-06 - Corrections en fenêtre pendant la relecture ou la saisie d'une recette : la ligne passe au vert en direct
+
+- Demande de Louis : quand une recette importée (ou en cours de saisie) a des ingrédients à créer ou à corriger, ne plus basculer sur la page de création d'un ingrédient (qui fermait la recette en cours) ; toutes les corrections se font dans une fenêtre, et la ligne passe au vert dès qu'elle est corrigée.
+- Chaque ligne « À vérifier » a maintenant un bouton qui ouvre la bonne fenêtre, sans quitter la recette ni perdre ce qui a été saisi :
+  - « Choisir ou créer l'ingrédient » : propositions cliquables, recherche dans les ingrédients, ou création sur place (nom, rayon, unité de base, poids d'une pièce ; unités courantes pré-remplies comme d'habitude) ;
+  - « Confirmer l'ingrédient » (rapprochement approximatif, « lu « ciboulette » ») : « Oui, c'est … » en un clic, ou un autre ingrédient ;
+  - « Corriger » (fraction illisible « % », quantité démesurée, unité inconnue…) : texte lu sur la fiche rappelé, fractions en un clic (¼ ⅓ ½ ⅔ ¾ 1 1½ 2), quantité et unité ;
+  - « Indiquer l'équivalence » (« 1 botte de Radis = ? g », poids d'une pièce, densité) : retenue tout de suite pour toutes les recettes ;
+  - « corriger » à côté d'un équivalent typique (« ≈ 5 g ») : la valeur typique devient celle de Louis.
+- Enchaînement automatique : après la création d'un ingrédient, s'il manque encore une équivalence pour convertir la ligne (« 1 botte = ? g »), la question suit dans la même fenêtre ; sinon la ligne passe au vert. Le compteur « N ingrédients à vérifier » se met à jour en direct.
+- Saisie d'une nouvelle recette : un nom d'ingrédient inconnu est signalé aussitôt, avec le même bouton de création en fenêtre.
+- Sous le capot : trois adresses qui répondent en JSON (POST /ingredients/rapide, /ingredients/{ingrédient}/unites/rapide, /ingredients/{ingrédient}/mesures/rapide), réservées aux membres connectés et protégées par le jeton CSRF ; un ingrédient déjà existant (même nom à l'accent ou à la majuscule près) est repris, jamais dupliqué. Si la session a expiré, la fenêtre le dit (« recharge la page ») au lieu d'échouer en silence.
+- Aucune migration, aucune image à reconstruire. 261 tests automatisés (nouveau IngredientQuickTest, RecipeScanFlowTest adapté).
+
 ## v0.16.4 - 2026-10-06 - Cartes HelloFresh : quantités du tableau d'ingrédients retrouvées (Salade de grenailles)
 
 - Signalé par Louis sur une fiche toute neuve (« Salade de grenailles, poulet doré & radis », HelloFresh, document n° 491) : toutes les unités en « selon goût », une ligne « À ajouter » prise pour un ingrédient, et des étapes parasites (quantités, morceaux du paragraphe des allergènes, bas de carte).

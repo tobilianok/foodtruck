@@ -21,7 +21,7 @@
                 <p>À vérifier :</p>
                 <ul>
                     @foreach ($importIssues as $issue)
-                        <li>{{ $issue }}</li>
+                        <li @if (preg_match('/^\d+ ingrédients? à vérifier/u', $issue)) data-problems-issue @endif>{{ $issue }}</li>
                     @endforeach
                 </ul>
             </div>
@@ -138,6 +138,7 @@
             <h2>Ingrédients</h2>
             <p class="hint">Commence à taper le nom et choisis dans la liste. Quantité et unité vides = « selon goût ». Le groupe sert à séparer « Pour la pâte », « Pour la sauce »…</p>
             <script type="application/json" id="ingredient-units">@json($ingredientUnits ?? [])</script>
+            <script type="application/json" id="ingredient-catalog">@json($ingredientCatalog ?? [])</script>
             <datalist id="ingredient-names">
                 @foreach ($ingredientNames as $name)
                     <option value="{{ $name }}"></option>
@@ -146,7 +147,7 @@
             @php $toCheck = collect($ingredientRows)->filter(fn ($r) => ! empty($r['problem']))->count(); @endphp
             @if ($toCheck > 0)
                 <div class="check-summary">
-                    <span><strong>{{ $toCheck }} ligne{{ $toCheck > 1 ? 's' : '' }} à vérifier</strong> sur {{ count($ingredientRows) }} : choisis l'ingrédient proposé, corrige le nom ou crée-le.</span>
+                    <span data-check-text><strong>{{ $toCheck }} ligne{{ $toCheck > 1 ? 's' : '' }} à vérifier</strong> sur {{ count($ingredientRows) }} : « Corriger » sur chaque ligne, la recette reste ouverte.</span>
                     <label class="check"><input type="checkbox" data-only-problems> <span>Afficher seulement les lignes à vérifier</span></label>
                 </div>
             @endif
@@ -232,4 +233,35 @@
             </div>
         </div>
     </form>
+
+    {{-- v0.17.0 : fenêtre de correction (ingrédient à choisir ou créer, quantité, équivalence d'unité), sans quitter la recette --}}
+    <dialog class="fix-dialog" id="fix-dialog" aria-labelledby="fix-title">
+        <form method="dialog" class="fix-form" novalidate>
+            <header class="fix-head">
+                <h2 id="fix-title">Corriger</h2>
+                <button type="submit" value="cancel" class="btn btn-icon" aria-label="Fermer">✕</button>
+            </header>
+            <div class="fix-body" data-fix-body></div>
+            <p class="fix-error" data-fix-error hidden></p>
+        </form>
+    </dialog>
+    <template id="fix-aisles">
+        @foreach ($aisles ?? [] as $aisle)
+            <option value="{{ $aisle->id }}">{{ $aisle->name }}</option>
+        @endforeach
+    </template>
+    <template id="fix-bases">
+        @foreach (\App\Support\Units::BASE_CHOICES as $code => $label)
+            <option value="{{ $code }}">{{ $label }}</option>
+        @endforeach
+    </template>
+    @php
+        $fixRoutes = [
+            'create' => route('ingredients.quick.store'),
+            'unit' => url('/ingredients/__SLUG__/unites/rapide'),
+            'measure' => url('/ingredients/__SLUG__/mesures/rapide'),
+            'units' => collect(\App\Support\Units::UNITS)->map(fn ($u) => ['label' => $u[0], 'dim' => $u[1], 'factor' => $u[2]])->all(),
+        ];
+    @endphp
+    <script type="application/json" id="fix-routes">@json($fixRoutes)</script>
 @endsection
