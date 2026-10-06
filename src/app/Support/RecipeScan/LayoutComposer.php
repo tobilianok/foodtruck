@@ -29,7 +29,13 @@ class LayoutComposer
     private const NOISE_LINE = '/valeurs nutritionnelles|^[\W_]*(?:[ée]nergie|lipides\s*total|lipides|glucides|fibres|prot[ée]ines|sel)\s*\((?:g|kj|£)|^[\W_]*dont\s*(?:satur|sucres)|^par portion|pour 100 ?g$|\bkcal\b|batch cooking'
         .'|veillez [àa] bien respecter les quantit|^(?:gauche pour )?pr[ée]parer votre recette\W*$|planifiez l\'ordre des recettes|date de p[ée]remption|inscrite sur l\'[ée]tiquette|rincez les fruits et|^l[ée]gumes\.?$|^c[’\']est parti'
         .'|^[àa] vos fourchettes|montrez-nous vos plats|partagez vos photos|#\s*hello\s*fresh|^semaine \d+\s*\|?\s*\d{4}|^\d+\/\d+-\d+\/\d+$|^[\W\d_]*h[eé]l+\p{L}{0,3}o[\W\d_]*$|^[\W\d_]*(?:hello\s*)?fresh[\W\d_]*$'
-        .'|^mes ustensiles/iu';
+        .'|^mes ustensiles'
+        // v0.16.4 : fragments du paragraphe des allergènes coupé en colonnes, bas de carte, « vous-même » orphelin
+        .'|contenir des allerg|ingr[ée]dients avant|avant de cuisiner|indiqu[ée]s en gras|italique ou en|^en cas$|^de cuisiner|^majuscules\W*$'
+        .'|^semaine \d+\b|^[@©®]\s*\p{L}{0,3}$|^vous-m[êe]me\W*$/iu';
+
+    /** Ligne qui n'est qu'une quantité de carte de kit : « 400 g », « 1 paquet(s) », « ⅔ sachet(s) », « 2cc ». */
+    private const QTY_ONLY = '/^(?:(?:\d+(?:[.,]\d+)?\s*[½¼¾⅓⅔]?|[½¼¾⅓⅔]|\d?%|[#Z])\s*(?:kg|g|ml|cl|cm|cs|cc|pi[eè]ces?|sachets?|paquets?|bottes?|pots?|bo[iî]tes?|gousses?|tranches?)(?:\(s\))?\.?|selon (?:votre )?go[uû]t)$/iu';
 
     /** Blocs parasites entiers : pied de carte, allergènes. */
     private const NOISE_BLOCK = '/^[\W\d_]*fresh[\W\d_]*$|qr\s*code|faites-le-nous savoir|manquant ou\s+endommag|^allerg[èe]nes\b|traces d\'allerg|r[ée]f[ée]rez-vous aux [ée]tiquettes/imu';
@@ -77,6 +83,28 @@ class LayoutComposer
         $footer = preg_match('/^.*retrouvez[^\n]*\bsur\b[^\n]*$/imu', $all, $f) ? trim($f[0]) : null;
         $footerLine = $footer === null ? null : self::cleanLine($footer);
         $footer = $footer === null ? null : preg_replace('/\b(www)[,.](\w+)[,.](\w+)\b/iu', '$1.$2.$3', $footer);
+
+        // Carte de kit dont le tableau d'ingrédients a été coupé en deux colonnes (noms | quantités) : rangées recollées
+        if ($kit) {
+            $blocks = self::joinQuantityColumns($blocks);
+        }
+        // Quantités seules restées orphelines (« 400 g » sans ingrédient en face) : écartées comme avant
+        foreach ($blocks as $bi => $b) {
+            foreach ($b['lines'] as $k => $line) {
+                if ($line !== self::END && preg_match('/\p{L}.*\p{L}/u', $line) !== 1) {
+                    unset($blocks[$bi]['lines'][$k], $blocks[$bi]['ys'][$k]);
+                }
+            }
+            $blocks[$bi]['lines'] = array_values($blocks[$bi]['lines']);
+            $blocks[$bi]['ys'] = array_values($blocks[$bi]['ys']);
+            if ($blocks[$bi]['lines'] === []) {
+                unset($blocks[$bi]);
+            }
+        }
+        $blocks = array_values($blocks);
+        if ($blocks === []) {
+            return '';
+        }
 
         $title = self::title($blocks);
         $meta = [];
@@ -211,17 +239,22 @@ class LayoutComposer
                 }
 
                 $lines = [];
-                foreach ($block['lines'] ?? [] as $line) {
+                $ys = [];
+                foreach ($block['lines'] ?? [] as $k => $line) {
                     $line = self::cleanLine((string) $line);
+                    $top = isset($block['ys'][$k]) ? (int) $block['ys'][$k] / $height : null;
                     if (preg_match(self::INGREDIENTS_END, $line)) {
                         $lines[] = self::END;
+                        $ys[] = $top;
 
                         continue;
                     }
-                    if ($line === '' || preg_match('/\p{L}.*\p{L}/u', $line) !== 1 || preg_match(self::NOISE_LINE, $line)) {
+                    // Une quantité seule (« 400 g ») n'a qu'une lettre : gardée pour être recollée à son ingrédient
+                    if ($line === '' || (preg_match('/\p{L}.*\p{L}/u', $line) !== 1 && preg_match(self::QTY_ONLY, $line) !== 1) || preg_match(self::NOISE_LINE, $line)) {
                         continue;
                     }
                     $lines[] = $line;
+                    $ys[] = $top;
                 }
                 // Légende de photo : bloc court dont aucune ligne n'a été retirée (sinon c'est un titre d'étape dont la consigne générale a été ôtée)
                 $text = array_values(array_filter($lines, fn ($l) => $l !== self::END));
@@ -237,12 +270,72 @@ class LayoutComposer
                     'x' => (int) ($block['x'] ?? 0) / $width,
                     'y' => (int) ($block['y'] ?? 0) / $height,
                     'size' => (int) ($block['size'] ?? 0),
+                    'lh' => (int) ($block['size'] ?? 0) / $height,
                     'lines' => $lines,
+                    'ys' => $ys,
                 ];
             }
         }
 
         return $out;
+    }
+
+    /**
+     * v0.16.4 : colonne de quantités séparée de la colonne des noms (« Grenailles … 400 g » lu en deux blocs).
+     * Chaque quantité est recollée à la ligne de nom à la même hauteur, dans un bloc à sa gauche sur la même page ;
+     * la colonne de quantités disparaît. Rien n'est touché si moins de 60 % des quantités trouvent leur ligne.
+     */
+    private static function joinQuantityColumns(array $blocks): array
+    {
+        $removed = [];
+        foreach ($blocks as $qi => $q) {
+            $quantities = [];
+            foreach ($q['lines'] as $k => $line) {
+                if ($line !== self::END) {
+                    $quantities[$k] = preg_match(self::QTY_ONLY, $line) === 1;
+                }
+            }
+            if (count($quantities) < 2 || array_sum($quantities) < 0.8 * count($quantities) || in_array(null, $q['ys'] ?? [null], true)) {
+                continue;
+            }
+
+            $tolerance = max(0.004, 0.6 * ($q['lh'] ?? 0));
+            $pairs = [];
+            foreach ($quantities as $k => $isQuantity) {
+                if (! $isQuantity) {
+                    continue;
+                }
+                $best = null;
+                foreach ($blocks as $bi => $b) {
+                    if ($bi === $qi || isset($removed[$bi]) || $b['page'] !== $q['page'] || $b['x'] >= $q['x'] || $q['x'] - $b['x'] > 0.4) {
+                        continue;
+                    }
+                    foreach ($b['lines'] as $bk => $line) {
+                        $top = $b['ys'][$bk] ?? null;
+                        if ($line === self::END || $top === null || preg_match(self::QTY_ONLY, $line) || preg_match('/\d\s*(?:g|cc|cs|\(s\))$/iu', $line)) {
+                            continue;
+                        }
+                        $dy = abs($top - $q['ys'][$k]);
+                        if ($dy <= $tolerance && ($best === null || $dy < $best[2])) {
+                            $best = [$bi, $bk, $dy];
+                        }
+                    }
+                }
+                if ($best !== null) {
+                    $pairs[] = [$best[0], $best[1], $q['lines'][$k]];
+                }
+            }
+
+            if (count($pairs) < 0.6 * array_sum($quantities)) {
+                continue;
+            }
+            foreach ($pairs as [$bi, $bk, $quantity]) {
+                $blocks[$bi]['lines'][$bk] .= ' '.$quantity;
+            }
+            $removed[$qi] = true;
+        }
+
+        return array_values(array_diff_key($blocks, $removed));
     }
 
     private static function cleanLine(string $line): string
@@ -354,15 +447,21 @@ class LayoutComposer
         $line = preg_replace('/(?<=\p{L})[*“”"]+/u', '', $line);
         $line = trim(preg_replace(['/\s+[,.]\s+/u', '/\s+[_|]+(?=\s|$)/u'], ' ', $line));
 
-        if (preg_match('/^[àa] ajouter vous-m[êe]me\W*$/iu', $line)) {
+        if (preg_match('/^[àa] ajouter(?: vous-m[êe]me)?\W*$/iu', $line)) {
             return 'À ajouter vous-même :';
         }
         if (preg_match('/^pour (?:la|le|les)\s.+$/iu', $line)) {
             return rtrim($line, ' :').' :';
         }
 
-        // « 1% cs » : « 1½ » dont la fraction a été lue « % »
+        // « 7% sachet » : « ⅔ » lu de travers (2 sur 3 pris pour « 7% »)
         $fraction = null;
+        if (preg_match('/(?<=\s)7%(?=\s*(?:cs|cc|sachet|paquet|botte|pi[eè]ce|pot))/u', $line) === 1) {
+            $line = preg_replace('/(?<=\s)7%(?=\s*(?:cs|cc|sachet|paquet|botte|pi[eè]ce|pot))/u', '⅔', $line, 1);
+            $fraction = '« 7% » lu pour « ⅔ » (fraction mal lue) : à vérifier avec la fiche.';
+        }
+
+        // « 1% cs » : « 1½ » dont la fraction a été lue « % »
         if (preg_match('/(?<=\s)(\d)%(?=\s*(?:cs|cc|sachet|paquet|pi[eè]ce|pot))/u', $line, $f) === 1) {
             $line = preg_replace('/(?<=\s)(\d)%(?=\s*(?:cs|cc|sachet|paquet|pi[eè]ce|pot))/u', '$1½', $line, 1);
             $fraction = "« {$f[1]}% » lu pour « {$f[1]}½ » (fraction perdue) : à vérifier avec la fiche.";

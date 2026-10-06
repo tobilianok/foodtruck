@@ -231,12 +231,15 @@ def _extent(node):
     return min(w['x'] for w in ws), max(w['x'] + w['w'] for w in ws)
 
 
-def _lines(words):
+def _rows_of(words):
     by = {}
     for w in words:
         by.setdefault(w['line'], []).append(w)
-    rows = sorted(by.values(), key=lambda ws: (min(w['y'] for w in ws), min(w['x'] for w in ws)))
-    return [' '.join(w['t'] for w in sorted(ws, key=lambda w: w['x'])) for ws in rows]
+    return sorted(by.values(), key=lambda ws: (min(w['y'] for w in ws), min(w['x'] for w in ws)))
+
+
+def _lines(words):
+    return [' '.join(w['t'] for w in sorted(ws, key=lambda w: w['x'])) for ws in _rows_of(words)]
 
 
 def _is_heading_band(node):
@@ -299,7 +302,11 @@ def blocks_from_words(words, width):
     _flatten(tree, leaves)
     blocks = []
     for ws in leaves:
-        lines = [l for l in _lines(ws) if l.strip()]
+        # Texte et hauteur (haut de la ligne) de chaque ligne : la hauteur permet de recoller une colonne de quantités
+        # à la colonne des noms d'un tableau d'ingrédients découpé en deux (v0.16.4)
+        rows = [(' '.join(w['t'] for w in sorted(r, key=lambda w: w['x'])), min(w['y'] for w in r)) for r in _rows_of(ws)]
+        rows = [(t, top) for t, top in rows if t.strip()]
+        lines = [t for t, _ in rows]
         text = ''.join(lines)
         if sum(1 for c in text if c.isalnum()) < 2:
             continue
@@ -311,5 +318,6 @@ def blocks_from_words(words, width):
             'size': int(statistics.median(w['h'] for w in ws)),
             'conf': round(statistics.mean(w['conf'] for w in ws)),
             'lines': lines,
+            'ys': [top for _, top in rows],
         })
     return blocks

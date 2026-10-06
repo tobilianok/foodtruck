@@ -153,6 +153,31 @@ class LayoutComposerTest extends TestCase
         $this->assertStringEndsWith('Servir aussitôt.', $steps[3]);
     }
 
+    public function test_salade_hellofresh_colonne_des_quantites_recollee_aux_noms(): void
+    {
+        // v0.16.4 : tableau lu en deux blocs (noms | quantités), le bloc des noms collé au paragraphe « C'est parti ! »
+        $r = $this->read('hellofresh-salade-grenailles', 'Salade de grenailles, poulet doré & radis');
+
+        $this->assertSame([2.0, 35], [$r['yield_quantity'], $r['prep_minutes']]);
+        $byName = collect($r['ingredients'])->keyBy('name');
+        $this->assertSame(['Grenailles', 'Blanc de poulet', 'Épices italiennes', 'Radis', 'Échalote', 'Ciboulette', 'Tomates semi-séchées', 'Concombre', 'Aïoli',
+            "Huile d'olive", 'Moutarde', 'Vinaigre balsamique blanc', 'Poivre', 'sel'], $byName->keys()->all(), 'Plus de ligne « À ajouter »');
+        $this->assertSame([400.0, 'g'], [$byName['Grenailles']['quantity'], $byName['Grenailles']['unit']], '« 400 g » (une seule lettre) recollé');
+        $this->assertSame([1.0, 'piece', 'paquet'], [$byName['Blanc de poulet']['quantity'], $byName['Blanc de poulet']['unit'], $byName['Blanc de poulet']['note']]);
+        $this->assertEqualsWithDelta(2 / 3, $byName['Épices italiennes']['quantity'], 0.001);
+        $this->assertStringContainsString('« 7% »', $byName['Épices italiennes']['check']);
+        $this->assertSame('botte', $byName['Radis']['note']);
+        $this->assertStringContainsString('à vérifier', $byName['Radis']['check'], 'Fraction illisible signalée');
+        $this->assertSame([2.0, 'cac', 'À ajouter vous-même'], [$byName["Huile d'olive"]['quantity'], $byName["Huile d'olive"]['unit'], $byName["Huile d'olive"]['group']]);
+
+        $steps = array_column($r['steps'], 'body');
+        $this->assertCount(4, $steps, 'Ni quantités, ni fragments d\'allergènes, ni bas de carte dans les étapes');
+        $this->assertSame(['Top départ', 'Le poulet entre en scène', 'La touche vinaigrée', 'Service !'], array_map(fn ($s) => explode(' : ', $s, 2)[0], $steps));
+        foreach ($steps as $step) {
+            $this->assertDoesNotMatchRegularExpression('/allerg|paquet\(s\)|Semaine \d/u', $step);
+        }
+    }
+
     public function test_page_generique_une_colonne_etapes_numerotees(): void
     {
         $r = $this->read('generique-veloute', 'Velouté de potimarron');

@@ -48,6 +48,9 @@ class IngredientMatcher
         'tagliatelle' => 'Pâtes (spaghetti, penne…)',
         'fusilli' => 'Pâtes (spaghetti, penne…)',
         'farfalle' => 'Pâtes (spaghetti, penne…)',
+        // v0.16.4 : noms des cartes de kits
+        'blanc poulet' => 'Filet de poulet',
+        'escalope poulet' => 'Filet de poulet',
     ];
 
     private const STOPWORDS = ['de', 'du', 'des', 'la', 'le', 'les', 'l', 'd', 'au', 'aux', 'a', 'en', 'et', 'un', 'une', 'ou', 'pour', 'avec', 'sans', 'ici', 'sur', 'dans'];

@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.16.4 - 2026-10-06 - Cartes HelloFresh : quantités du tableau d'ingrédients retrouvées (Salade de grenailles)
+
+- Signalé par Louis sur une fiche toute neuve (« Salade de grenailles, poulet doré & radis », HelloFresh, document n° 491) : toutes les unités en « selon goût », une ligne « À ajouter » prise pour un ingrédient, et des étapes parasites (quantités, morceaux du paragraphe des allergènes, bas de carte).
+- Cause : sur cette carte, la colonne des noms du tableau d'ingrédients a été lue dans le même bloc que le paragraphe « C'est parti ! » au-dessus, et la colonne des quantités dans un bloc à part : les noms arrivaient sans quantité, et les quantités finissaient dans les étapes. Ni l'unité propre des ingrédients (v0.16.0) ni leur conversion ne pouvaient agir sans quantité.
+- Correction : le service de lecture transmet maintenant la hauteur de chaque ligne ; sur une carte de kit, une colonne faite seulement de quantités (« 400 g », « 1 paquet(s) », « ⅔ sachet(s) », « 2cc », « selon votre goût ») est recollée, ligne par ligne, au nom situé à la même hauteur à sa gauche. « 400 g » (une seule lettre) n'est plus écarté. « À ajouter » seul devient l'intertitre du groupe ; « bottes » est reconnu comme unité ; « 7% » est lu comme « ⅔ » (signalé) ; fragments du paragraphe des allergènes, « vous-même » orphelin et « Semaine 33… » écartés ; « Blanc de poulet » rapproché de « Filet de poulet ».
+- Résultat sur la carte : 14 ingrédients avec leurs quantités (fractions illisibles « % » signalées en rouge), groupe « À ajouter vous-même », 4 étapes titrées dans l'ordre (Top départ, Le poulet entre en scène, La touche vinaigrée, Service !). Les 5 autres fiches de test : lecture inchangée.
+- Le script reconstruit l'image foodtruck-ocr, vérifie le site de bout en bout, puis relit d'après le scan toutes les fiches encore à relire (la salade comprise).
+- Aucune migration. 256 tests automatisés (nouvelle fixture hellofresh-salade-grenailles.json).
+
 ## v0.16.3 - 2026-10-06 - Correctif : site en « 502 Bad Gateway » après un redémarrage de l'application
 
 - Signalé par Louis à 14:02 : foodtruck.louisrousseaux.fr répondait « 502 Bad Gateway ». Diagnostic : tous les conteneurs tournaient, mais foodtruck-web (Nginx) essayait encore de joindre PHP à l'ancienne adresse de foodtruck-app (« connect() failed (111: Connection refused) … fastcgi://172.28.0.6:9000 »).
