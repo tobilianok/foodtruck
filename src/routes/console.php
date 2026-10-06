@@ -112,7 +112,7 @@ Artisan::command('foodtruck:check', function (OidcClient $oidc) {
         try {
             $health = \App\Support\RecipeScan\OcrClient::make()->health();
             ($health['ok'] ?? false)
-                ? $ok('Lecture des scans (foodtruck-ocr) : Tesseract '.($health['tesseract'] ?? '?').', langues '.implode(', ', $health['langues'] ?? []))
+                ? $ok('Lecture des scans (foodtruck-ocr) : Tesseract '.($health['tesseract'] ?? '?').', langues '.implode(', ', $health['langues'] ?? []).(isset($health['mots']) ? ', dictionnaire de '.number_format((int) $health['mots'], 0, ',', ' ').' mots' : ''))
                 : $ko('Lecture des scans (foodtruck-ocr) : le français n\'est pas installé dans le service');
             $errors += ($health['ok'] ?? false) ? 0 : 1;
         } catch (Throwable $e) {
@@ -323,8 +323,8 @@ Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\
         $importer->ingest($import);
     }
 
-    $created = $imports->filter(fn ($i) => $i->fresh()->recipe_id !== null)->count();
-    $this->info($imports->count().' fiche(s) relue(s) : '.$created.' recette(s) créée(s), '.($imports->count() - $created).' encore à compléter.');
+    $ready = $imports->filter(fn ($i) => \App\Support\RecipeScan\ScanImporter::isReady($i->fresh()))->count();
+    $this->info($imports->count().' fiche(s) relue(s) : '.$ready.' prête(s) à valider, '.($imports->count() - $ready).' à compléter.');
 })->purpose('Relit les fiches de recettes en attente avec les règles à jour');
 
 /*

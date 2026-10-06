@@ -62,7 +62,7 @@ class RecipeLayoutRunner
         $ok = true;
         try {
             $file = PaperlessClient::for($import->household)->download((int) $import->paperless_document_id);
-            $layout = ($ocr ?? OcrClient::make())->read($file['body'], $file['mime']);
+            $layout = ($ocr ?? OcrClient::make())->read($file['body'], $file['mime'], $import->title);
             $import->forceFill(['layout' => $layout, 'layout_status' => RecipeImport::LAYOUT_DONE, 'layout_error' => null]);
         } catch (Throwable $e) {
             report($e);

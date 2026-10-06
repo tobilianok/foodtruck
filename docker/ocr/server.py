@@ -1,7 +1,7 @@
 """Foodtruck OCR - service interne de lecture des fiches de recettes.
 
-    POST /lire   corps = le fichier (PDF ou image), en-tête Content-Type
-                 → {"version": 1, "pages": [{"width", "height", "rotation", "blocks": [...]}]}
+    POST /lire   corps = le fichier (PDF ou image), en-tête Content-Type, en-tête X-Titre facultatif (titre encodé)
+                 → {"version": 1, "pages": [{"width", "height", "rotation", "blocks": [...]}], "titre": "…"}
     GET  /sante  → {"ok": true, "tesseract": "5.3.0", "langues": [...]}
 
 Uniquement sur le réseau interne de la stack (aucun port publié). Une lecture à la fois : les demandes suivantes
@@ -15,11 +15,13 @@ import subprocess
 import sys
 import tempfile
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from PIL import Image, ImageChops, ImageFilter, ImageOps
 
 from layout import add_missed_lines, blocks_from_words, words_from_tsv
+from words import fix_text, fix_token, words as dictionary
 
 PORT = int(os.environ.get('OCR_PORT', '8080'))
 LANG = os.environ.get('OCR_LANG', 'fra')
@@ -109,21 +111,28 @@ def read_page(page):
     words = words_from_tsv(run(['tesseract', page, 'stdout', '-l', LANG, '--psm', '3', 'tsv']))
     # Seconde lecture « texte épars » : zones prises pour des images par la première (voir add_missed_lines)
     words = add_missed_lines(words, words_from_tsv(run(['tesseract', page, 'stdout', '-l', LANG, '--psm', '11', 'tsv'])))
+    # Mots collés par la lecture (« thaïléger », « surfeumoyenavecunpetitfilet ») recoupés d'après le dictionnaire
+    for w in words:
+        w['t'] = fix_token(w['t'])
     return {'width': width, 'height': height, 'rotation': rotation, 'blocks': blocks_from_words(words, width)}
 
 
-def read(body, mime):
+def read(body, mime, title=None):
     with tempfile.TemporaryDirectory(prefix='foodtruck-ocr-') as workdir:
         source = os.path.join(workdir, 'source')
         with open(source, 'wb') as f:
             f.write(body)
-        return {'version': 1, 'pages': [read_page(p) for p in pages_from_file(source, mime, workdir)]}
+        result = {'version': 1, 'pages': [read_page(p) for p in pages_from_file(source, mime, workdir)]}
+        if title:
+            # Titre du document Paperless, lu par Paperless : mêmes mots collés possibles (« Curry thaïléger »)
+            result['titre'] = fix_text(title)
+        return result
 
 
 def health():
     version = run(['tesseract', '--version'], timeout=20).splitlines()[0].replace('tesseract', '').strip()
     langs = [l.strip() for l in run(['tesseract', '--list-langs'], timeout=20).splitlines()[1:] if l.strip()]
-    return {'ok': LANG in langs, 'tesseract': version, 'langues': langs}
+    return {'ok': LANG in langs, 'tesseract': version, 'langues': langs, 'mots': len(dictionary())}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -156,9 +165,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         body = self.rfile.read(length)
         mime = (self.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+        title = urllib.parse.unquote(self.headers.get('X-Titre') or '')[:300] or None
         try:
             with READ_LOCK:
-                result = read(body, mime)
+                result = read(body, mime, title)
             self.reply(200, result)
         except ReadError as e:
             self.reply(422, {'erreur': str(e)})

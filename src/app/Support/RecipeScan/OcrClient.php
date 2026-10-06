@@ -27,11 +27,15 @@ class OcrClient
     }
 
     /** @return array{version: int, pages: array<int, array{width: int, height: int, rotation: int, blocks: array}>} */
-    public function read(string $body, string $mime): array
+    public function read(string $body, string $mime, ?string $title = null): array
     {
         try {
-            $response = Http::timeout(600)->connectTimeout(5)->withBody($body, $mime ?: 'application/octet-stream')
-                ->post($this->url('/lire'));
+            // v0.16.1 : titre du document Paperless envoyé aussi, rendu avec ses mots collés recoupés (« titre »)
+            $request = Http::timeout(600)->connectTimeout(5)->withBody($body, $mime ?: 'application/octet-stream');
+            if (filled($title)) {
+                $request = $request->withHeaders(['X-Titre' => rawurlencode(Str::limit($title, 200, ''))]);
+            }
+            $response = $request->post($this->url('/lire'));
         } catch (\Throwable $e) {
             throw new RuntimeException('Service de lecture injoignable : '.Str::limit($e->getMessage(), 160));
         }

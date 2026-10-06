@@ -11,8 +11,11 @@ RUN apt-get update \
 # Modèle français « best » de Tesseract (plus précis que celui du paquet Debian), vérifié par somme de contrôle
 ADD --checksum=sha256:907743d98915c91a3906dfbf6e48b97598346698fe53aaa797e1a064ffcac913 --chmod=644 https://github.com/tesseract-ocr/tessdata_best/raw/main/fra.traineddata /usr/share/tesseract-ocr/5/tessdata/fra.traineddata
 
+# Dictionnaire français (liste « an-array-of-french-words », licence MIT, 336 000 formes) pour recouper les mots collés
+ADD --checksum=sha256:75e81515ed0714c8d98d6aa0cc71ba3094834653de005f9bdbb874257639e92d --chmod=644 https://raw.githubusercontent.com/words/an-array-of-french-words/24a6b29562cd0f8c4090262dbe303413f68aafe9/index.json /app/mots-fr.json
+
 WORKDIR /app
-COPY layout.py server.py ./
+COPY layout.py server.py words.py ./
 
 ENV PYTHONUNBUFFERED=1 OMP_THREAD_LIMIT=1 OCR_LANG=fra OCR_DPI=300 OCR_PORT=8080
 USER ocr

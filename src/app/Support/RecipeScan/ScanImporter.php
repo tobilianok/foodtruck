@@ -15,7 +15,6 @@ use App\Support\UnitConversionException;
 use App\Support\Units;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use Throwable;
 
 /**
  * Transforme le texte d'une fiche en recette : lecture, rapprochement avec le référentiel, contrôle des quantités.
@@ -108,38 +107,27 @@ class ScanImporter
         ];
     }
 
-    /** Lit ou relit une fiche et crée la recette si tout est reconnu. */
+    /**
+     * Lit ou relit une fiche. v0.16.1 : plus aucune recette créée toute seule, même entièrement reconnue — chaque
+     * fiche importée attend la validation de Louis (« Valider » sur l'écran de relecture).
+     */
     public function ingest(RecipeImport $import, ?Household $household = null): RecipeImport
     {
         $analysis = $this->bestAnalysis($import);
 
         $import->forceFill([
-            'parsed' => ['recipe' => Arr::except($analysis['recipe'], ['ingredients']), 'rows' => $analysis['rows']],
+            'parsed' => ['recipe' => Arr::except($analysis['recipe'], ['ingredients']), 'rows' => $analysis['rows'], 'complete' => $analysis['complete']],
             'issues' => $analysis['issues'],
         ]);
-
-        if ($analysis['complete'] && ! $import->recipe_id) {
-            $household ??= $import->household;
-            $author = self::author($household);
-
-            if ($author) {
-                try {
-                    $recipe = RecipeWriter::save(new Recipe(['author_id' => $author->id]), self::writerData($analysis));
-                    $import->forceFill([
-                        'recipe_id' => $recipe->id,
-                        'status' => RecipeImport::STATUS_CREATED,
-                        'auto_published' => $recipe->isPublished(),
-                    ]);
-                } catch (Throwable $e) {
-                    report($e);
-                    $import->issues = array_merge($analysis['issues'], ['Création impossible : '.Str::limit($e->getMessage(), 160)]);
-                }
-            }
-        }
-
         $import->save();
 
         return $import;
+    }
+
+    /** Fiche entièrement reconnue : il ne reste qu'à la valider. */
+    public static function isReady(RecipeImport $import): bool
+    {
+        return ! $import->recipe_id && ! empty($import->parsed['complete']);
     }
 
     /**
@@ -162,7 +150,8 @@ class ScanImporter
             return $paperless();
         }
 
-        $fromScan = $this->analyse(LayoutComposer::compose($import->layout), $import->title);
+        // Titre du document Paperless dont le service de lecture a recoupé les mots collés (« Curry thaïléger »)
+        $fromScan = $this->analyse(LayoutComposer::compose($import->layout), $import->layout['titre'] ?? $import->title);
         $score = fn (array $a) => (count($a['rows']) > 0 ? 2 : 0) + (count($a['recipe']['steps']) > 0 ? 2 : 0);
         if ($score($fromScan) < 4 && trim((string) $import->raw_text) !== '') {
             $fallback = $paperless();

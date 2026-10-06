@@ -9,6 +9,7 @@ use App\Models\RecipeAlias;
 use App\Models\RecipeImport;
 use App\Models\User;
 use App\Support\RecipeScan\RecipeScanSync;
+use App\Support\RecipeScan\ScanImporter;
 use App\Support\ReferenceImporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -53,14 +54,31 @@ class RecipeScanFlowTest extends TestCase
         return (new RecipeScanSync)->run($this->household->fresh());
     }
 
-    public function test_fiche_entierement_reconnue_publiee_automatiquement(): void
+    public function test_fiche_entierement_reconnue_attend_la_validation(): void
     {
         $this->fakePaperless(RecipeScanParserTest::fixture('julie-andrieu-gratin-courge'));
 
         $counts = $this->sync();
 
-        $this->assertSame(['new' => 1, 'updated' => 0, 'published' => 1, 'drafts' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null], $counts);
-        $this->assertSame('1 recette publiée automatiquement.', RecipeScanSync::summary($counts));
+        // v0.16.1 : plus de publication automatique, chaque fiche importée est validée par Louis
+        $this->assertSame(['new' => 1, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'ready' => 1, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null], $counts);
+        $this->assertSame('1 fiche prête à valider.', RecipeScanSync::summary($counts));
+        $this->assertSame(0, Recipe::where('title', 'Gratin de courge butternut et mini macaronis')->count());
+
+        $import = RecipeImport::firstWhere('paperless_document_id', 480);
+        $this->assertSame([RecipeImport::STATUS_TO_REVIEW, null, true], [$import->status, $import->recipe_id, ScanImporter::isReady($import)]);
+        $this->actingAs($this->user)->get('/recettes/importees')->assertOk()->assertSee('à valider')->assertSee('il ne reste qu\'à valider', false);
+
+        // « Valider » : le formulaire pré-rempli est envoyé tel quel
+        $form = ScanImporter::formRows($import->parsed);
+        $fields = $import->parsed['recipe'];
+        $this->post('/recettes', [
+            'import_id' => $import->id, 'title' => $fields['title'], 'category' => $fields['category'], 'yield_quantity' => (string) $fields['yield_quantity'],
+            'yield_unit' => $fields['yield_unit'], 'prep_minutes' => $fields['prep_minutes'], 'cook_minutes' => $fields['cook_minutes'],
+            'difficulty' => $fields['difficulty'], 'source' => $fields['source'], 'tags' => \App\Support\RecipeWriter::tagIds($fields['tags']),
+            'ingredients' => collect($form['ingredients'])->map(fn ($r) => array_intersect_key($r, array_flip(['group', 'name', 'label', 'quantity', 'unit', 'note'])))->all(),
+            'steps' => $form['steps'],
+        ])->assertSessionHasNoErrors()->assertRedirect();
 
         $recipe = Recipe::firstWhere('title', 'Gratin de courge butternut et mini macaronis');
         $this->assertTrue($recipe->isPublished());
@@ -82,8 +100,8 @@ class RecipeScanFlowTest extends TestCase
         $this->assertSame(18, $steps[5]->timer_minutes);
         $this->assertSame('Préchauffez le four à 200°C, chaleur ventilée.', $steps[3]->body);
 
-        $import = RecipeImport::firstWhere('paperless_document_id', 480);
-        $this->assertSame([RecipeImport::STATUS_CREATED, $recipe->id, true], [$import->status, $import->recipe_id, $import->auto_published]);
+        $import->refresh();
+        $this->assertSame([RecipeImport::STATUS_CREATED, $recipe->id, false], [$import->status, $import->recipe_id, $import->auto_published]);
 
         // Deuxième passage : rien de neuf, rien de dupliqué
         $again = $this->sync();
@@ -201,24 +219,21 @@ class RecipeScanFlowTest extends TestCase
         $second = str_replace('4 FEUILLES DE SAUGE (OU DE ROMARIN)', '2 FEUILLES DE MIXTURE VERTE', RecipeScanParserTest::fixture('julie-andrieu-gratin-courge'));
         $this->fakePaperless($second, 481, 'Gratin bis');
         $counts = $this->sync();
-        $this->assertSame(1, $counts['published'] + $counts['drafts']);
+        $this->assertSame(1, $counts['ready'], 'Reconnue toute seule, prête à valider');
     }
 
-    public function test_fiche_avec_reserve_devient_un_brouillon(): void
+    public function test_fiche_avec_reserve_signalee_a_la_validation(): void
     {
-        // Une recette du même titre existe déjà : on ne publie pas à la place de quelqu'un, brouillon à relire
+        // Une recette du même titre existe déjà : rien n'est créé, la réserve est affichée à la relecture
         Recipe::create(['title' => 'Gratin de courge butternut et mini macaronis', 'slug' => 'gratin-existant', 'category' => 'plat', 'yield_quantity' => 4, 'yield_unit' => 'personnes', 'difficulty' => 'facile', 'status' => 'publie', 'author_id' => $this->user->id]);
         $this->fakePaperless(RecipeScanParserTest::fixture('julie-andrieu-gratin-courge'));
 
-        $counts = $this->sync();
+        $this->sync();
 
-        $this->assertSame([0, 1], [$counts['published'], $counts['drafts']]);
-        $recipe = Recipe::where('title', 'Gratin de courge butternut et mini macaronis')->where('slug', '!=', 'gratin-existant')->first();
-        $this->assertFalse($recipe->isPublished());
-        $this->assertSame('1 en brouillon à relire.', ucfirst(RecipeScanSync::summary($counts)) === '' ? '' : '1 en brouillon à relire.');
-
+        $this->assertSame(1, Recipe::where('title', 'Gratin de courge butternut et mini macaronis')->count(), 'Aucun doublon créé');
         $import = RecipeImport::firstWhere('paperless_document_id', 480);
-        $this->actingAs($this->user)->get("/recettes/importees/{$import->id}")->assertRedirect(route('recipes.edit', $recipe));
+        $this->assertContains('Une recette porte déjà ce titre.', $import->issues);
+        $this->actingAs($this->user)->get("/recettes/importees/{$import->id}")->assertOk()->assertSee('Une recette porte déjà ce titre.');
         $this->actingAs($this->user)->get('/recettes')->assertSee('attend ta relecture');
     }
 
@@ -233,8 +248,8 @@ class RecipeScanFlowTest extends TestCase
         Ingredient::create(['name' => 'Cerfeuil', 'slug' => 'cerfeuil', 'aisle_id' => Ingredient::firstWhere('name', 'Persil')->aisle_id, 'base_unit' => 'piece', 'piece_weight_g' => 20]);
 
         $this->actingAs($this->user)->post("/recettes/importees/{$import->id}/relire")->assertRedirect();
-        $this->assertNotNull($import->fresh()->recipe_id);
-        $this->assertTrue(Recipe::firstWhere('title', 'Gratin de courge butternut et mini macaronis')->isPublished());
+        $this->assertNull($import->fresh()->recipe_id, 'Jamais créée sans validation');
+        $this->assertTrue(ScanImporter::isReady($import->fresh()), 'Tout est reconnu : prête à valider');
     }
 
     public function test_supprimer_une_fiche_a_relire_l_efface_et_la_synchronisation_la_retraite(): void
@@ -368,7 +383,7 @@ class RecipeScanFlowTest extends TestCase
         $this->assertSame('cuisine', $this->household->fresh()->paperlessRecipeTag());
 
         $this->fakePaperless(RecipeScanParserTest::fixture('julie-andrieu-gratin-courge'));
-        $this->artisan('foodtruck:recettes')->expectsOutputToContain('1 recette publiée automatiquement')->assertSuccessful();
+        $this->artisan('foodtruck:recettes')->expectsOutputToContain('1 fiche prête à valider')->assertSuccessful();
     }
 
     public function test_relecture_en_masse_par_commande(): void
@@ -377,6 +392,6 @@ class RecipeScanFlowTest extends TestCase
         $this->fakePaperless($text);
         $this->sync();
 
-        $this->artisan('foodtruck:relire-recettes')->expectsOutputToContain('1 fiche(s) relue(s) : 0 recette(s) créée(s), 1 encore à compléter.')->assertSuccessful();
+        $this->artisan('foodtruck:relire-recettes')->expectsOutputToContain('1 fiche(s) relue(s) : 0 prête(s) à valider, 1 à compléter.')->assertSuccessful();
     }
 }

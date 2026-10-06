@@ -228,7 +228,7 @@
             </label>
             <div class="row-actions">
                 <a class="btn btn-ghost" href="{{ $recipe->exists ? route('recipes.show', $recipe) : route('recipes.index') }}">Annuler</a>
-                <button type="submit" class="btn">{{ $recipe->exists ? 'Enregistrer' : 'Créer la recette' }}</button>
+                <button type="submit" class="btn">{{ $recipe->exists ? 'Enregistrer' : (! empty($import) ? 'Valider la recette' : 'Créer la recette') }}</button>
             </div>
         </div>
     </form>

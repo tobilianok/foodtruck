@@ -1,5 +1,12 @@
 # Journal des versions - Foodtruck
 
+## v0.16.1 - 2026-10-06 - Validation systématique des fiches Paperless, mots collés recoupés
+
+- Validation systématique (demande de Louis) : plus aucune recette n'est créée ni publiée toute seule depuis Paperless, même entièrement reconnue. Une fiche sans rien à corriger apparaît « à valider » (« tout est reconnu, il ne reste qu'à valider ») ; le bouton de l'écran de relecture devient « Valider la recette ». « Chercher dans Paperless » annonce « N fiches prêtes à valider, M à compléter ».
+- Mots collés (signalé par Louis : « Curry thaïléger ») : foodtruck-ocr recoupe les mots que la lecture a collés, d'après un dictionnaire français de 336 000 formes (liste « an-array-of-french-words », licence MIT, téléchargée à la construction de l'image et vérifiée par somme de contrôle) complété du vocabulaire de cuisine : « thaïléger » → « thaï léger », « surfeumoyenavecunpetitfilet » → « sur feu moyen avec un petit filet », « entemps », « etle », « dufeu », « Ajoutez-yla », « jusqu'àce », « casserole,ou ». Règles prudentes : mots connus, noms propres, adresses et mots en majuscules jamais touchés ; un mot court n'est recoupé qu'autour d'un petit mot de liaison (« carbonara » reste entier). Le titre du document Paperless, d'où vient le titre de la recette, est corrigé de la même façon. Vérifié sur le curry lu d'après la version archivée de Paperless (la plus dégradée) : plus aucun mot collé, 6 étapes dans l'ordre.
+- Le script reconstruit l'image foodtruck-ocr (dictionnaire téléchargé depuis raw.githubusercontent.com), puis relit d'après le scan toutes les fiches encore à relire (le titre « Curry thaïléger » se corrige).
+- Aucune migration. 255 tests automatisés (1 nouveau dans RecipeScanLayoutTest, RecipeScanFlowTest adapté à la validation systématique).
+
 ## v0.16.0 - 2026-10-06 - Plusieurs unités par ingrédient (sachet, gousse, boîte…) : import des fiches presque sans retouche
 
 - Demande de Louis : les unités d'une fiche importée doivent se convertir toutes seules dans l'unité de l'ingrédient enregistré dans Foodtruck, pour n'avoir plus qu'un contrôle et une validation finale. Choix validés : la recette garde l'unité de la fiche (« ½ sachet ») avec l'équivalent en petit à côté (« ≈ 5 g ») ; les unités courantes sont pré-remplies avec des valeurs typiques, corrigées ensuite si besoin.
@@ -9,7 +16,7 @@
 - Import des fiches : « 4 gousses », « ½ sachet », « 1 boîte », « 2 cm », « 3 brins » deviennent l'unité de l'ingrédient. Si elle n'existe pas encore, Foodtruck l'estime d'après un conditionnement du même nom (« Boîte 40 cl »), une valeur typique, ou le seul conditionnement de l'ingrédient, et la rappelle en petit sous la ligne avec un lien « corriger ». Les cuillères d'un ingrédient pesé sans densité (« 2 c. à soupe de beurre ») sont estimées de la même façon.
 - Quand rien ne permet d'estimer (« 1 paquet de crevettes » sans conditionnement), la ligne pose UNE question : « 1 paquet = [ ] g ». La réponse est retenue sur l'ingrédient : les fiches suivantes passent toutes seules. Même chose pour le poids d'une pièce ou la densité manquants.
 - La relecture et le formulaire de recette proposent, pour chaque ligne, les unités de l'ingrédient en plus des unités générales.
-- Migration : table ingredient_units ; recipe_ingredients.unit passe à 40 caractères (une unité propre est notée « u:sachet »). 254 tests automatisés (6 nouveaux dans IngredientUnitsTest).
+- Migration : table ingredient_units ; recipe_ingredients.unit passe à 40 caractères (une unité propre est notée « u:sachet »). 254 tests automatisés (6 nouveaux dans IngredientUnitsTest). Appliquée sur la VM et poussée le 2026-10-06.
 
 ## v0.15.4 - 2026-10-06 - Lecture des scans d'après l'original Paperless (mots collés, étapes en désordre)
 

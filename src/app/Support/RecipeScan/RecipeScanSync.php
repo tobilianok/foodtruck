@@ -21,7 +21,7 @@ class RecipeScanSync
     /** @return array{new: int, updated: int, published: int, drafts: int, to_review: int, empty: int, reading: int, error: ?string} */
     public function run(Household $household, ?PaperlessClient $client = null): array
     {
-        $counts = ['new' => 0, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null];
+        $counts = ['new' => 0, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'ready' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null];
         // Service de lecture des scans présent : les fiches sont lues en arrière-plan d'après le scan (RecipeLayoutRunner)
         $reading = OcrClient::enabled();
 
@@ -71,12 +71,8 @@ class RecipeScanSync
                 $this->importer->ingest($import, $household);
                 $isNew ? $counts['new']++ : $counts['updated']++;
 
-                $import->refresh()->loadMissing('recipe');
-                match (true) {
-                    $import->recipe?->isPublished() === true => $counts['published']++,
-                    $import->recipe !== null => $counts['drafts']++,
-                    default => $counts['to_review']++,
-                };
+                // v0.16.1 : toute fiche attend la validation ; « prête » = entièrement reconnue
+                ScanImporter::isReady($import->refresh()) ? $counts['ready']++ : $counts['to_review']++;
             }
 
             $household->forceFill(['paperless_synced_at' => now(), 'paperless_last_error' => null])->save();
@@ -105,11 +101,8 @@ class RecipeScanSync
         if (($counts['reading'] ?? 0) > 0) {
             $parts[] = $counts['reading'].' fiche'.($counts['reading'] > 1 ? 's' : '').' en cours de lecture (environ une minute par page, la page se met à jour toute seule)';
         }
-        if ($counts['published']) {
-            $parts[] = $counts['published'].' recette'.($counts['published'] > 1 ? 's publiées' : ' publiée').' automatiquement';
-        }
-        if ($counts['drafts']) {
-            $parts[] = $counts['drafts'].' en brouillon à relire';
+        if ($counts['ready'] ?? 0) {
+            $parts[] = $counts['ready'].' fiche'.($counts['ready'] > 1 ? 's prêtes' : ' prête').' à valider';
         }
         if ($counts['to_review']) {
             $parts[] = $counts['to_review'].' fiche'.($counts['to_review'] > 1 ? 's' : '').' à compléter';

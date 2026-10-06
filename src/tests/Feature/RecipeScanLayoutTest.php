@@ -42,10 +42,13 @@ class RecipeScanLayoutTest extends TestCase
         $this->household->forceFill(['paperless_url' => self::PAPERLESS, 'paperless_token' => str_repeat('a', 40)])->save();
     }
 
-    private function fake(int $ocrStatus = 200): void
+    private function fake(int $ocrStatus = 200, ?string $fixedTitle = null): void
     {
         $paperlessText = file_get_contents(base_path('tests/Fixtures/paperless/leclerc-croziflette.txt'));
         $layout = json_decode(file_get_contents(base_path('tests/Fixtures/layout/leclerc-croziflette.json')), true);
+        if ($fixedTitle !== null) {
+            $layout['titre'] = $fixedTitle;
+        }
 
         Http::swap(new \Illuminate\Http\Client\Factory);
         Http::fake([
@@ -92,10 +95,21 @@ class RecipeScanLayoutTest extends TestCase
         }
 
         Http::assertSent(fn (Request $r) => $r->url() === self::PAPERLESS.'/api/documents/487/download/?original=true' && $r->hasHeader('Authorization', 'Token '.str_repeat('a', 40)));
-        Http::assertSent(fn (Request $r) => $r->url() === self::OCR.'/lire' && $r->method() === 'POST' && $r->body() === '%PDF-1.4 scan');
+        Http::assertSent(fn (Request $r) => $r->url() === self::OCR.'/lire' && $r->method() === 'POST' && $r->body() === '%PDF-1.4 scan' && $r->hasHeader('X-Titre'));
 
         // La relecture affiche le texte lu sur le scan
         $this->get('/recettes/importees/'.$import->id)->assertOk()->assertSee('Texte lu sur le scan par Foodtruck')->assertSee('Etape 5');
+    }
+
+    public function test_titre_paperless_aux_mots_colles_recoupe_par_le_service(): void
+    {
+        // v0.16.1 : le service renvoie le titre du document Paperless avec ses mots collés recoupés (« Curry thaïléger »)
+        $this->fake(200, 'Croziflette de Savoie');
+        (new RecipeScanSync)->run($this->household->fresh());
+        (new RecipeLayoutRunner)->processPending();
+
+        $this->assertSame('Croziflette de Savoie', $this->import()->parsed['recipe']['title']);
+        Http::assertSent(fn (Request $r) => $r->url() === self::OCR.'/lire' && $r->header('X-Titre') === [rawurlencode('Croziflette')]);
     }
 
     public function test_service_injoignable_le_texte_de_paperless_sert_et_la_lecture_se_relance(): void

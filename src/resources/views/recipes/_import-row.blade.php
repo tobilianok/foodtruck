@@ -2,6 +2,7 @@
     $rows = $import->parsed['rows'] ?? [];
     $problems = collect($rows)->whereNotNull('problem')->count();
     $recipe = $import->recipe;
+    $ready = \App\Support\RecipeScan\ScanImporter::isReady($import);
 @endphp
 <li @class(['import-item' => ! empty($discard)])>
     <a href="{{ route('recipes.imports.show', $import) }}" class="receipt-link">
@@ -15,6 +16,8 @@
                     · lecture du scan en cours
                 @elseif ($problems)
                     · {{ $problems }} ingrédient{{ $problems > 1 ? 's' : '' }} à compléter
+                @elseif ($ready)
+                    · tout est reconnu, il ne reste qu'à valider
                 @endif
             </span>
             @if (! empty($import->issues) && ! $import->isReading() && (! $recipe || ! $recipe->isPublished()))
@@ -28,6 +31,8 @@
                 <span class="badge-season">publiée</span>
             @elseif ($recipe)
                 <span class="badge-warn">brouillon</span>
+            @elseif ($ready)
+                <span class="badge-season">à valider</span>
             @else
                 <span class="badge-warn">à compléter</span>
             @endif
