@@ -34,6 +34,7 @@ Voici une fiche de recette scannée (une image par page). Recopie la recette exa
 - etapes : chaque étape dans l'ordre de leur numéro (1, 2, 3…), même si elles sont disposées en grille ; titre de l'étape s'il y en a un, et texte complet de l'étape (toutes ses puces). Les encadrés « L'astuce du chef » ne font pas partie des étapes.
 - conseil : le texte des encadrés « L'astuce du chef » ou des conseils, sinon null.
 - site : l'adresse du site imprimée sur la fiche (« www.hellofresh.fr »), sinon null.
+- photo : la grande photo du plat terminé (pas les petites photos des étapes ni les pictogrammes) : numéro de la page (1, 2…) et rectangle qui l'entoure exactement, en coordonnées relatives de 0 à 1000 (x1, y1 = coin en haut à gauche ; x2, y2 = coin en bas à droite) ; null s'il n'y a pas de photo du plat.
 
 Ignore les valeurs nutritionnelles, les allergènes, les ustensiles, les légendes des photos, les pictogrammes et le pied de page.
 TXT;
@@ -91,8 +92,11 @@ TXT;
                 ]],
                 'conseil' => $nullable('string'),
                 'site' => $nullable('string'),
+                'photo' => ['anyOf' => [['type' => 'null'], ['type' => 'object', 'properties' => [
+                    'page' => ['type' => 'integer'], 'x1' => ['type' => 'integer'], 'y1' => ['type' => 'integer'], 'x2' => ['type' => 'integer'], 'y2' => ['type' => 'integer'],
+                ], 'required' => ['page', 'x1', 'y1', 'x2', 'y2']]]],
             ],
-            'required' => ['titre', 'personnes', 'temps_minutes', 'ingredients', 'etapes', 'conseil', 'site'],
+            'required' => ['titre', 'personnes', 'temps_minutes', 'ingredients', 'etapes', 'conseil', 'site', 'photo'],
         ];
     }
 

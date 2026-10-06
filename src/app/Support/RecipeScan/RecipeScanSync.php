@@ -22,7 +22,7 @@ class RecipeScanSync
     public function run(Household $household, ?PaperlessClient $client = null): array
     {
         $counts = ['new' => 0, 'updated' => 0, 'published' => 0, 'drafts' => 0, 'ready' => 0, 'to_review' => 0, 'empty' => 0, 'reading' => 0, 'error' => null];
-        // v0.18.0 : modèle de vision configuré : les fiches sont lues en arrière-plan d'après le scan (RecipeLayoutRunner)
+        // v0.18.0 : modèle de vision configuré : les fiches attendent que Louis les envoie à l'IA, une par une
         $reading = VisionClient::ready();
 
         try {
@@ -57,8 +57,8 @@ class RecipeScanSync
 
                 if ($reading) {
                     $import->forceFill([
-                        'layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null,
-                        'status' => RecipeImport::STATUS_TO_REVIEW, 'parsed' => null, 'issues' => ['Lecture du scan en cours…'], 'layout_attempts' => 0, 'layout_retry_at' => null,
+                        'layout_status' => RecipeImport::LAYOUT_TO_SEND, 'layout_error' => null, 'layout_pages' => null,
+                        'status' => RecipeImport::STATUS_TO_REVIEW, 'parsed' => null, 'issues' => ['Pas encore envoyée à l\'IA.'],
                     ])->save();
                     $isNew ? $counts['new']++ : $counts['updated']++;
                     $counts['reading']++;
@@ -99,7 +99,7 @@ class RecipeScanSync
 
         $parts = [];
         if (($counts['reading'] ?? 0) > 0) {
-            $parts[] = $counts['reading'].' fiche'.($counts['reading'] > 1 ? 's' : '').' en cours de lecture (environ une minute par page, la page se met à jour toute seule)';
+            $parts[] = $counts['reading'].' fiche'.($counts['reading'] > 1 ? 's' : '').' à envoyer à l\'IA (bouton « Envoyer à l\'IA pour analyse », une fiche à la fois)';
         }
         if ($counts['ready'] ?? 0) {
             $parts[] = $counts['ready'].' fiche'.($counts['ready'] > 1 ? 's prêtes' : ' prête').' à valider';

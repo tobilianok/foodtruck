@@ -916,3 +916,16 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .read-progress.is-waiting .read-progress-fill { width: 100% !important; opacity: .25; animation: read-wait 1.6s ease-in-out infinite; }
 @keyframes read-wait { 0%, 100% { opacity: .12; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .read-progress-fill { transition: none; } .read-progress.is-waiting .read-progress-fill { animation: none; } }
+
+/* v0.18.0 : page de contrôle avant l'envoi à l'IA */
+.ai-facts { display: grid; grid-template-columns: max-content 1fr; gap: .35rem 1rem; margin: .5rem 0 0; }
+.ai-facts dt { font-weight: 600; color: var(--muted, inherit); }
+.ai-facts dd { margin: 0; }
+.ai-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 1rem; margin-top: .75rem; }
+.ai-page { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: .5rem; padding: .6rem; border: 1px solid var(--line); border-radius: .6rem; cursor: pointer; }
+.ai-page img { grid-column: 1 / -1; width: 100%; height: auto; border-radius: .35rem; background: #fff; }
+.ai-page:has(input:not(:checked)) img { opacity: .35; filter: grayscale(1); }
+.ai-page-label { font-weight: 600; }
+.import-actions { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0 .9rem .7rem; }
+@media (max-width: 40rem) { .ai-facts { grid-template-columns: 1fr; } .ai-facts dt { margin-top: .4rem; } }
+.btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }

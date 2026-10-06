@@ -1,5 +1,17 @@
 # Journal des versions - Foodtruck
 
+## v0.18.1 - 2026-10-06 - Envoi à l'IA fiche par fiche, page de contrôle, photo du plat
+
+- Demande de Louis : « je veux pouvoir contrôler à l'extrême ce qui est envoyé sur Ollama sur mon PC et envoyer une fiche par une fiche ». Plus rien ne part tout seul vers le PC.
+- Les fiches trouvées dans Paperless arrivent « à envoyer à l'IA ». Bouton « Envoyer à l'IA pour analyse » sur chaque fiche → page de contrôle : destination (192.168.1.29:11434) et modèle, images exactes des pages avec une case à cocher par page (décocher la photo ou les pictogrammes accélère l'analyse ; aperçu 100 dpi, envoi 200 dpi), consigne et format de réponse imposé ; « Envoyer à l'IA » ou « Ne rien envoyer ». Rien d'autre n'est envoyé (ni texte de Paperless, ni recettes, ni compte).
+- Une seule fiche à la fois chez Ollama : tant qu'une analyse est en file ou en cours, les autres boutons sont désactivés. « Annuler l'envoi » tant que l'analyse n'a pas commencé.
+- Plus aucun nouvel essai automatique : en cas d'échec (PC éteint, Ollama arrêté, réponse illisible), l'erreur est affichée sur la fiche et « Renvoyer à l'IA » repasse par la page de contrôle.
+- Photo du plat : le modèle indique où se trouve la grande photo du plat (rectangle sur la page) ; Foodtruck la découpe en bonne résolution (cadre élargi puis resserré sur les bords de la photo) et la propose à la relecture, case « Utiliser la photo de la fiche (découpée par l'IA) » cochée par défaut ; à la validation, elle devient la photo de la recette. Essai sur la piémontaise : cadrage juste.
+- « Relire la fiche » reprend la réponse déjà reçue avec les règles à jour, sans rien envoyer ; « Renvoyer à l'IA pour analyse » sur l'écran de relecture.
+- Le titre retenu est le titre principal de la fiche (sans la ligne de sous-titre).
+- ./ft vider-recettes : les fiches reviennent « à envoyer à l'IA » (rien n'est envoyé), photos proposées comprises dans le ménage.
+- Une migration (pages choisies ; colonnes des nouvelles tentatives de la v0.18.0 retirées ; fiches en attente d'envoi automatique remises « à envoyer »). 259 tests automatisés.
+
 ## v0.18.0 - 2026-10-06 - Fiches lues par un modèle de vision (Ollama), barre de progression, suppression de toutes les recettes
 
 - Constat de Louis sur la fiche « Salade façon piémontaise au jambon » (HelloFresh, Paperless n° 490) : la lecture par Tesseract n'était pas fiable (« Mayonnaise 1 sachet » lu « EPENNENES CEÉIEREN », « Moutarde 1 cc » perdue, étapes dans le désordre), et chaque correction cassait une autre carte. Décision : les fiches sont lues par un modèle de vision local, et plus par aucun autre outil de reconnaissance de texte.

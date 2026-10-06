@@ -156,9 +156,11 @@ class ScanImporter
         if (VisionClient::ready()) {
             $analysis = $this->analyse('', $import->title);
             $analysis['complete'] = false;
-            $analysis['issues'] = [$import->layout_status === RecipeImport::LAYOUT_FAILED
-                ? 'Lecture par le modèle impossible après '.(int) $import->layout_attempts.' essais ('.Str::limit((string) $import->layout_error, 140).'). « Relire la fiche » relance la lecture.'
-                : 'Fiche pas encore lue par le modèle.'.($import->layout_error ? ' '.$import->layout_error.'.' : '')];
+            $analysis['issues'] = [match ($import->layout_status) {
+                RecipeImport::LAYOUT_FAILED => 'Analyse par l\'IA impossible : '.Str::limit((string) $import->layout_error, 160).'. « Renvoyer à l\'IA » pour réessayer.',
+                RecipeImport::LAYOUT_PENDING => 'Analyse par l\'IA en cours.',
+                default => 'Pas encore envoyée à l\'IA.',
+            }];
 
             return $analysis;
         }

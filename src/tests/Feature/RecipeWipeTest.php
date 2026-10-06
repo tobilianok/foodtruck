@@ -63,9 +63,9 @@ class RecipeWipeTest extends TestCase
         $this->assertFalse(Storage::disk('public')->exists('recettes/photo-mini.jpg'));
         $this->assertSame([$ingredients, $units], [Ingredient::count(), IngredientUnit::count()], 'Ingrédients et unités conservés');
 
-        // Les fiches de Paperless sont remises en lecture par le modèle (l'ancienne lecture est oubliée)
+        // Les fiches de Paperless reviennent « à envoyer à l'IA » (l'ancienne lecture est oubliée, rien n'est envoyé)
         $this->assertSame([490, 491], RecipeImport::orderBy('paperless_document_id')->pluck('paperless_document_id')->all());
-        $this->assertTrue(RecipeImport::all()->every(fn (RecipeImport $i) => $i->isReading()));
+        $this->assertTrue(RecipeImport::all()->every(fn (RecipeImport $i) => $i->canBeSent() && ! $i->isReading()));
         $this->assertSame('Salade façon piémontaise au jambon', RecipeImport::firstWhere('paperless_document_id', 490)->title);
     }
 }

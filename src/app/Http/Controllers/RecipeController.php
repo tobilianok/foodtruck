@@ -227,6 +227,17 @@ class RecipeController extends Controller
             return;
         }
 
+        // v0.18.1 : photo du plat découpée sur la fiche, gardée si Louis l'a laissée cochée (et sans autre photo choisie)
+        $scanPhoto = \App\Support\RecipeScan\ScanPhoto::path($import);
+        if ($scanPhoto && $request->boolean('import_photo') && ! $request->hasFile('photo') && ! $recipe->photo_path) {
+            try {
+                $recipe->forceFill(RecipePhoto::storeFromDisk($scanPhoto, $recipe->slug))->save();
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+        \App\Support\RecipeScan\ScanPhoto::delete($import);
+
         $import->forceFill(['recipe_id' => $recipe->id, 'status' => RecipeImport::STATUS_CREATED, 'auto_published' => false])->save();
         ScanImporter::learn((array) $request->input('ingredients', []));
     }

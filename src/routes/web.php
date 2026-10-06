@@ -55,6 +55,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/recettes/importees/progression', [RecipeImportController::class, 'progress'])->name('recipes.imports.progress');
         Route::get('/recettes/importees/{recipeImport}', [RecipeImportController::class, 'show'])->name('recipes.imports.show');
         Route::post('/recettes/importees/{recipeImport}/relire', [RecipeImportController::class, 'reanalyse'])->name('recipes.imports.reanalyse');
+        Route::get('/recettes/importees/{recipeImport}/ia', [RecipeImportController::class, 'ai'])->name('recipes.imports.ai');
+        Route::post('/recettes/importees/{recipeImport}/ia', [RecipeImportController::class, 'aiSend'])->name('recipes.imports.ai.send');
+        Route::post('/recettes/importees/{recipeImport}/ia/annuler', [RecipeImportController::class, 'aiCancel'])->name('recipes.imports.ai.cancel');
         Route::post('/recettes/importees/{recipeImport}/ignorer', [RecipeImportController::class, 'ignore'])->name('recipes.imports.ignore');
         Route::get('/recettes/{recipe:slug}', [RecipeController::class, 'show'])->name('recipes.show');
         Route::get('/recettes/{recipe:slug}/modifier', [RecipeController::class, 'edit'])->name('recipes.edit');

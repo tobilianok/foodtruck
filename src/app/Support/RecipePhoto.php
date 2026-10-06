@@ -34,6 +34,18 @@ class RecipePhoto
         return ['photo_path' => $photo, 'thumb_path' => $thumb];
     }
 
+    /** v0.18.1 : photo découpée sur une fiche (fichier du disque public), devenue la photo d'une recette. */
+    public static function storeFromDisk(string $path, string $slug): array
+    {
+        $image = @imagecreatefromstring((string) Storage::disk('public')->get($path));
+        if ($image === false) {
+            throw new RuntimeException('Image illisible.');
+        }
+        $name = 'recettes/'.Str::limit($slug, 80, '').'-'.Str::lower(Str::random(8));
+
+        return ['photo_path' => self::save(self::resize($image, self::MAX_SIZE), $name), 'thumb_path' => self::save(self::resize($image, self::THUMB_SIZE), $name.'-mini')];
+    }
+
     public static function delete(?string ...$paths): void
     {
         foreach (array_filter($paths) as $path) {

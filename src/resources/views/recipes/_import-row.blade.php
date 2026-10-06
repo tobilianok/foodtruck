@@ -3,6 +3,9 @@
     $problems = collect($rows)->whereNotNull('problem')->count();
     $recipe = $import->recipe;
     $ready = \App\Support\RecipeScan\ScanImporter::isReady($import);
+    // v0.18.1 : envoi à l'IA décidé fiche par fiche
+    $toSend = $import->canBeSent() && ! \App\Support\RecipeScan\ScanImporter::readByVision($import);
+    $failed = $import->layout_status === \App\Models\RecipeImport::LAYOUT_FAILED;
 @endphp
 <li @class(['import-item' => ! empty($discard)])>
     <a href="{{ route('recipes.imports.show', $import) }}" class="receipt-link">
@@ -13,7 +16,11 @@
                 @if ($recipe)
                     · recette {{ $recipe->isPublished() ? ($import->auto_published ? 'publiée automatiquement' : 'publiée') : 'en brouillon' }}
                 @elseif ($import->isReading())
-                    · {{ $import->layout_progress !== null ? 'lecture en cours' : 'en attente de lecture' }}
+                    · {{ $import->layout_progress !== null ? 'analyse en cours' : 'envoyée, en file' }}
+                @elseif ($toSend && $failed)
+                    · analyse par l'IA impossible
+                @elseif ($toSend)
+                    · pas encore envoyée à l'IA
                 @elseif ($problems)
                     · {{ $problems }} ingrédient{{ $problems > 1 ? 's' : '' }} à compléter
                 @elseif ($ready)
@@ -33,7 +40,11 @@
         </span>
         <span class="receipt-side">
             @if ($import->isReading())
-                <span class="badge-reading">lecture en cours…</span>
+                <span class="badge-reading">analyse en cours…</span>
+            @elseif ($toSend && $failed)
+                <span class="badge-warn">échec de l'analyse</span>
+            @elseif ($toSend)
+                <span class="badge-reading">à envoyer à l'IA</span>
             @elseif ($recipe?->isPublished())
                 <span class="badge-season">publiée</span>
             @elseif ($recipe)
@@ -45,6 +56,22 @@
             @endif
         </span>
     </a>
+    @if ($toSend || ($import->isReading() && $import->layout_progress === null))
+        <div class="import-actions">
+            @if ($toSend)
+                @if (! empty($busy) && $busy->id !== $import->id)
+                    <span class="btn btn-small" aria-disabled="true" title="Une autre fiche est en cours d'analyse : une fiche à la fois.">{{ $failed ? 'Renvoyer à l\'IA' : 'Envoyer à l\'IA pour analyse' }}</span>
+                @else
+                    <a href="{{ route('recipes.imports.ai', $import) }}" class="btn btn-small">{{ $failed ? 'Renvoyer à l\'IA' : 'Envoyer à l\'IA pour analyse' }}</a>
+                @endif
+            @else
+                <form method="post" action="{{ route('recipes.imports.ai.cancel', $import) }}">
+                    @csrf
+                    <button type="submit" class="btn btn-ghost btn-small">Annuler l'envoi</button>
+                </form>
+            @endif
+        </div>
+    @endif
     @if (! empty($discard))
         <form method="post" action="{{ route('recipes.imports.ignore', $import) }}" class="import-discard">
             @csrf

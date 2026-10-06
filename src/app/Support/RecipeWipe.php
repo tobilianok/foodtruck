@@ -44,9 +44,10 @@ class RecipeWipe
             Recipe::query()->delete();
         });
 
-        // Photos effacées après la base (si la base échoue, rien n'est perdu)
+        // Photos effacées après la base (si la base échoue, rien n'est perdu), photos proposées par l'IA comprises
         if ($files !== []) {
             Storage::disk('public')->delete($files);
         }
+        Storage::disk('public')->deleteDirectory('imports');
     }
 }

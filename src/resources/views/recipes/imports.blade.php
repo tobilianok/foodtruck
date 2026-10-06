@@ -7,7 +7,7 @@
         {{-- v0.18.0 : fiches en cours de lecture, avancement suivi toutes les 3 secondes ; la page se recharge quand une fiche est prête --}}
         <script id="read-progress-url" type="application/json">@json(route('recipes.imports.progress'))</script>
     @endif
-    <x-page-header title="Fiches Paperless" lead="Les recettes scannées dans Paperless sont lues automatiquement, une à la fois, puis t'attendent ici pour une relecture et une validation.">
+    <x-page-header title="Fiches Paperless" lead="Les fiches trouvées dans Paperless attendent ici. Envoie-les à l'IA une par une (bouton « Envoyer à l'IA pour analyse »), puis relis et valide.">
         @if ($household->hasPaperless())
             <form method="post" action="{{ route('recipes.imports.sync') }}">
                 @csrf
@@ -47,7 +47,7 @@
         @else
             <ul class="receipt-list">
                 @foreach ($pending as $import)
-                    @include('recipes._import-row', ['import' => $import, 'discard' => true])
+                    @include('recipes._import-row', ['import' => $import, 'discard' => true, 'busy' => $busy])
                 @endforeach
             </ul>
         @endif

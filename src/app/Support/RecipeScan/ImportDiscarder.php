@@ -38,6 +38,7 @@ class ImportDiscarder
             $recipe->delete();
         }
 
+        ScanPhoto::delete($import);
         $import->delete();
 
         return null;

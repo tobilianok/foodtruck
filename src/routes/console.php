@@ -78,11 +78,11 @@ Artisan::command('foodtruck:vider-recettes {--apercu : Affiche seulement ce qui 
     App\Support\RecipeWipe::run();
     $this->info('Toutes les recettes sont supprimées.');
 
-    // Les fiches de Paperless sont aussitôt remises en lecture (le planificateur les lit une par une)
+    // Les fiches de Paperless reviennent aussitôt, « à envoyer à l'IA » (rien n'est envoyé sans le bouton)
     foreach (Household::all()->filter->hasPaperless() as $household) {
         $this->line("{$household->name} : ".RecipeScanSync::summary($sync->run($household)));
     }
-    $this->line('Avancement de la lecture : Recettes → Fiches Paperless.');
+    $this->line('Envoie-les à l\'IA une par une : Recettes → Fiches Paperless, bouton « Envoyer à l\'IA pour analyse ».');
 
     return 0;
 })->purpose('Supprime toutes les recettes et relit les fiches de Paperless');
@@ -372,14 +372,12 @@ Artisan::command('foodtruck:relire-recettes', function (\App\Support\RecipeScan\
 })->purpose('Relit les fiches de recettes en attente avec les règles à jour');
 
 /*
- * ./ft php artisan foodtruck:lire-fiches [--toutes] [--en-attente]
- * Lit les fiches en attente avec le modèle de vision (Ollama sur le PC ; lancé chaque minute par le planificateur, une fiche à
- * la fois ; une lecture en échec est retentée toute seule).
- * --toutes : relit aussi, d'après le scan, toutes les fiches encore à relire (après l'installation du service).
- * --en-attente : avec --toutes, remet seulement les fiches en lecture et rend la main ; le planificateur les lit
- *                une par une (barre de progression dans « Fiches Paperless »).
+ * ./ft php artisan foodtruck:lire-fiches [--toutes]
+ * Analyse les fiches que Louis a envoyées à l'IA (bouton « Envoyer à l'IA pour analyse ») : lancé chaque minute par le
+ * planificateur, une fiche à la fois. Rien n'est envoyé sans ce bouton.
+ * --toutes : les fiches encore à relire et pas lues par l'IA repassent « à envoyer » (rien n'est envoyé).
  */
-Artisan::command('foodtruck:lire-fiches {--toutes : Remettre en lecture toutes les fiches encore à relire} {--en-attente : Seulement les remettre en lecture (le planificateur les lit)}', function (\App\Support\RecipeScan\RecipeLayoutRunner $runner) {
+Artisan::command('foodtruck:lire-fiches {--toutes : Les fiches à relire pas encore lues par l\'IA repassent « à envoyer »} {--en-attente : (sans effet depuis la v0.18.1)}', function (\App\Support\RecipeScan\RecipeLayoutRunner $runner) {
     if (! \App\Support\RecipeScan\VisionClient::ready()) {
         $this->line('Lecture par le modèle de vision désactivée (FOODTRUCK_VISION_URL ou FOODTRUCK_PAGES_URL vide).');
 
@@ -387,26 +385,23 @@ Artisan::command('foodtruck:lire-fiches {--toutes : Remettre en lecture toutes l
     }
 
     if ($this->option('toutes')) {
-        $this->line(\App\Support\RecipeScan\RecipeLayoutRunner::queueAllToReview().' fiche(s) remise(s) en lecture.');
-        if ($this->option('en-attente')) {
-            $this->line('Le planificateur les lit une par une : avancement dans Recettes → Fiches Paperless.');
-
-            return 0;
-        }
-    }
-
-    $counts = $runner->processPending($this->option('toutes') ? null : 50);
-    if ($counts['busy']) {
-        $this->line('Une lecture est déjà en cours.');
+        $this->line(\App\Support\RecipeScan\RecipeLayoutRunner::markAllToSend().' fiche(s) « à envoyer à l\'IA » : envoie-les une par une depuis Recettes → Fiches Paperless.');
 
         return 0;
     }
-    if ($counts['read'] + $counts['failed'] + $counts['left'] > 0) {
-        $this->info($counts['read'].' fiche(s) lue(s) par le modèle, '.$counts['failed'].' en échec (lecture retentée plus tard), '.$counts['left'].' encore en attente.');
+
+    $counts = $runner->processPending(50);
+    if ($counts['busy']) {
+        $this->line('Une analyse est déjà en cours.');
+
+        return 0;
+    }
+    if ($counts['read'] + $counts['failed'] > 0) {
+        $this->info($counts['read'].' fiche(s) analysée(s) par l\'IA, '.$counts['failed'].' en échec (erreur affichée sur la fiche).');
     }
 
     return $counts['failed'] > 0 ? 1 : 0;
-})->purpose('Lit les fiches de recettes en attente avec le modèle de vision (Ollama)');
+})->purpose('Analyse les fiches envoyées à l\'IA (Ollama), une à la fois');
 
 // v0.18.0 : une lecture par le modèle de vision dure 30 minutes au plus (verrou d'une heure, comme celui du lecteur)
 Schedule::command('foodtruck:lire-fiches')->everyMinute()->withoutOverlapping(60)->runInBackground();

@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Recipe;
 use App\Models\RecipeImport;
 use App\Support\RecipeScan\ImportDiscarder;
+use App\Support\RecipeScan\PagesClient;
+use App\Support\RecipeScan\VisionClient;
+use App\Support\Receipts\PaperlessClient;
 use App\Support\RecipeScan\RecipeScanSync;
 use App\Support\RecipeScan\ScanImporter;
 use Illuminate\Http\Request;
@@ -25,6 +28,7 @@ class RecipeImportController extends Controller
             'household' => $household,
             'pending' => $pending,
             'reading' => $pending->filter->isReading()->count(),
+            'busy' => self::busy(),
             'done' => $imports->filter(fn (RecipeImport $i) => $i->status === RecipeImport::STATUS_CREATED && ! self::needsReview($i))->values(),
         ]);
     }
@@ -47,14 +51,95 @@ class RecipeImportController extends Controller
         ])->all()]);
     }
 
-    /** Fiche en attente : derrière une autre, ou en attente d'Ollama (PC éteint) avec l'heure du prochain essai. */
+    /** Fiche envoyée mais pas encore prise en charge (le planificateur passe chaque minute). */
     public static function waiting(RecipeImport $import): string
     {
-        if ($import->layout_error && $import->layout_retry_at) {
-            return 'En attente : '.$import->layout_error.' ; nouvel essai vers '.$import->layout_retry_at->timezone('Europe/Paris')->format('H:i');
+        return 'Envoyée : l\'analyse démarre dans moins d\'une minute';
+    }
+
+    /** v0.18.0 : une seule fiche à la fois chez Ollama (tous foyers confondus : un seul PC). */
+    public static function busy(?RecipeImport $except = null): ?RecipeImport
+    {
+        return RecipeImport::where('layout_status', RecipeImport::LAYOUT_PENDING)
+            ->when($except, fn ($q) => $q->whereKeyNot($except->id))->orderBy('id')->first();
+    }
+
+    /**
+     * v0.18.0 : page de contrôle avant l'envoi à l'IA : destination, modèle, images exactes des pages (cases à cocher),
+     * consigne et format de réponse. Rien n'est envoyé à Ollama ici.
+     */
+    public function ai(Request $request, RecipeImport $recipeImport)
+    {
+        $this->authorizeImport($request, $recipeImport);
+        abort_if($recipeImport->recipe_id !== null || ! VisionClient::ready(), 404);
+        if ($recipeImport->isReading()) {
+            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est déjà envoyée : suis son avancement ici.');
         }
 
-        return 'En attente de lecture (une fiche à la fois)';
+        $pages = [];
+        $error = null;
+        try {
+            $file = PaperlessClient::for($recipeImport->household)->download((int) $recipeImport->paperless_document_id);
+            // Aperçu à 100 dpi : mêmes pages, envoyées à Ollama en 200 dpi
+            $pages = PagesClient::make()->pages($file['body'], $file['mime'], 100);
+        } catch (\Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        $vision = VisionClient::make();
+
+        return view('recipes.ai', [
+            'import' => $recipeImport,
+            'pages' => $pages,
+            'error' => $error,
+            'busy' => self::busy($recipeImport),
+            'destination' => (string) config('foodtruck.vision_url'),
+            'model' => $vision->model(),
+            'dpi' => (int) config('foodtruck.vision_dpi', 200),
+            'prompt' => VisionClient::PROMPT,
+            'schema' => json_encode(VisionClient::schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'selected' => (array) ($recipeImport->layout_pages ?? []),
+        ]);
+    }
+
+    /** Envoi confirmé par Louis : la fiche part en file (le planificateur la prend dans la minute), pages choisies. */
+    public function aiSend(Request $request, RecipeImport $recipeImport)
+    {
+        $this->authorizeImport($request, $recipeImport);
+        abort_if($recipeImport->recipe_id !== null || ! VisionClient::ready(), 404);
+        $data = $request->validate([
+            'pages' => ['required', 'array', 'min:1', 'max:4'],
+            'pages.*' => ['integer', 'between:0,3', 'distinct'],
+        ], ['pages.required' => 'Coche au moins une page à envoyer.']);
+
+        if ($recipeImport->isReading()) {
+            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est déjà envoyée.');
+        }
+        if ($other = self::busy($recipeImport)) {
+            return back()->withErrors(['pages' => 'Une autre fiche est en cours d\'analyse (Paperless n° '.$other->paperless_document_id.') : une fiche à la fois.']);
+        }
+
+        $pages = array_values(array_map('intval', $data['pages']));
+        sort($pages);
+        $recipeImport->forceFill([
+            'layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_pages' => $pages, 'layout_error' => null,
+            'layout_progress' => null, 'layout_step' => null, 'layout_started_at' => null, 'status' => RecipeImport::STATUS_TO_REVIEW,
+        ])->save();
+
+        return redirect()->route('recipes.imports.index')->with('status', 'Fiche envoyée à l\'IA ('.count($pages).' page'.(count($pages) > 1 ? 's' : '').') : l\'analyse démarre dans moins d\'une minute.');
+    }
+
+    /** Annule un envoi tant que l'analyse n'a pas commencé. */
+    public function aiCancel(Request $request, RecipeImport $recipeImport)
+    {
+        $this->authorizeImport($request, $recipeImport);
+        $recipeImport->refresh();
+        if ($recipeImport->layout_status !== RecipeImport::LAYOUT_PENDING || $recipeImport->layout_progress !== null) {
+            return redirect()->route('recipes.imports.index')->withErrors(['paperless' => 'L\'analyse a déjà commencé : elle ne peut plus être annulée.']);
+        }
+        $recipeImport->forceFill(['layout_status' => RecipeImport::LAYOUT_TO_SEND])->save();
+
+        return redirect()->route('recipes.imports.index')->with('status', 'Envoi annulé : rien n\'est parti vers l\'IA.');
     }
 
     public function sync(Request $request, RecipeScanSync $sync)
@@ -79,7 +164,12 @@ class RecipeImportController extends Controller
         $recipeImport->loadMissing('recipe');
 
         if ($recipeImport->isReading()) {
-            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est en cours de lecture : suis son avancement ici, elle s\'ouvrira dès qu\'elle sera prête.');
+            return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est en cours d\'analyse : suis son avancement ici.');
+        }
+        // v0.18.0 : fiche jamais lue par l'IA : page de contrôle avant l'envoi
+        if ($recipeImport->recipe_id === null && $recipeImport->canBeSent() && ! ScanImporter::readByVision($recipeImport)
+            && $recipeImport->layout_status !== RecipeImport::LAYOUT_FAILED) {
+            return redirect()->route('recipes.imports.ai', $recipeImport);
         }
 
         if ($recipeImport->recipe && $request->user()->can('update', $recipeImport->recipe)) {
@@ -123,13 +213,9 @@ class RecipeImportController extends Controller
         $this->authorizeImport($request, $recipeImport);
         abort_if($recipeImport->recipe_id !== null, 404);
 
-        // Fiche pas encore lue par le modèle de vision (lecture impossible, ou faite avant la v0.18.0) : on la relance
-        // (en arrière-plan)
-        if (\App\Support\RecipeScan\VisionClient::ready() && ! ScanImporter::readByVision($recipeImport)) {
-            $recipeImport->forceFill(['layout_status' => RecipeImport::LAYOUT_PENDING, 'layout_error' => null, 'layout_progress' => null, 'layout_step' => null,
-                'layout_attempts' => 0, 'layout_retry_at' => null, 'status' => RecipeImport::STATUS_TO_REVIEW])->save();
-
-            return redirect()->route('recipes.imports.index')->with('status', 'Lecture du scan relancée : suis son avancement ici.');
+        // Fiche pas encore lue par l'IA : rien n'est envoyé sans passer par la page de contrôle (v0.18.0)
+        if (VisionClient::ready() && ! ScanImporter::readByVision($recipeImport)) {
+            return redirect()->route('recipes.imports.ai', $recipeImport);
         }
 
         $recipeImport->status = RecipeImport::STATUS_TO_REVIEW;

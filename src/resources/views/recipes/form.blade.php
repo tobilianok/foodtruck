@@ -36,12 +36,15 @@
                     @csrf
                     <button type="submit" class="btn btn-ghost btn-small">Relire la fiche</button>
                 </form>
+                @if (\App\Support\RecipeScan\VisionClient::ready())
+                    <a href="{{ route('recipes.imports.ai', $import) }}" class="btn btn-ghost btn-small">Renvoyer à l'IA pour analyse</a>
+                @endif
                 <form method="post" action="{{ route('recipes.imports.ignore', $import) }}">
                     @csrf
                     <button type="submit" class="btn btn-ghost btn-small" data-confirm="Supprimer cette fiche ? « Chercher dans Paperless » la relira depuis le début tant que le document porte l'étiquette.">Supprimer cette fiche</button>
                 </form>
             </div>
-            <p class="hint small">« Relire la fiche » reprend la lecture avec les règles à jour : utile après avoir ajouté un ingrédient manquant au référentiel{{ $import->layout_status === 'echec' ? ', ou pour relancer la lecture du scan' : '' }}.</p>
+            <p class="hint small">« Relire la fiche » reprend la réponse déjà reçue avec les règles à jour (utile après avoir ajouté un ingrédient manquant), sans rien envoyer. « Renvoyer à l'IA » ouvre la page de contrôle avant un nouvel envoi.</p>
         </section>
     @endisset
 
@@ -210,6 +213,13 @@
 
         <section class="panel">
             <h2>Photo</h2>
+            @if (isset($import) && ($scanPhotoUrl = \App\Support\RecipeScan\ScanPhoto::url($import)))
+                {{-- v0.18.1 : photo du plat découpée sur la fiche par l'IA --}}
+                <div class="photo-current photo-scan">
+                    <img src="{{ $scanPhotoUrl }}" alt="Photo du plat découpée sur la fiche">
+                    <label class="check"><input type="checkbox" name="import_photo" value="1" @checked(old('import_photo', true))><span>Utiliser la photo de la fiche (découpée par l'IA)</span></label>
+                </div>
+            @endif
             @if ($recipe->photoUrl())
                 <div class="photo-current">
                     <img src="{{ $recipe->thumbUrl() }}" alt="">
