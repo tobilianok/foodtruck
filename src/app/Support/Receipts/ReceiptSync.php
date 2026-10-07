@@ -10,6 +10,10 @@ use Throwable;
 /**
  * Synchronisation des tickets Paperless d'un foyer : nouveaux documents importés et lus,
  * documents modifiés relus tant que le ticket n'est pas traité.
+ *
+ * v0.19.0 : avec le modèle de vision configuré, un nouveau ticket arrive « à envoyer à l'IA » : rien n'est lu ni
+ * envoyé tant que Louis n'a pas cliqué « Envoyer à l'IA pour analyse » (un document à la fois). Le texte de Paperless
+ * n'est plus utilisé pour lire les articles.
  */
 class ReceiptSync
 {
@@ -17,10 +21,11 @@ class ReceiptSync
     {
     }
 
-    /** @return array{new: int, updated: int, auto: int, error: ?string} */
+    /** @return array{new: int, updated: int, auto: int, to_send: int, error: ?string} */
     public function run(Household $household, ?PaperlessClient $client = null): array
     {
-        $counts = ['new' => 0, 'updated' => 0, 'auto' => 0, 'error' => null];
+        $counts = ['new' => 0, 'updated' => 0, 'auto' => 0, 'to_send' => 0, 'error' => null];
+        $vision = \App\Support\RecipeScan\VisionClient::ready();
 
         try {
             $client ??= PaperlessClient::for($household);
@@ -51,6 +56,20 @@ class ReceiptSync
                     $receipt->purchased_on = Carbon::parse($created)->toDateString();
                 }
 
+                if ($vision) {
+                    // Rien n'est lu ni envoyé : Louis envoie chaque ticket à l'IA lui-même (déjà lu : on garde sa lecture)
+                    if ($isNew || $receipt->vision_status === null) {
+                        $receipt->vision_status = Receipt::VISION_TO_SEND;
+                    }
+                    $receipt->save();
+                    $isNew ? $counts['new']++ : $counts['updated']++;
+                    if ($receipt->vision_status === Receipt::VISION_TO_SEND) {
+                        $counts['to_send']++;
+                    }
+
+                    continue;
+                }
+
                 // Relecture complète : total et magasin recalculés
                 if (! $isNew) {
                     $receipt->total_cents = null;
@@ -59,9 +78,6 @@ class ReceiptSync
 
                 $this->processor->ingest($receipt);
                 $isNew ? $counts['new']++ : $counts['updated']++;
-                if ($receipt->fresh()->auto_applied) {
-                    $counts['auto']++;
-                }
             }
 
             $household->forceFill(['paperless_synced_at' => now(), 'paperless_last_error' => null])->save();
@@ -91,10 +107,11 @@ class ReceiptSync
         if ($counts['updated']) {
             $parts[] = $counts['updated'].' relu'.($counts['updated'] > 1 ? 's' : '');
         }
-        if ($counts['auto']) {
-            $parts[] = $counts['auto'].' traité'.($counts['auto'] > 1 ? 's' : '').' automatiquement';
+        $message = ucfirst(implode(', ', $parts)).'.';
+        if (($counts['to_send'] ?? 0) > 0) {
+            $message .= ' '.$counts['to_send'].' ticket'.($counts['to_send'] > 1 ? 's' : '').' à envoyer à l\'IA : bouton « Envoyer à l\'IA pour analyse », un à la fois.';
         }
 
-        return ucfirst(implode(', ', $parts)).'.';
+        return $message;
     }
 }

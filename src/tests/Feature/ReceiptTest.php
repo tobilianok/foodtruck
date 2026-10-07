@@ -122,7 +122,8 @@ class ReceiptTest extends TestCase
         $this->assertTrue(ReceiptAlias::firstWhere('normalized_label', 'SAC CABAS')->is_ignored);
     }
 
-    public function test_le_ticket_suivant_est_traite_automatiquement(): void
+    /** v0.19.0 : les libellés mémorisés sont reconnus, mais le ticket attend toujours la validation de Louis. */
+    public function test_le_ticket_suivant_est_reconnu_et_valide_en_un_clic(): void
     {
         $processor = new ReceiptProcessor;
         $first = Receipt::create(['household_id' => $this->louis->household_id, 'source' => 'manuel', 'store_id' => $this->leclerc->id, 'purchased_on' => '2026-09-21', 'raw_text' => self::TICKET]);
@@ -141,8 +142,18 @@ class ReceiptTest extends TestCase
         $processor->ingest($second);
 
         $second->refresh();
-        $this->assertSame('traite', $second->status);
-        $this->assertTrue($second->auto_applied);
+        $this->assertSame('a_valider', $second->status);
+        $this->assertFalse($second->auto_applied);
+        $this->assertTrue($processor->isFullyKnown($second->load('lines')));
+        $this->assertSame(105, $this->pack('lait-demi-ecreme', 'Bouteille 1 L')->fresh('prices')->currentPriceFor($this->leclerc->id)->price_cents, 'Rien n\'est enregistré avant la validation');
+
+        $this->actingAs($this->louis)->get("/tickets/{$second->id}")->assertOk()->assertSee('Tout est vérifié');
+        $lines = [];
+        foreach ($second->lines as $line) {
+            $lines[$line->id] = $line->pack ? ['choice' => \App\Http\Controllers\ReceiptController::packChoiceLabel($line->pack), 'action' => 'associer'] : ['action' => 'ignorer'];
+        }
+        $this->put("/tickets/{$second->id}", ['store_id' => $this->leclerc->id, 'purchased_on' => '2026-09-28', 'lines' => $lines])->assertSessionHasNoErrors();
+        $this->assertSame('traite', $second->fresh()->status);
         $this->assertSame(109, $this->pack('lait-demi-ecreme', 'Bouteille 1 L')->fresh('prices')->currentPriceFor($this->leclerc->id)->price_cents);
     }
 
@@ -191,7 +202,7 @@ class ReceiptTest extends TestCase
         ]);
 
         $counts = (new ReceiptSync)->run($household);
-        $this->assertSame(['new' => 1, 'updated' => 0, 'auto' => 0, 'error' => null], $counts);
+        $this->assertSame(['new' => 1, 'updated' => 0, 'auto' => 0, 'to_send' => 0, 'error' => null], $counts);
 
         $receipt = Receipt::firstWhere('paperless_document_id', 42);
         $this->assertSame($this->leclerc->id, $receipt->store_id, 'Magasin déduit du correspondant');

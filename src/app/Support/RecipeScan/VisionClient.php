@@ -39,6 +39,34 @@ Voici une fiche de recette scannée (une image par page). Recopie la recette exa
 Ignore les valeurs nutritionnelles, les allergènes, les ustensiles, les légendes des photos, les pictogrammes et le pied de page.
 TXT;
 
+    /**
+     * v0.19.0 : consigne des tickets de caisse, validée par l'essai du 7 octobre 2026 sur les 6 tickets de Louis
+     * (Leclerc Drive et Lidl Plus : les 6 totaux justes au centime avec les règles du code). Le modèle recopie ; c'est le code
+     * (Receipts\VisionReceiptParser) qui interprète et contrôle : pesées, poids, remises, total.
+     */
+    public const RECEIPT_PROMPT = <<<'TXT'
+Voici un ticket de caisse (ou un bon de commande de drive). Un ticket long est envoyé en plusieurs images : ce sont des morceaux successifs du même ticket, de haut en bas, coupés entre deux lignes (aucune ligne n'est répétée d'une image à l'autre). Recopie-le exactement tel qu'il est imprimé, sans rien inventer, sans rien calculer, sans rien corriger.
+
+- magasin : l'enseigne (et la ville si elle est imprimée).
+- date_imprimee : la date d'achat recopiée exactement telle qu'imprimée (« 24.09.26 », « 02/10/2025 »), sans la convertir ; sinon null.
+- lignes : chaque article et chaque remise, dans l'ordre, sans en oublier aucun.
+  - libelle : le libellé complet tel qu'imprimé (s'il continue sur la ligne suivante, recolle-le).
+  - quantite : le nombre d'articles (colonne « Qté » s'il y en a une), ou le poids pour un produit pesé ; 1 s'il n'y a rien d'imprimé.
+  - unite : « kg » (ou « g », « l ») seulement si le ticket imprime un poids pesé, du type « 1,420 kg x 1,99 EUR/kg » ; sinon « pièce », même si le libellé contient un poids ou un volume (« Carottes sachet 1 kg », « Escalopes 600 g » : 1 pièce).
+  - prix_unitaire : le prix à l'unité ou au kilo s'il est imprimé (colonne « P.U. », ou « x 1,99 EUR/kg »), recopié en texte avec la virgule (« 1,99 ») ; sinon null.
+  - prix : le montant de la ligne recopié en texte exactement comme imprimé, avec la virgule et les deux chiffres après la virgule (« 2,83 »), précédé de « - » pour une remise (« -0,71 »), sans la lettre de TVA (A, B, T).
+  - remise : true pour une remise, une réduction, un « Prix en baisse » ou un bon d'achat ; sinon false.
+  - detail : la ligne de détail imprimée juste sous l'article, recopiée telle quelle (« 1,420 kg x 1,99 EUR/kg », « 3 x 0,89 ») ; sinon null.
+  - doute : true si un chiffre de la ligne est difficile à lire, sinon false.
+  Une ligne de détail fait partie de l'article du dessus : recopie-la dans son champ « detail », jamais comme une ligne à part.
+- total : le montant total à payer (« A payer », « Total », « Montant TTC »), recopié en texte (« 109,09 »).
+
+Ignore tout le reste : le nombre de lignes, les sous-totaux, les moyens de paiement, le rendu de monnaie, le récapitulatif de TVA, le « Total Promotion », les économies réalisées, les points et offres de fidélité, le code-barres, les messages publicitaires et les mentions légales.
+TXT;
+
+    /** Réglages des tickets : jusqu'à ~12 000 jetons d'image (3 pages A4) et des réponses longues (drive de 60 articles). */
+    private const RECEIPT_OPTIONS = ['num_ctx' => 24576, 'num_predict' => 8192];
+
     public function __construct(
         private readonly ?string $baseUrl = null,
         private readonly string $model = 'qwen3-vl:8b-instruct-q8_0',
@@ -100,12 +128,76 @@ TXT;
         ];
     }
 
+    /** v0.19.0 : JSON imposé pour un ticket de caisse (les montants sont du texte, convertis par le code). */
+    public static function receiptSchema(): array
+    {
+        $nullable = fn (string $type) => ['anyOf' => [['type' => $type], ['type' => 'null']]];
+
+        return [
+            'type' => 'object',
+            'properties' => [
+                'magasin' => ['type' => 'string'],
+                'date_imprimee' => $nullable('string'),
+                'lignes' => ['type' => 'array', 'items' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'libelle' => ['type' => 'string'], 'quantite' => ['type' => 'number'], 'unite' => ['type' => 'string'],
+                        'prix_unitaire' => $nullable('string'), 'prix' => ['type' => 'string'], 'remise' => ['type' => 'boolean'],
+                        'detail' => $nullable('string'), 'doute' => ['type' => 'boolean'],
+                    ],
+                    'required' => ['libelle', 'quantite', 'unite', 'prix_unitaire', 'prix', 'remise', 'detail', 'doute'],
+                ]],
+                'total' => $nullable('string'),
+            ],
+            'required' => ['magasin', 'date_imprimee', 'lignes', 'total'],
+        ];
+    }
+
     /**
      * @param  array<int, string>  $pages  images PNG en base64
      * @param  callable(array{elapsed: float, sent: float, received: int, receiving: bool}): void|null  $progress
      * @return array{recette: array, modele: string, secondes: int, attente: int, octets: int, jetons_lus: ?int, jetons_ecrits: ?int}
      */
     public function read(array $pages, ?callable $progress = null): array
+    {
+        $answer = $this->chat(self::PROMPT, self::schema(), $pages, $progress);
+        $recipe = $answer['json'];
+        if (! is_array($recipe) || ! isset($recipe['ingredients'], $recipe['etapes']) || ! is_array($recipe['ingredients'])) {
+            throw new RuntimeException('Réponse du modèle incomplète ou illisible ('.Str::limit($answer['content'], 80).').');
+        }
+        if ($recipe['ingredients'] === [] && $recipe['etapes'] === []) {
+            throw new RuntimeException('Le modèle n\'a trouvé ni ingrédient ni étape sur cette fiche.');
+        }
+
+        return ['recette' => $recipe] + $answer['meta'];
+    }
+
+    /**
+     * v0.19.0 : lecture d'un ticket de caisse (images de foodtruck-pages en mode ticket).
+     *
+     * @param  array<int, string>  $images  images PNG en base64 (pages ou morceaux successifs du ticket)
+     * @return array{ticket: array, modele: string, secondes: int, attente: int, octets: int, jetons_lus: ?int, jetons_ecrits: ?int}
+     */
+    public function readReceipt(array $images, ?callable $progress = null): array
+    {
+        $answer = $this->chat(self::RECEIPT_PROMPT, self::receiptSchema(), $images, $progress, self::RECEIPT_OPTIONS);
+        $ticket = $answer['json'];
+        if (! is_array($ticket) || ! isset($ticket['lignes']) || ! is_array($ticket['lignes'])) {
+            throw new RuntimeException('Réponse du modèle incomplète ou illisible ('.Str::limit($answer['content'], 80).').');
+        }
+        if ($ticket['lignes'] === []) {
+            throw new RuntimeException('Le modèle n\'a trouvé aucun article sur ce ticket.');
+        }
+
+        return ['ticket' => $ticket] + $answer['meta'];
+    }
+
+    /**
+     * Échange avec Ollama (/api/chat en flux, sortie structurée) : texte recollé, JSON décodé et compteurs.
+     *
+     * @return array{content: string, json: mixed, meta: array{modele: string, secondes: int, attente: int, octets: int, jetons_lus: ?int, jetons_ecrits: ?int}}
+     */
+    private function chat(string $prompt, array $schema, array $pages, ?callable $progress = null, array $modelOptions = []): array
     {
         if ($pages === []) {
             throw new RuntimeException('Aucune page à lire.');
@@ -131,12 +223,12 @@ TXT;
         try {
             $response = Http::timeout(1800)->connectTimeout(5)->withOptions($options)->post($this->url('/api/chat'), [
                 'model' => $this->model,
-                'messages' => [['role' => 'user', 'content' => self::PROMPT, 'images' => array_values($pages)]],
-                'format' => self::schema(),
+                'messages' => [['role' => 'user', 'content' => $prompt, 'images' => array_values($pages)]],
+                'format' => $schema,
                 'stream' => true,
                 // Recopie pure : pas de « réflexion » préalable (activée par défaut sur qwen3-vl, elle durait des heures sur le processeur)
                 'think' => false,
-                'options' => ['temperature' => 0.2, 'top_p' => 0.8, 'top_k' => 20, 'repeat_penalty' => 1.05, 'num_ctx' => 16384, 'num_predict' => 4096],
+                'options' => $modelOptions + ['temperature' => 0.2, 'top_p' => 0.8, 'top_k' => 20, 'repeat_penalty' => 1.05, 'num_ctx' => 16384, 'num_predict' => 4096],
             ]);
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // Délai de connexion dépassé ou refus : PC éteint ou Ollama arrêté
@@ -172,23 +264,18 @@ TXT;
             }
         }
 
-        $recipe = json_decode($content, true);
-        if (! is_array($recipe) || ! isset($recipe['ingredients'], $recipe['etapes']) || ! is_array($recipe['ingredients'])) {
-            throw new RuntimeException('Réponse du modèle incomplète ou illisible ('.Str::limit($content, 80).').');
-        }
-        if ($recipe['ingredients'] === [] && $recipe['etapes'] === []) {
-            throw new RuntimeException('Le modèle n\'a trouvé ni ingrédient ni étape sur cette fiche.');
+        if (($last['done_reason'] ?? null) === 'length') {
+            throw new RuntimeException('Réponse du modèle coupée (trop longue) : document trop chargé pour une seule lecture.');
         }
 
-        return [
-            'recette' => $recipe,
+        return ['content' => $content, 'json' => json_decode($content, true), 'meta' => [
             'modele' => $this->model,
             'secondes' => (int) round(microtime(true) - $started),
             'attente' => (int) round(($firstByte ?? microtime(true)) - $started),
             'octets' => strlen($response->body()),
             'jetons_lus' => $last['prompt_eval_count'] ?? null,
             'jetons_ecrits' => $last['eval_count'] ?? null,
-        ];
+        ]];
     }
 
     /** @return array{ok: bool, version?: string, modeles?: array<int, string>} */

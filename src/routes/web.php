@@ -127,6 +127,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/tickets', [ReceiptController::class, 'index'])->name('receipts.index');
         Route::post('/tickets', [ReceiptController::class, 'store'])->name('receipts.store');
         Route::post('/tickets/synchroniser', [ReceiptController::class, 'sync'])->middleware('throttle:6,1')->name('receipts.sync');
+        // v0.19.0 : envoi à l'IA ticket par ticket, après une page de contrôle ; avancement de la lecture
+        Route::get('/tickets/avancement', [ReceiptController::class, 'progress'])->name('receipts.progress');
+        Route::get('/tickets/{receipt}/ia', [ReceiptController::class, 'ai'])->name('receipts.ai');
+        Route::post('/tickets/{receipt}/ia', [ReceiptController::class, 'aiSend'])->name('receipts.ai.send');
+        Route::post('/tickets/{receipt}/ia/annuler', [ReceiptController::class, 'aiCancel'])->name('receipts.ai.cancel');
         Route::get('/tickets/{receipt}', [ReceiptController::class, 'show'])->name('receipts.show');
         Route::put('/tickets/{receipt}', [ReceiptController::class, 'update'])->name('receipts.update');
         Route::post('/tickets/{receipt}/liste', [ReceiptController::class, 'link'])->name('receipts.link');

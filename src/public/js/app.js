@@ -805,3 +805,369 @@
     }
     tick();
 })();
+
+// ---------------------------------------------------------------------------------------------------------------
+// v0.19.0 : validation d'un ticket. Chaque ligne se corrige dans une fenêtre, sans quitter le ticket (comme les
+// recettes) : lecture (quantité, prix unitaire, prix payé), ingrédient existant ou nouveau, ou ligne ignorée.
+// La somme des lignes est recomparée au total à chaque correction.
+(function () {
+    'use strict';
+
+    var form = document.querySelector('[data-receipt-review]');
+    var dialog = document.getElementById('receipt-fix');
+    if (!form || !dialog || typeof dialog.showModal !== 'function') return;
+
+    var routes = {};
+    try { routes = JSON.parse(document.getElementById('receipt-fix-routes').textContent); } catch (e) { routes = {}; }
+    var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    var body = dialog.querySelector('[data-fix-body]');
+    var errorBox = dialog.querySelector('[data-fix-error]');
+    var titleBox = dialog.querySelector('#receipt-fix-title');
+    var choices = document.getElementById('pack-choices');
+
+    function make(tag, attrs, children) {
+        var node = document.createElement(tag);
+        Object.keys(attrs || {}).forEach(function (key) {
+            if (key === 'text') node.textContent = attrs[key];
+            else if (key === 'class') node.className = attrs[key];
+            else node.setAttribute(key, attrs[key]);
+        });
+        (children || []).forEach(function (child) { if (child) node.appendChild(child); });
+        return node;
+    }
+    function field(row, name) { return row.querySelector('[data-field="' + name + '"]'); }
+    function number(text) {
+        var value = parseFloat(String(text || '').replace(/\s|€/g, '').replace(',', '.'));
+        return isNaN(value) ? null : value;
+    }
+    function euros(value) { return value === null ? '?' : value.toFixed(2).replace('.', ',') + ' €'; }
+    function plain(value, digits) { return value.toFixed(digits).replace('.', ','); }
+    function slug(text) {
+        return (text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    }
+    function known(value) {
+        var key = slug(value);
+        return !!key && Array.prototype.some.call(choices.options, function (o) { return slug(o.value) === key; });
+    }
+    function options(templateId, selected) {
+        var select = make('select');
+        var tpl = document.getElementById(templateId);
+        if (tpl) select.innerHTML = tpl.innerHTML;
+        if (selected) select.value = selected;
+        return select;
+    }
+    function labelled(text, control) { return make('label', { class: 'field' }, [make('span', { text: text }), control]); }
+    function section(title, children) { return make('section', { class: 'fix-section' }, [make('h3', { text: title })].concat(children)); }
+    function fail(error) { errorBox.textContent = error.message || String(error); errorBox.hidden = false; }
+    function busy(button, on) { button.disabled = on; button.classList.toggle('is-busy', on); }
+
+    function post(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify(data)
+        }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (json) {
+                if (response.status === 419) throw new Error('Session expirée : recharge la page.');
+                if (!response.ok) throw new Error(json.message || ('Erreur ' + response.status + ', réessaie.'));
+                return json;
+            });
+        });
+    }
+
+    // ---------------------------------------------------------------- somme des lignes et lignes à vérifier
+    function recount() {
+        var rows = form.querySelectorAll('[data-line]');
+        var sum = 0;
+        rows.forEach(function (row) {
+            var price = number(field(row, 'price').value) || 0;
+            sum += price - (parseInt(row.getAttribute('data-discount') || '0', 10) / 100);
+        });
+        form.querySelectorAll('[data-remise]').forEach(function (row) { sum += parseInt(row.getAttribute('data-remise'), 10) / 100; });
+        sum = Math.round(sum * 100) / 100;
+
+        var total = number((form.querySelector('[data-receipt-total]') || {}).value);
+        var sumBox = form.querySelector('[data-receipt-sum]');
+        var balanced = total !== null && Math.abs(total - sum) <= 0.02;
+        if (sumBox) {
+            sumBox.textContent = total === null ? 'Somme des lignes : ' + euros(sum)
+                : (balanced ? '✓ Somme des lignes = total (' + euros(sum) + ')' : 'Écart de ' + euros(Math.abs(total - sum)) + ' avec le total (lignes : ' + euros(sum) + ')');
+        }
+
+        var left = form.querySelectorAll('[data-line].has-problem').length;
+        var text = form.querySelector('[data-check-text]');
+        var summary = form.querySelector('[data-check-summary]');
+        if (text) {
+            text.innerHTML = '';
+            if (left === 0) {
+                text.appendChild(make('strong', { text: '✓ Tout est vérifié' }));
+                text.appendChild(document.createTextNode(balanced || total === null ? ' : tu peux valider le ticket.' : ' : vérifie l\'écart avec le total avant de valider.'));
+            } else {
+                text.appendChild(make('strong', { text: left + ' ligne' + (left > 1 ? 's' : '') + ' à vérifier' }));
+                text.appendChild(document.createTextNode(' : « Corriger » sur chaque ligne, le ticket reste ouvert.'));
+            }
+        }
+        if (summary) summary.classList.toggle('is-done', left === 0 && (balanced || total === null));
+    }
+
+    function setStatus(row, cls, label) {
+        var box = row.querySelector('[data-line-status]');
+        if (box) { box.innerHTML = ''; box.appendChild(make('span', { class: cls, text: label })); }
+    }
+
+    function resolved(row, message) {
+        row.classList.remove('has-problem');
+        row.classList.add('is-resolved');
+        var box = row.querySelector('[data-row-warning]');
+        if (!box) {
+            box = make('div', { class: 'row-warning', 'data-row-warning': '' });
+            row.appendChild(box);
+        }
+        box.className = 'row-warning is-done';
+        box.textContent = '✓ ' + message;
+        recount();
+    }
+
+    function warning(row, text, kind, label) {
+        var box = row.querySelector('[data-row-warning]');
+        if (!box) {
+            box = make('div', { class: 'row-warning', 'data-row-warning': '' });
+            row.appendChild(box);
+        }
+        box.className = 'row-warning';
+        box.innerHTML = '';
+        box.appendChild(make('span', { class: 'row-warning-text' }, [make('strong', { text: 'À vérifier' }), document.createTextNode(' · ' + text)]));
+        box.appendChild(make('button', { type: 'button', class: 'btn btn-small fix-btn', 'data-fix': '', 'data-kind': kind, 'data-problem': text, text: label || 'Corriger' }));
+        row.classList.add('has-problem');
+        row.classList.remove('is-resolved');
+        recount();
+    }
+
+    function setIgnored(row, ignored) {
+        var choice = field(row, 'choice');
+        choice.disabled = ignored;
+        row.classList.toggle('is-muted', ignored);
+    }
+
+    // ---------------------------------------------------------------- application d'une correction
+    function readFields(inputs) {
+        var quantity = number(inputs.quantity.value);
+        var price = number(inputs.price.value);
+        var unitPrice = inputs.unitPrice.value.trim() === '' ? null : number(inputs.unitPrice.value);
+        if (price === null || price < 0) return 'Prix payé invalide (ex. 2,83).';
+        if (quantity === null || quantity <= 0) return 'Quantité invalide (ex. 1 ou 0,420).';
+        if (inputs.unitPrice.value.trim() !== '' && (unitPrice === null || unitPrice <= 0)) return 'Prix unitaire invalide (ex. 1,99).';
+        return { quantity: quantity, unit: inputs.unit.value, unitPrice: unitPrice, price: price };
+    }
+
+    function writeReading(row, reading) {
+        var weighted = reading.unit === 'kg';
+        field(row, 'quantity').value = plain(reading.quantity, weighted ? 3 : (reading.quantity % 1 ? 3 : 0));
+        field(row, 'unit').value = reading.unit;
+        field(row, 'unit_price').value = reading.unitPrice === null ? '' : plain(reading.unitPrice, 2);
+        field(row, 'price').value = plain(reading.price, 2);
+        field(row, 'checked').value = '1';
+        row.querySelector('[data-line-price]').textContent = euros(reading.price);
+        var detail = row.querySelector('[data-line-detail]');
+        var pu = reading.unitPrice !== null ? reading.unitPrice : reading.price / reading.quantity;
+        if (detail) {
+            detail.textContent = weighted ? plain(reading.quantity, 3) + ' kg × ' + euros(pu) + '/kg'
+                : (reading.quantity !== 1 ? plain(reading.quantity, reading.quantity % 1 ? 3 : 0) + ' × ' + euros(pu) : '');
+        }
+    }
+
+    /** Lecture vérifiée + ingrédient choisi (ou ligne ignorée) : la ligne passe au vert. */
+    function commit(row, inputs, choice, action, message) {
+        // Ligne ignorée : sa lecture n'a pas d'importance (aucun prix n'en sera tiré)
+        if (action === 'associer') {
+            var reading = readFields(inputs);
+            if (typeof reading === 'string') { fail(reading); return; }
+            writeReading(row, reading);
+        }
+        field(row, 'action').value = action;
+        if (action === 'associer') {
+            setIgnored(row, false);
+            field(row, 'choice').value = choice;
+            setStatus(row, 'badge-cheap', 'à enregistrer');
+        } else {
+            setIgnored(row, true);
+            setStatus(row, 'badge-off', action === 'ignorer_toujours' ? 'toujours ignoré' : 'ignoré');
+        }
+        dialog.close();
+        resolved(row, message);
+    }
+
+    // ---------------------------------------------------------------- fenêtre
+    function openFix(row, kind, problem) {
+        var label = row.getAttribute('data-label') || '';
+        var current = field(row, 'choice').value.trim();
+        var ignored = field(row, 'action').value !== 'associer';
+        titleBox.textContent = kind === 'reading' ? 'Vérifier la lecture' : (kind === 'unknown' ? 'Choisir ou créer l\'ingrédient' : (kind === 'approx' ? 'Confirmer l\'ingrédient' : 'Corriger la ligne'));
+        body.innerHTML = '';
+        errorBox.hidden = true;
+
+        body.appendChild(make('p', { class: 'fix-read' }, [document.createTextNode('Lu sur le ticket : '), make('strong', { text: '« ' + label + ' »' })]));
+        if (problem) body.appendChild(make('p', { class: 'muted', text: problem }));
+
+        // Lecture : quantité, unité, prix unitaire, prix payé, avec le calcul vérifié en direct
+        var inputs = {
+            quantity: make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', value: field(row, 'quantity').value }),
+            unit: make('select'),
+            unitPrice: make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', value: field(row, 'unit_price').value, placeholder: 'facultatif' }),
+            price: make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', value: field(row, 'price').value })
+        };
+        inputs.unit.appendChild(make('option', { value: 'piece', text: 'à la pièce' }));
+        inputs.unit.appendChild(make('option', { value: 'kg', text: 'pesé (kg)' }));
+        inputs.unit.value = field(row, 'unit').value;
+        var check = make('p', { class: 'small' });
+        var refresh = function () {
+            var q = number(inputs.quantity.value), pu = number(inputs.unitPrice.value), p = number(inputs.price.value);
+            if (q === null || pu === null || p === null) { check.textContent = ''; return; }
+            var computed = Math.round(q * pu * 100) / 100;
+            check.textContent = plain(q, inputs.unit.value === 'kg' ? 3 : (q % 1 ? 3 : 0)) + (inputs.unit.value === 'kg' ? ' kg' : '') + ' × ' + euros(pu)
+                + ' = ' + euros(computed) + (Math.abs(computed - p) <= 0.02 ? '  ✓' : '  ≠ prix payé (' + euros(p) + ')');
+            check.className = 'small ' + (Math.abs(computed - p) <= 0.02 ? 'is-ok' : 'is-ko');
+        };
+        Object.keys(inputs).forEach(function (k) { inputs[k].addEventListener('input', refresh); inputs[k].addEventListener('change', refresh); });
+        refresh();
+        body.appendChild(section('Lecture du ticket', [
+            make('div', { class: 'fix-grid' }, [
+                labelled('Quantité ou poids', inputs.quantity),
+                labelled('Vendu', inputs.unit),
+                labelled('Prix unitaire ou au kilo (€)', inputs.unitPrice),
+                labelled('Prix payé (€)', inputs.price)
+            ]),
+            check
+        ]));
+
+        // Ingrédient : garder, chercher, ou créer
+        var keep = [];
+        if (current && !ignored) {
+            var yes = make('button', { type: 'button', class: 'btn', text: kind === 'approx' ? 'Oui, c\'est « ' + current + ' »' : 'Valider avec « ' + current + ' »' });
+            yes.addEventListener('click', function () { commit(row, inputs, current, 'associer', current + (kind === 'approx' ? ' confirmé.' : ' : ligne vérifiée.')); });
+            keep.push(make('div', { class: 'fix-actions' }, [yes]));
+        }
+        var search = make('input', { type: 'text', list: 'pack-choices', placeholder: 'Commence à taper…', autocomplete: 'off' });
+        var use = make('button', { type: 'button', class: 'btn btn-ghost', text: 'Utiliser' });
+        use.addEventListener('click', function () {
+            var value = search.value.trim();
+            if (!known(value)) { fail('« ' + value + ' » n\'est pas dans les ingrédients : crée-le juste en dessous.'); return; }
+            commit(row, inputs, value, 'associer', value + ' retenu.');
+        });
+        body.appendChild(section(current && !ignored ? 'Ingrédient : « ' + current + ' »' : 'Ingrédient', keep.concat([
+            make('p', { class: 'small muted', text: current && !ignored ? 'Ou un autre ingrédient existant :' : 'Un ingrédient existant :' }),
+            make('div', { class: 'fix-inline' }, [search, use])
+        ])));
+
+        var suggested = label.replace(/\s+[-–]\s+.*$/, '').replace(/\s+\d+([.,]\d+)?\s*(kg|g|l|cl|ml)\b.*$/i, '').trim();
+        suggested = suggested.charAt(0).toUpperCase() + suggested.slice(1).toLowerCase();
+        var name = make('input', { type: 'text', value: suggested, maxlength: '80' });
+        var aisle = options('fix-aisles', row.getAttribute('data-aisle'));
+        var base = options('fix-bases', row.getAttribute('data-base') || 'piece');
+        var piece = make('input', { type: 'text', inputmode: 'decimal', maxlength: '8', placeholder: 'facultatif' });
+        var create = make('button', { type: 'button', class: 'btn', text: 'Créer et utiliser' });
+        create.addEventListener('click', function () {
+            if (name.value.trim() === '') { fail('Indique le nom de l\'ingrédient.'); return; }
+            var reading = readFields(inputs);
+            if (typeof reading === 'string') { fail(reading); return; }
+            busy(create, true);
+            post(routes.create, { name: name.value, aisle_id: aisle.value, base_unit: base.value, piece_weight_g: number(piece.value) })
+                .then(function (data) {
+                    if (!known(data.name)) choices.appendChild(make('option', { value: data.name }));
+                    commit(row, inputs, data.name, 'associer', data.message);
+                })
+                .catch(fail)
+                .then(function () { busy(create, false); });
+        });
+        body.appendChild(section('Ou créer un nouvel ingrédient', [
+            make('div', { class: 'fix-grid' }, [labelled('Nom', name), labelled('Rayon', aisle), labelled('Se compte', base), labelled('Poids d\'une pièce (g)', piece)]),
+            make('p', { class: 'small muted', text: 'Le conditionnement est déduit du ticket (« 500 g », « x30 »…) à la validation.' }),
+            make('div', { class: 'fix-actions' }, [create])
+        ]));
+
+        // Ou ignorer (non alimentaire, consigne…)
+        var once = make('button', { type: 'button', class: 'btn btn-ghost btn-small', text: 'Ignorer cette fois' });
+        once.addEventListener('click', function () { commit(row, inputs, '', 'ignorer', 'Ligne ignorée pour ce ticket.'); });
+        var always = make('button', { type: 'button', class: 'btn btn-ghost btn-small', text: 'Toujours ignorer (non alimentaire)' });
+        always.addEventListener('click', function () { commit(row, inputs, '', 'ignorer_toujours', 'Ligne ignorée, et sur les prochains tickets.'); });
+        var buttons = [once, always];
+        if (ignored) {
+            var back = make('button', { type: 'button', class: 'btn btn-ghost btn-small', text: 'Ne plus ignorer' });
+            back.addEventListener('click', function () {
+                field(row, 'action').value = 'associer';
+                setIgnored(row, false);
+                setStatus(row, 'badge-warn', 'à associer');
+                dialog.close();
+                warning(row, 'Ingrédient à choisir ou à créer.', 'unknown', 'Choisir ou créer l\'ingrédient');
+            });
+            buttons = [back];
+        }
+        body.appendChild(section('Ou', [make('div', { class: 'fix-inline' }, buttons)]));
+
+        if (!dialog.open) dialog.showModal();
+        setTimeout(function () { (kind === 'reading' ? inputs.price : (current && !ignored ? body.querySelector('.btn') : search)).focus(); }, 30);
+    }
+
+    /** Proposition confirmée en un clic, sans ouvrir la fenêtre. */
+    function acceptRow(row) {
+        var current = field(row, 'choice').value.trim();
+        if (!current) return false;
+        field(row, 'action').value = 'associer';
+        setIgnored(row, false);
+        setStatus(row, 'badge-cheap', 'à enregistrer');
+        resolved(row, current + ' confirmé.');
+        return true;
+    }
+
+    function refreshConfirmAll() {
+        var all = form.querySelector('[data-accept-all]');
+        if (!all) return;
+        var left = form.querySelectorAll('[data-line].has-problem [data-accept]').length;
+        all.style.display = left < 2 ? 'none' : '';
+        all.textContent = 'Confirmer les ' + left + ' propositions';
+    }
+
+    form.addEventListener('click', function (event) {
+        var one = event.target.closest('[data-accept]');
+        if (one) {
+            event.preventDefault();
+            acceptRow(one.closest('[data-line]'));
+            refreshConfirmAll();
+            return;
+        }
+        if (event.target.closest('[data-accept-all]')) {
+            event.preventDefault();
+            form.querySelectorAll('[data-line].has-problem').forEach(function (row) {
+                if (row.querySelector('[data-row-warning] [data-accept]')) acceptRow(row);
+            });
+            refreshConfirmAll();
+            return;
+        }
+        var button = event.target.closest('[data-fix]');
+        if (!button) return;
+        event.preventDefault();
+        var row = button.closest('[data-line]');
+        if (row) openFix(row, button.getAttribute('data-kind') || 'edit', button.getAttribute('data-problem') || '');
+    });
+    dialog.addEventListener('close', refreshConfirmAll);
+
+    // Nom tapé directement dans la ligne : retenu s'il est dans la liste, sinon proposition de le créer
+    form.addEventListener('change', function (event) {
+        if (event.target.matches('[data-receipt-total]')) { recount(); return; }
+        var input = event.target.closest('[data-field="choice"]');
+        if (!input) return;
+        var row = input.closest('[data-line]');
+        var value = input.value.trim();
+        var reading = row.classList.contains('has-problem') && !!row.querySelector('[data-row-warning] [data-fix][data-kind="reading"]');
+        if (value === '' || reading) return;
+        if (known(value)) {
+            setStatus(row, 'badge-cheap', 'à enregistrer');
+            resolved(row, value + ' retenu.');
+        } else {
+            warning(row, '« ' + value + ' » n\'est pas dans les ingrédients.', 'unknown', 'Choisir ou créer l\'ingrédient');
+        }
+    });
+
+    recount();
+})();

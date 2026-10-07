@@ -57,11 +57,10 @@ class RecipeImportController extends Controller
         return 'Envoyée : l\'analyse démarre dans moins d\'une minute';
     }
 
-    /** v0.18.0 : une seule fiche à la fois chez Ollama (tous foyers confondus : un seul PC). */
-    public static function busy(?RecipeImport $except = null): ?RecipeImport
+    /** v0.18.0 : un seul document à la fois chez Ollama (tous foyers confondus : un seul PC) ; tickets compris depuis la v0.19.0. */
+    public static function busy(?RecipeImport $except = null): RecipeImport|\App\Models\Receipt|null
     {
-        return RecipeImport::where('layout_status', RecipeImport::LAYOUT_PENDING)
-            ->when($except, fn ($q) => $q->whereKeyNot($except->id))->orderBy('id')->first();
+        return \App\Support\VisionQueue::busy($except);
     }
 
     /**
@@ -116,7 +115,7 @@ class RecipeImportController extends Controller
             return redirect()->route('recipes.imports.index')->with('status', 'Cette fiche est déjà envoyée.');
         }
         if ($other = self::busy($recipeImport)) {
-            return back()->withErrors(['pages' => 'Une autre fiche est en cours d\'analyse (Paperless n° '.$other->paperless_document_id.') : une fiche à la fois.']);
+            return back()->withErrors(['pages' => 'L\'IA est déjà occupée avec '.\App\Support\VisionQueue::describe($other).' : un document à la fois.']);
         }
 
         $pages = array_values(array_map('intval', $data['pages']));

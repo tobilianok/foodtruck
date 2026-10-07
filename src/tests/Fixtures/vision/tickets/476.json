@@ -1,0 +1,187 @@
+{
+ "magasin": "LIDL Les Grands Champs 03110CHARMEIL",
+ "date_imprimee": "24.09.26",
+ "lignes": [
+  {
+   "libelle": "Butternut vrac",
+   "quantite": 1.5,
+   "unite": "kg",
+   "prix_unitaire": "1,79 EUR/kg",
+   "prix": "2,69",
+   "remise": false,
+   "detail": "1,500 kg x 1,79 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Réduction Lidl Plus",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "-0,92",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Kiwi jaune pièce",
+   "quantite": 4,
+   "unite": "pièce",
+   "prix_unitaire": "0,89",
+   "prix": "3,56",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Courgette 1 kg",
+   "quantite": 1,
+   "unite": "kg",
+   "prix_unitaire": "2,39 EUR/kg",
+   "prix": "2,39",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Brocoli",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,29",
+   "prix": "1,29",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Carottes sachet 1 kg",
+   "quantite": 1,
+   "unite": "kg",
+   "prix_unitaire": "1,79 EUR/kg",
+   "prix": "1,79",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pomme de terre four",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "2,99",
+   "prix": "2,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Blanc poireau 500 g",
+   "quantite": 1,
+   "unite": "kg",
+   "prix_unitaire": "2,99 EUR/kg",
+   "prix": "2,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Aubergine vrac",
+   "quantite": 0.382,
+   "unite": "kg",
+   "prix_unitaire": "2,99 EUR/kg",
+   "prix": "1,14",
+   "remise": false,
+   "detail": "0,382 kg x 2,99 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "D'un point à 0515014",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "2,99",
+   "prix": "2,99",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Prix en baisse",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "-0,30",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Boisson Trop Zéro",
+   "quantite": 4,
+   "unite": "pièce",
+   "prix_unitaire": "1,39",
+   "prix": "5,56",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Patate douce",
+   "quantite": 0.438,
+   "unite": "kg",
+   "prix_unitaire": "2,99 EUR/kg",
+   "prix": "1,31",
+   "remise": false,
+   "detail": "0,438 kg x 2,99 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Prune rouge",
+   "quantite": 0.446,
+   "unite": "kg",
+   "prix_unitaire": "3,49 EUR/kg",
+   "prix": "1,56",
+   "remise": false,
+   "detail": "0,446 kg x 3,49 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Prix en baisse",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "-0,36",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Boisson énergisante",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "0,99",
+   "prix": "0,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Colossus Energy Drin",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "0,99",
+   "prix": "0,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Colossus Goyave",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "0,99",
+   "prix": "0,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  }
+ ],
+ "total": "31,65"
+}

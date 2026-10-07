@@ -18,6 +18,9 @@ use Illuminate\Support\Str;
 /**
  * Cycle de vie d'un ticket : lecture des lignes, rapprochement, puis application des prix
  * (prix « ticket » datés du jour d'achat) et mémorisation des libellés.
+ *
+ * v0.19.0 : un ticket lu par l'IA est interprété par VisionReceiptParser (sinon : texte de Paperless ou texte collé,
+ * ReceiptParser). Plus aucun ticket n'est traité automatiquement : Louis valide toujours lui-même.
  */
 class ReceiptProcessor
 {
@@ -27,18 +30,27 @@ class ReceiptProcessor
     {
     }
 
-    /** (Re)lit le texte du ticket et recrée ses lignes. Applique automatiquement si tout est reconnu. */
+    /** (Re)lit le ticket (réponse de l'IA, sinon texte) et recrée ses lignes. Le ticket reste « à valider ». */
     public function ingest(Receipt $receipt): Receipt
     {
-        $parsed = $this->parser->parse((string) $receipt->raw_text);
+        $answer = $receipt->visionAnswer();
+        $parsed = $answer !== null ? (new VisionReceiptParser)->parse($answer) : $this->parser->parse((string) $receipt->raw_text);
 
-        DB::transaction(function () use ($receipt, $parsed) {
-            $receipt->total_cents ??= $parsed['total_cents'];
-            $receipt->purchased_on ??= $parsed['date'];
+        DB::transaction(function () use ($receipt, $parsed, $answer) {
+            if ($answer !== null) {
+                // Lecture de l'IA : total et date imprimés priment sur la date de Paperless
+                $receipt->total_cents = $parsed['total_cents'] ?? $receipt->total_cents;
+                $receipt->purchased_on = $parsed['date'] ?? $receipt->purchased_on;
+                $receipt->store_id ??= $this->guessStore(trim(implode(' ', array_filter([$receipt->correspondent, $parsed['store_text'] ?? null, $receipt->title]))))?->id;
+            } else {
+                $receipt->total_cents ??= $parsed['total_cents'];
+                $receipt->purchased_on ??= $parsed['date'];
+                $receipt->store_id ??= $this->guessStore($receipt->correspondent ?: $receipt->title ?: $receipt->raw_text)?->id;
+            }
             $receipt->expected_lines = $parsed['expected_lines'] ?? null;
             $receipt->unread_lines = ($parsed['unread'] ?? []) ?: null;
-            $receipt->store_id ??= $this->guessStore($receipt->correspondent ?: $receipt->title ?: $receipt->raw_text)?->id;
             $receipt->status = Receipt::STATUS_TO_REVIEW;
+            $receipt->auto_applied = false;
             $receipt->save();
 
             $receipt->lines()->delete();
@@ -86,17 +98,28 @@ class ReceiptProcessor
             }
         });
 
-        $receipt->load('lines.pack.ingredient');
-
-        if ($this->isFullyKnown($receipt)) {
-            $this->apply($receipt, null);
-            $receipt->forceFill(['auto_applied' => true])->save();
-        }
-
-        return $receipt;
+        // v0.19.0 : plus de traitement automatique, même si tout est reconnu (Louis valide chaque ticket)
+        return $receipt->load('lines.pack.ingredient');
     }
 
-    /** Tout est reconnu grâce aux libellés mémorisés : le ticket peut être traité sans intervention. */
+    /**
+     * Relecture avec les règles à jour (bouton « Relire le ticket », foodtruck:reparse) : rien n'est renvoyé à l'IA.
+     * Un ticket déjà validé par Louis dont tout est encore reconnu reste « traité » (ses prix sont remis à jour sans
+     * doublon) ; sinon il repasse « à valider ».
+     */
+    public function reread(Receipt $receipt, ?User $user = null): Receipt
+    {
+        $wasDone = $receipt->status === Receipt::STATUS_DONE;
+        $receipt->total_cents = null;
+        $this->ingest($receipt);
+        if ($wasDone && $this->isFullyKnown($receipt)) {
+            $this->apply($receipt, $user);
+        }
+
+        return $receipt->refresh();
+    }
+
+    /** Tout est reconnu grâce aux libellés mémorisés : un clic sur « Valider le ticket » suffit. */
     public function isFullyKnown(Receipt $receipt): bool
     {
         $products = $receipt->lines->where('kind', 'produit');
@@ -168,11 +191,12 @@ class ReceiptProcessor
                 }
             }
 
-            $pending = $receipt->lines->where('kind', 'produit')
-                ->whereIn('status', [ReceiptLine::STATUS_UNKNOWN, ReceiptLine::STATUS_SUGGESTED])->count();
+            $products = $receipt->lines->where('kind', 'produit');
+            $pending = $products->whereIn('status', [ReceiptLine::STATUS_UNKNOWN, ReceiptLine::STATUS_SUGGESTED])->count();
 
             $receipt->forceFill([
-                'status' => $pending === 0 ? Receipt::STATUS_DONE : Receipt::STATUS_TO_REVIEW,
+                // Un ticket sans aucun article lu (analyse ratée) n'est jamais « traité »
+                'status' => $pending === 0 && $products->isNotEmpty() ? Receipt::STATUS_DONE : Receipt::STATUS_TO_REVIEW,
                 'processed_at' => now(),
                 'processed_by' => $user?->id,
             ])->save();

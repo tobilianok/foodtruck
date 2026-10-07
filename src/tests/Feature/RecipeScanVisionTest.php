@@ -163,7 +163,7 @@ class RecipeScanVisionTest extends TestCase
         // Une seule image envoyée (la page 2), en 200 dpi, avec le JSON imposé et les réglages validés
         Http::assertSent(fn (Request $r) => $r->url() === self::PAGES.'/pages' && $r->header('X-Dpi') === ['200']);
         Http::assertSent(fn (Request $r) => $r->url() === self::VISION.'/api/chat'
-            && $r['model'] === 'qwen3-vl:8b-instruct-q8_0' && $r['stream'] === true && $r['think'] === false && $r['options']['temperature'] === 0.2 && $r['options']['num_predict'] === 4096
+            && $r['model'] === 'qwen3-vl:8b-instruct-q8_0' && $r['stream'] === true && $r['think'] === false && $r['options']['temperature'] === 0.2 && $r['options']['num_predict'] === 4096 && $r['options']['num_ctx'] === 16384 && ! isset($r['options']['progress'])
             && $r['messages'][0]['images'] === [base64_encode('page 2')] && isset($r['format']['properties']['photo']));
 
         $this->get('/recettes/importees/'.$import->id)->assertOk()
@@ -222,7 +222,7 @@ class RecipeScanVisionTest extends TestCase
         $second = RecipeImport::create(['household_id' => $this->household->id, 'paperless_document_id' => 491, 'status' => RecipeImport::STATUS_TO_REVIEW,
             'layout_status' => RecipeImport::LAYOUT_TO_SEND, 'title' => 'Salade de grenailles']);
 
-        $this->get('/recettes/importees/'.$second->id.'/ia')->assertOk()->assertSee('Une autre fiche est en cours d\'analyse (Paperless n° 490)', false);
+        $this->get('/recettes/importees/'.$second->id.'/ia')->assertOk()->assertSee('L\'IA est déjà occupée avec la fiche Paperless n° 490 : un document à la fois.', false);
         $this->post('/recettes/importees/'.$second->id.'/ia', ['pages' => [0]])->assertSessionHasErrors('pages');
         $this->assertSame(RecipeImport::LAYOUT_TO_SEND, $second->fresh()->layout_status);
         $this->get('/recettes/importees')->assertSee('aria-disabled="true"', false)->assertSee('Annuler l\'envoi', false);

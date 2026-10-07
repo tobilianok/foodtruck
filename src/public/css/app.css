@@ -439,7 +439,9 @@ body.guest { display: grid; place-items: center; min-height: 100vh; padding: 16p
     position: relative; aspect-ratio: 4 / 3; display: grid; place-items: center;
     background: linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--green) 14%, var(--surface)));
 }
-.recipe-card-media img { width: 100%; height: 100%; object-fit: cover; }
+.recipe-card-media { overflow: hidden; }
+/* v0.19.0 : toutes les photos à la même taille (4:3), quelles que soient leurs proportions : cartes bien alignées */
+.recipe-card-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .recipe-card-icon { font-size: 3.2rem; line-height: 1; }
 .recipe-card-icon.big { font-size: 5rem; }
 .fav-mark { position: absolute; top: 8px; right: 10px; color: var(--sun); font-size: 1.3rem; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
@@ -929,3 +931,15 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .import-actions { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0 .9rem .7rem; }
 @media (max-width: 40rem) { .ai-facts { grid-template-columns: 1fr; } .ai-facts dt { margin-top: .4rem; } }
 .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+
+/* v0.19.0 : tickets lus par l'IA, validation avec corrections en fenêtre */
+.ai-pieces { grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); align-items: start; }
+.ai-pieces .ai-page { margin: 0; cursor: default; }
+.receipt-line.has-problem { background: color-mix(in srgb, var(--tomato) 8%, transparent); border-left: 3px solid var(--tomato); border-radius: 0 8px 8px 0; padding-inline: 8px 4px; }
+.receipt-line.is-resolved { border-left: 3px solid var(--accent); padding-left: 8px; }
+.receipt-line .row-warning { grid-column: 1 / -1; }
+.receipt-line input[disabled] { opacity: .5; }
+.fix-dialog .is-ok { color: var(--accent-strong); }
+.fix-dialog .is-ko { color: var(--tomato-ink); font-weight: 600; }
+@media (prefers-color-scheme: dark) { .fix-dialog .is-ko { color: #ef9a8e; } }
+@media (min-width: 861px) { .receipt-line { grid-template-columns: minmax(180px, 1.3fr) 110px minmax(220px, 2fr) auto; } }

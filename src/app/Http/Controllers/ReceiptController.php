@@ -11,9 +11,14 @@ use App\Models\Store;
 use App\Support\ListReconciliation;
 use App\Support\Receipts\PaperlessClient;
 use App\Support\Receipts\ReceiptMatcher;
+use App\Support\Receipts\ReceiptParser;
 use App\Support\Receipts\ReceiptProcessor;
 use App\Support\Receipts\ReceiptSync;
+use App\Support\Receipts\VisionReceiptParser;
+use App\Support\RecipeScan\PagesClient;
+use App\Support\RecipeScan\VisionClient;
 use App\Support\Units;
+use App\Support\VisionQueue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -23,6 +28,9 @@ use Throwable;
 /**
  * Tickets de caisse : synchronisation Paperless, saisie manuelle, rapprochement et prix réels.
  * Visibles et traitables par tous les membres du foyer ; réglages Paperless réservés aux admins.
+ *
+ * v0.19.0 : tickets lus par l'IA (Ollama sur le PC de Louis), envoyés un par un après une page de contrôle ; chaque
+ * ticket est validé par Louis, avec les corrections faites dans une fenêtre sans quitter le ticket (comme les recettes).
  */
 class ReceiptController extends Controller
 {
@@ -44,7 +52,97 @@ class ReceiptController extends Controller
             'counts' => $household->receipts()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status'),
             'stores' => Store::active(),
             'canManage' => $request->user()->can('manage-household'),
+            'busy' => VisionQueue::busy(),
+            'reading' => $household->receipts()->where('vision_status', Receipt::VISION_PENDING)->exists() && VisionClient::ready(),
         ]);
+    }
+
+    /** v0.19.0 : avancement des lectures en cours (lu toutes les 3 secondes par la page « Tickets »). */
+    public function progress(Request $request)
+    {
+        $reading = $request->user()->household->receipts()->where('vision_status', Receipt::VISION_PENDING)->orderBy('id')->get()
+            ->filter->isReading()->values();
+
+        return response()->json(['reading' => $reading->map(fn (Receipt $r) => [
+            'id' => $r->id,
+            'progress' => $r->vision_progress,
+            'step' => $r->vision_step ?? 'Envoyé : l\'analyse démarre dans moins d\'une minute',
+            'since' => $r->vision_started_at ? (int) abs($r->vision_started_at->diffInSeconds(now())) : null,
+        ])->all()]);
+    }
+
+    /**
+     * v0.19.0 : page de contrôle avant l'envoi d'un ticket à l'IA : destination, modèle, images exactes (les tickets
+     * longs sont découpés en morceaux), consigne et format de réponse. Rien n'est envoyé à Ollama ici.
+     */
+    public function ai(Request $request, Receipt $receipt)
+    {
+        $this->authorizeReceipt($request, $receipt);
+        if ($receipt->isReading()) {
+            return redirect()->route('receipts.index')->with('status', 'Ce ticket est déjà envoyé : suis son avancement ici.');
+        }
+        abort_unless($receipt->canBeSent(), 404);
+
+        $images = [];
+        $error = null;
+        try {
+            $file = PaperlessClient::for($receipt->household)->download((int) $receipt->paperless_document_id);
+            // Mêmes images que l'envoi (pages A4 en aperçu à 100 dpi, morceaux des tickets longs identiques)
+            $images = PagesClient::make()->pages($file['body'], $file['mime'], 100, true);
+        } catch (Throwable $e) {
+            $error = $e->getMessage();
+        }
+
+        return view('receipts.ai', [
+            'receipt' => $receipt,
+            'images' => $images,
+            'error' => $error,
+            'busy' => VisionQueue::busy($receipt),
+            'destination' => (string) config('foodtruck.vision_url'),
+            'model' => VisionClient::make()->model(),
+            'dpi' => (int) config('foodtruck.vision_dpi', 200),
+            'prompt' => VisionClient::RECEIPT_PROMPT,
+            'schema' => json_encode(VisionClient::receiptSchema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    /** Envoi confirmé par Louis : le ticket part en file (le planificateur le prend dans la minute). */
+    public function aiSend(Request $request, Receipt $receipt)
+    {
+        $this->authorizeReceipt($request, $receipt);
+        if ($receipt->isReading()) {
+            return redirect()->route('receipts.index')->with('status', 'Ce ticket est déjà envoyé.');
+        }
+        abort_unless($receipt->canBeSent(), 404);
+        if ($other = VisionQueue::busy($receipt)) {
+            return back()->withErrors(['ai' => 'L\'IA est déjà occupée avec '.VisionQueue::describe($other).' : un document à la fois.']);
+        }
+
+        $receipt->forceFill([
+            'vision_status' => Receipt::VISION_PENDING, 'vision_error' => null,
+            'vision_progress' => null, 'vision_step' => null, 'vision_started_at' => null,
+        ])->save();
+
+        return redirect()->route('receipts.index')->with('status', 'Ticket envoyé à l\'IA : l\'analyse démarre dans moins d\'une minute.');
+    }
+
+    /** Annule un envoi tant que l'analyse n'a pas commencé. */
+    public function aiCancel(Request $request, Receipt $receipt)
+    {
+        $this->authorizeReceipt($request, $receipt);
+        $receipt->refresh();
+        if ($receipt->vision_status !== Receipt::VISION_PENDING || $receipt->vision_progress !== null) {
+            return redirect()->route('receipts.index')->withErrors(['paperless' => 'L\'analyse a déjà commencé : elle ne peut plus être annulée.']);
+        }
+        // Retour à l'état d'avant l'envoi : jamais lu (à envoyer), lu par l'IA, ou lu depuis le texte avant la v0.19.0
+        $state = match (true) {
+            $receipt->vision !== null => Receipt::VISION_DONE,
+            $receipt->lines()->exists() => null,
+            default => Receipt::VISION_TO_SEND,
+        };
+        $receipt->forceFill(['vision_status' => $state])->save();
+
+        return redirect()->route('receipts.index')->with('status', 'Envoi annulé : rien n\'est parti vers l\'IA.');
     }
 
     public function sync(Request $request, ReceiptSync $sync)
@@ -81,14 +179,19 @@ class ReceiptController extends Controller
             return redirect()->route('receipts.show', $receipt)->withErrors(['raw_text' => 'Aucune ligne d\'article n\'a été reconnue dans ce texte.']);
         }
 
-        return redirect()->route('receipts.show', $receipt)->with('status', $receipt->status === Receipt::STATUS_DONE
-            ? 'Ticket lu et entièrement reconnu : les prix sont enregistrés.'
-            : 'Ticket lu : vérifie les associations puis enregistre les prix.');
+        return redirect()->route('receipts.show', $receipt)->with('status', 'Ticket lu : vérifie les lignes puis valide le ticket.');
     }
 
     public function show(Request $request, Receipt $receipt)
     {
         $this->authorizeReceipt($request, $receipt);
+        if ($receipt->isReading()) {
+            return redirect()->route('receipts.index')->with('status', 'Ce ticket est en cours d\'analyse : suis son avancement ici.');
+        }
+        // v0.19.0 : ticket jamais envoyé à l'IA (ou analyse ratée sans aucune ligne) : page de contrôle avant l'envoi
+        if ($receipt->awaitsVision() || ($receipt->canBeSent() && ! $receipt->lines()->exists())) {
+            return redirect()->route('receipts.ai', $receipt);
+        }
         $receipt->load(['store', 'lines.pack.ingredient', 'lines.ingredient', 'lines.price', 'household', 'processor']);
 
         return view('receipts.show', [
@@ -98,7 +201,31 @@ class ReceiptController extends Controller
             'aisles' => Aisle::ordered(),
             'linesTotal' => $receipt->linesTotalCents(),
             'lists' => $receipt->household->shoppingLists()->limit(8)->get(),
+            'problems' => $receipt->lines->where('kind', 'produit')->mapWithKeys(fn (ReceiptLine $l) => [$l->id => self::problem($l)])->filter()->all(),
+            'fullyKnown' => (new ReceiptProcessor)->isFullyKnown($receipt),
         ]);
+    }
+
+    /**
+     * v0.19.0 : ce qu'il reste à vérifier sur une ligne (fenêtre « Corriger ») : lecture douteuse, ingrédient à
+     * choisir ou proposition à confirmer. null : rien à faire.
+     *
+     * @return array{kind: string, text: string, button: string}|null
+     */
+    public static function problem(ReceiptLine $line): ?array
+    {
+        if ($line->status === ReceiptLine::STATUS_IGNORED || $line->status === ReceiptLine::STATUS_APPLIED && ! in_array($line->note, VisionReceiptParser::READING_NOTES, true)) {
+            return null;
+        }
+        if (in_array($line->note, VisionReceiptParser::READING_NOTES, true) || $line->hasUnknownWeight()) {
+            return ['kind' => 'reading', 'text' => $line->note ?: ReceiptParser::NOTE_WEIGHT, 'button' => 'Vérifier la lecture'];
+        }
+
+        return match ($line->status) {
+            ReceiptLine::STATUS_UNKNOWN => ['kind' => 'unknown', 'text' => 'Ingrédient à choisir ou à créer.', 'button' => 'Choisir ou créer l\'ingrédient'],
+            ReceiptLine::STATUS_SUGGESTED => ['kind' => 'approx', 'text' => 'Proposition à confirmer.', 'button' => 'Confirmer'],
+            default => null,
+        };
     }
 
     /** Rattache le ticket à une liste de courses (ou le détache) et coche les articles retrouvés. */
@@ -136,12 +263,21 @@ class ReceiptController extends Controller
             'lines.*.choice' => ['nullable', 'string', 'max:200'],
             'lines.*.action' => ['nullable', Rule::in(['associer', 'creer', 'ignorer', 'ignorer_toujours'])],
             'lines.*.aisle_id' => ['nullable', 'integer', 'exists:aisles,id'],
+            // v0.19.0 : lecture corrigée dans la fenêtre « Corriger »
+            'lines.*.quantity' => ['nullable', 'string', 'max:12'],
+            'lines.*.unit' => ['nullable', Rule::in(['piece', 'kg'])],
+            'lines.*.unit_price' => ['nullable', 'string', 'max:12'],
+            'lines.*.price' => ['nullable', 'string', 'max:12'],
+            'lines.*.checked' => ['nullable', 'boolean'],
+            'total' => ['nullable', 'string', 'max:12'],
             'remember' => ['nullable', 'boolean'],
-        ], [], ['store_id' => 'magasin', 'purchased_on' => 'date d\'achat']);
+        ], [], ['store_id' => 'magasin', 'purchased_on' => 'date d\'achat', 'total' => 'total du ticket']);
 
         $receipt->load('lines.pack.ingredient');
         $storeChanged = (int) $data['store_id'] !== $receipt->store_id;
-        $receipt->forceFill(['store_id' => (int) $data['store_id'], 'purchased_on' => $data['purchased_on']])->save();
+        $total = isset($data['total']) && trim($data['total']) !== '' ? VisionReceiptParser::amount($data['total']) : null;
+        $receipt->forceFill(['store_id' => (int) $data['store_id'], 'purchased_on' => $data['purchased_on']]
+            + ($total !== null && $total > 0 ? ['total_cents' => (int) round($total * 100)] : []))->save();
         $store = Store::find($receipt->store_id);
 
         if ($storeChanged && $receipt->correspondent) {
@@ -159,6 +295,7 @@ class ReceiptController extends Controller
                 continue;
             }
 
+            $this->correctReading($line, $input);
             $action = $input['action'] ?? 'associer';
 
             if ($action === 'ignorer' || $action === 'ignorer_toujours') {
@@ -223,16 +360,47 @@ class ReceiptController extends Controller
             .($receipt->status === Receipt::STATUS_DONE ? ' Ticket traité.' : ' Il reste des lignes à associer ou à ignorer.'));
     }
 
+    /**
+     * v0.19.0 : quantité, unité, prix unitaire et prix vérifiés dans la fenêtre. Une ligne vérifiée perd sa note
+     * « à vérifier » ; des valeurs invalides sont ignorées (la ligne garde sa lecture).
+     */
+    private function correctReading(ReceiptLine $line, array $input): void
+    {
+        // Seulement une ligne passée par la fenêtre « Corriger » (les champs cachés des autres lignes sont ignorés)
+        if (empty($input['checked'])) {
+            return;
+        }
+        $price = isset($input['price']) ? VisionReceiptParser::amount($input['price']) : $line->total_cents / 100;
+        $quantity = isset($input['quantity']) ? (float) str_replace(',', '.', (string) $input['quantity']) : $line->quantity;
+        $unit = $input['unit'] ?? $line->quantity_unit;
+        $unitPrice = isset($input['unit_price']) && trim((string) $input['unit_price']) !== '' ? VisionReceiptParser::amount($input['unit_price']) : null;
+        if ($price === null || $price < 0 || $price > 1000 || $quantity <= 0 || $quantity > 1000) {
+            return;
+        }
+
+        $values = [
+            'total_cents' => (int) round($price * 100),
+            'quantity' => round($quantity, 3),
+            'quantity_unit' => $unit,
+            'unit_price_cents' => $unitPrice !== null && $unitPrice > 0 ? (int) round($unitPrice * 100) : ($line->unit_price_cents ?? (int) round($price * 100 / $quantity)),
+        ];
+        if (in_array($line->note, VisionReceiptParser::READING_NOTES, true) || $line->note === VisionReceiptParser::NOTE_WEIGHT_DEDUCED) {
+            $values['note'] = null;
+        }
+        $line->forceFill($values)->save();
+    }
+
     public function reparse(Request $request, Receipt $receipt, ReceiptProcessor $processor)
     {
         $this->authorizeReceipt($request, $receipt);
         abort_if($receipt->status === Receipt::STATUS_IGNORED, 409);
 
-        $receipt->total_cents = null;
-        $processor->ingest($receipt);
+        abort_if(in_array($receipt->vision_status, [Receipt::VISION_TO_SEND, Receipt::VISION_PENDING], true), 409);
 
-        return back()->with('status', $receipt->status === Receipt::STATUS_DONE
-            ? 'Ticket relu : tout est reconnu, prix mis à jour.'
+        $processor->reread($receipt, $request->user());
+
+        return back()->with('status', $receipt->visionAnswer() !== null
+            ? 'Lecture de l\'IA relue avec les règles à jour (rien n\'a été renvoyé à l\'IA). Les libellés déjà validés sont reconnus.'
             : 'Ticket relu avec les règles de lecture à jour. Les libellés déjà validés sont reconnus.');
     }
 
@@ -399,7 +567,7 @@ class ReceiptController extends Controller
     }
 
     /** Unité suggérée par le libellé : « 500g » → g, « 1L », « 3x20cl » → ml. */
-    private static function labelMeasure(string $normalized): ?string
+    public static function labelMeasure(string $normalized): ?string
     {
         if (preg_match('/\d\s*(KG|G)\b/', $normalized)) {
             return 'g';

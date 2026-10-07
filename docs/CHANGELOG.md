@@ -1,5 +1,26 @@
 # Journal des versions - Foodtruck
 
+## v0.19.0 - 2026-10-07 - Tickets de caisse lus par l'IA, validés un par un avec corrections en fenêtre ; photos des recettes alignées
+
+- Demande de Louis : « que cette IA locale puisse traiter aussi tout ce qui est tickets de caisse », avec le même contrôle que pour les fiches, et « valider les tickets systématiquement avec les corrections en popup sans quitter la correction du ticket ». Modèle inchangé (qwen3-vl:8b-instruct-q8_0 sur le PC, choix de Louis : « on ne garde que le 8B »).
+- Essais du 2026-10-07 sur les 6 tickets de Louis dans Paperless (472 Leclerc Drive ; 473, 474, 476, 477, 478 Lidl Plus) :
+  - premier essai : Leclerc juste au centime, mais tickets Lidl aux prix arrondis à l'euro ; cause : un ticket Lidl Plus est une image de 1 290 × 8 648 pixels, réduite d'un bloc par le modèle (environ 400 pixels de large, centimes illisibles) ;
+  - deuxième essai : tickets longs découpés en morceaux lisibles (4 à 5 images de 1 000 pixels de large, coupées dans les blancs entre deux lignes, aucune ligne coupée ni répétée), prix recopiés en texte : centimes lus partout, 4 tickets sur 6 justes ;
+  - troisième essai (consigne finale : date recopiée telle qu'imprimée, ligne de pesée recopiée à part) : 5 tickets sur 6 justes par l'IA seule ; avec les règles du code, les 6 retombent au centime sur leur total (91,35 €, 9,88 €, 41,83 €, 31,65 €, 73,96 €, 109,09 €). 22 secondes à 1 min 20 par ticket.
+- L'IA recopie, le code interprète et contrôle (nouveau VisionReceiptParser) :
+  - lignes qui ne sont pas des articles écartées (« Nombre de lignes: 4 » recopié avec le total) ;
+  - ligne de pesée recopiée à part rattachée à son article ; poids et prix au kilo lus dans la ligne « 1,420 kg x 1,99 EUR/kg » ; poids absent : déduit du prix ÷ prix au kilo, signalé ;
+  - article emballé à la pièce même si son libellé contient un poids (« Carottes sachet 1 kg ») ; remises négatives rattachées à l'article du dessus ;
+  - contrôle quantité × prix unitaire = prix (ligne « à vérifier » sinon), chiffre douteux signalé, un seul prix illisible déduit du total (signalé) ;
+  - date « 24.09.26 » convertie par le code (l'IA confondait jour et année).
+- Envoi comme pour les fiches : les tickets trouvés dans Paperless arrivent « à envoyer à l'IA » ; bouton « Envoyer à l'IA pour analyse » → page de contrôle (destination, modèle, images exactes envoyées, morceaux compris ; consigne ; format de réponse) ; un seul document à la fois chez Ollama, fiche de recette ou ticket ; annulation tant que l'analyse n'a pas commencé ; barre de progression dans Tickets de caisse ; aucun nouvel essai automatique (erreur affichée, « Renvoyer à l'IA »). Le texte OCR de Paperless n'est plus utilisé pour les tickets.
+- Validation systématique : plus aucun ticket n'est traité tout seul, même entièrement reconnu ; « Valider le ticket et enregistrer les prix ».
+- Corrections en fenêtre, sans quitter le ticket (comme les recettes) : chaque ligne à vérifier a son bouton (« Vérifier la lecture », « Choisir ou créer l'ingrédient », « Oui, c'est … » / « Autre choix ») et « Corriger » sur toutes les lignes. La fenêtre regroupe : quantité ou poids, vendu à la pièce ou pesé, prix unitaire et prix payé avec le calcul vérifié en direct ; ingrédient existant ou nouvel ingrédient créé sur place (rayon et unité proposés d'après la ligne) ; ignorer cette fois ou toujours. La ligne passe au vert ; compteur « N lignes à vérifier » et contrôle « somme des lignes = total » recalculés à chaque correction ; total du ticket corrigeable ; « Confirmer les N propositions » d'un clic.
+- « Relire le ticket » relit la réponse déjà reçue avec les règles à jour, sans rien renvoyer à l'IA ; un ticket déjà validé et toujours entièrement reconnu reste traité.
+- ./ft vider-tickets (demande de Louis : « repartir sur une base plus saine ») : aperçu, saisie de EFFACER, sauvegarde de la base ; supprime tous les tickets et leurs lignes, les prix relevés sur les tickets et les libellés de tickets mémorisés ; garde ingrédients, conditionnements, prix saisis à la main, magasins, stock, listes et recettes ; les tickets de Paperless reviennent aussitôt « à envoyer à l'IA ».
+- Recettes : toutes les photos de la liste ont la même taille (4:3, recadrées), les cartes sont alignées quelles que soient les proportions des photos.
+- foodtruck-pages : mode « ticket » (découpe des tickets longs), image à reconstruire. Une migration (état de la lecture par l'IA sur receipts). 282 tests automatisés (nouveaux : ReceiptVisionTest, VisionReceiptParserTest avec les réponses réelles du modèle pour les 6 tickets).
+
 ## v0.18.1 - 2026-10-06 - Envoi à l'IA fiche par fiche, page de contrôle, photo du plat
 
 - Demande de Louis : « je veux pouvoir contrôler à l'extrême ce qui est envoyé sur Ollama sur mon PC et envoyer une fiche par une fiche ». Plus rien ne part tout seul vers le PC.

@@ -28,14 +28,15 @@ class PagesClient
 
     /**
      * Pages du document en images couleur (PNG en base64), 4 au plus, redressées d'après leurs données EXIF.
+     * v0.19.0 : $ticket = true, un ticket long et étroit est découpé en morceaux successifs lisibles (16 au plus).
      *
      * @return array<int, string>
      */
-    public function pages(string $body, string $mime, int $dpi = 200): array
+    public function pages(string $body, string $mime, int $dpi = 200, bool $ticket = false): array
     {
         try {
             $response = Http::timeout(300)->connectTimeout(5)->withBody($body, $mime ?: 'application/octet-stream')
-                ->withHeaders(['X-Dpi' => (string) $dpi])->post($this->url('/pages'));
+                ->withHeaders(['X-Dpi' => (string) $dpi] + ($ticket ? ['X-Mode' => 'ticket'] : []))->post($this->url('/pages'));
         } catch (\Throwable $e) {
             throw new RuntimeException('Service foodtruck-pages injoignable : '.Str::limit($e->getMessage(), 160));
         }

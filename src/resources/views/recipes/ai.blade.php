@@ -57,7 +57,7 @@
             <div class="row-actions">
                 @if ($busy)
                     <button type="submit" class="btn" disabled>Envoyer à l'IA</button>
-                    <p class="hint small">Une autre fiche est en cours d'analyse (Paperless n° {{ $busy->paperless_document_id }}) : une fiche à la fois.</p>
+                    <p class="hint small">L'IA est déjà occupée avec {{ \App\Support\VisionQueue::describe($busy) }} : un document à la fois.</p>
                 @else
                     <button type="submit" class="btn">Envoyer à l'IA</button>
                 @endif

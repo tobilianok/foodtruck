@@ -23,7 +23,7 @@
     @if (! $hasReceipts)
         <section class="panel">
             <h2>Aucun ticket rattaché</h2>
-            <p>Le bilan se fait d'après les tickets de caisse. Un ticket traité (page <a href="{{ route('receipts.index') }}">Tickets</a>) est rattaché tout seul à la liste dont la période correspond à sa date d'achat ; tu peux aussi le faire à la main :</p>
+            <p>Le bilan se fait d'après les tickets de caisse. Un ticket validé (page <a href="{{ route('receipts.index') }}">Tickets</a>) est rattaché tout seul à la liste dont la période correspond à sa date d'achat ; tu peux aussi le faire à la main :</p>
             @forelse ($loose as $receipt)
                 <form method="post" action="{{ route('receipts.link', $receipt) }}" class="inline-form bilan-attach">
                     @csrf

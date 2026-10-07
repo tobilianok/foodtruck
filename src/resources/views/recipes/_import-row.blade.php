@@ -59,8 +59,8 @@
     @if ($toSend || ($import->isReading() && $import->layout_progress === null))
         <div class="import-actions">
             @if ($toSend)
-                @if (! empty($busy) && $busy->id !== $import->id)
-                    <span class="btn btn-small" aria-disabled="true" title="Une autre fiche est en cours d'analyse : une fiche à la fois.">{{ $failed ? 'Renvoyer à l\'IA' : 'Envoyer à l\'IA pour analyse' }}</span>
+                @if (! empty($busy) && ! $busy->is($import))
+                    <span class="btn btn-small" aria-disabled="true" title="L'IA est déjà occupée : un document à la fois.">{{ $failed ? 'Renvoyer à l\'IA' : 'Envoyer à l\'IA pour analyse' }}</span>
                 @else
                     <a href="{{ route('recipes.imports.ai', $import) }}" class="btn btn-small">{{ $failed ? 'Renvoyer à l\'IA' : 'Envoyer à l\'IA pour analyse' }}</a>
                 @endif

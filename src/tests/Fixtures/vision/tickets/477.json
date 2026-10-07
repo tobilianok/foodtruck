@@ -1,0 +1,247 @@
+{
+ "magasin": "LIDL Ça vaut le coup. 14-20 Rue des Bartins 03200 Vichy",
+ "date_imprimee": "06.06.26",
+ "lignes": [
+  {
+   "libelle": "Mayonnaise Dijon 70%",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,83",
+   "prix": "1,83",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Choco surprise",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "0,99",
+   "prix": "0,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Ketchup",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,25",
+   "prix": "1,25",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Sauce Barbecue",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,78",
+   "prix": "1,78",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Mules H noir 0506272",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "9,99",
+   "prix": "9,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Oeufs cage X30",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "5,99",
+   "prix": "5,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Nestlé Ptit soup 7lé",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,71",
+   "prix": "1,71",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Prix en baisse",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "-0,03",
+   "prix": "-0,03",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Carrés coton bébé",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,79",
+   "prix": "1,79",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pointe de Brie",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,42",
+   "prix": "1,42",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Maxi Bacon Burger",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": "2,79",
+   "prix": "5,58",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Crème dessert",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,05",
+   "prix": "1,05",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Cola",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,44",
+   "prix": "1,44",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Camembert",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,49",
+   "prix": "1,49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Fraise crisp",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "4,12",
+   "prix": "4,12",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Crevettes cuites ASC",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "4,99",
+   "prix": "4,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pilons de poulet",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": "3,79",
+   "prix": "7,58",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Hauts de cuisse poul",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "4,49",
+   "prix": "4,49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Oignon rouge vrac",
+   "quantite": 1,
+   "unite": "kg",
+   "prix_unitaire": "2,79",
+   "prix": "1,67",
+   "remise": false,
+   "detail": "0,600 kg x 2,79 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Poulet PAC blanc",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "4,89",
+   "prix": "4,89",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pommes Dauphine",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,49",
+   "prix": "1,49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Crottins de chèvre",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,78",
+   "prix": "1,78",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Capsules Lungo UTZ",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": "2,69",
+   "prix": "5,38",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Gel Grenadine",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,29",
+   "prix": "1,29",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  }
+ ],
+ "total": "73,96"
+}

@@ -80,7 +80,7 @@ class PaperlessReceiptFlowTest extends TestCase
 
         $page = $this->actingAs($this->user)->get("/tickets/{$receipt->id}")->assertOk();
         $page->assertSee('32 articles lus')->assertSee('sur 32 annoncés')->assertSee('poids illisible')->assertSee('montant déduit du total')
-            ->assertSee("Créer l'ingrédient (nom saisi)", false)->assertDontSee('Écart de');
+            ->assertSee('Vérifier la lecture')->assertSee("Choisir ou créer l'ingrédient")->assertSee('receipt-fix', false)->assertDontSee('Écart de');
 
         // Pesée illisible associée quand même : aucun prix enregistré, la ligne repasse en ignorée
         $this->submit($receipt, [$navet->id => ['choice' => 'Navet', 'action' => 'associer']])->assertSessionHasNoErrors();
@@ -178,7 +178,7 @@ class PaperlessReceiptFlowTest extends TestCase
         $this->assertSame(ReceiptLine::STATUS_UNKNOWN, $boisson->fresh()->status);
         $this->assertSame(Receipt::STATUS_TO_REVIEW, $receipt->fresh()->status, 'Pas « traité » tant qu\'une ligne reste à associer');
 
-        $this->actingAs($this->user)->get("/tickets/{$receipt->id}")->assertSee("Créer l'ingrédient (nom saisi)", false);
+        $this->actingAs($this->user)->get("/tickets/{$receipt->id}")->assertSee("Choisir ou créer l'ingrédient");
     }
 
     public function test_relire_un_ticket_traite_sans_doubler_les_prix(): void
@@ -196,7 +196,8 @@ class PaperlessReceiptFlowTest extends TestCase
         $prices = Price::where('source', 'ticket')->count();
         $this->assertGreaterThan(5, $prices);
 
-        // Relecture (bouton ou foodtruck:reparse --tout) : tout est reconnu, prix mis à jour sans doublon
+        // Relecture (bouton ou foodtruck:reparse --tout) d'un ticket déjà validé : tout est reconnu, il reste traité,
+        // prix mis à jour sans doublon
         $this->actingAs($this->user)->post("/tickets/{$receipt->id}/relire")->assertSessionHas('status');
         $this->assertSame(Receipt::STATUS_DONE, $receipt->fresh()->status);
         $this->assertSame($prices, Price::where('source', 'ticket')->count());

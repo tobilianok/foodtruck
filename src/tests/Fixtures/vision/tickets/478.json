@@ -1,0 +1,347 @@
+{
+ "magasin": "LIDL Les Grands Champs FR-03110 CHARMEIL",
+ "date_imprimee": "02.10.25",
+ "lignes": [
+  {
+   "libelle": "LPM calendula&coco",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "5,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Rem LPM",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "-2,04",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Potimarron vrac",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,99 EUR/kg",
+   "prix": "2,83",
+   "remise": false,
+   "detail": "1,420 kg x 1,99 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Réduction Lidl Plus",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "-0,71",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Yoplait Pat Patrouil",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,67",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Rösti",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,85",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Filet mignon",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "12,19",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Hauts de cuisse poul",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4,49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Beurre doux extra fi",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2,35",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Chèvre bûchette 45%",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,73",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Crème dessert vanill",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,78",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Camembert caractère",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,79",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Saucisse de Toulouse",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "5,89",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Double rôti de porc",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "7,99 EUR/kg",
+   "prix": "12,58",
+   "remise": false,
+   "detail": "1,574 kg x 7,99 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Crottins de chèvre",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,78",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Lardons fumés",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2,48",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pomme de terre 1 kg",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": "0,65 EUR/kg",
+   "prix": "1,30",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Tomates pelées",
+   "quantite": 4,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2,20",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Huile d'olive vierge",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "6,85",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Croûtons à l'ail pou",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,19",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Sanytol désin. linge",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "6,95",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Levure chimique",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0,52",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Sucre vanillé",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0,79",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pâté de campagne",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,73",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Navet",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "1,99 EUR/kg",
+   "prix": "1,23",
+   "remise": false,
+   "detail": "0,616 kg x 1,99 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Poivron rouge vrac",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "3,49 EUR/kg",
+   "prix": "2,47",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Carottes sachet 1 kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Patate douce",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": "2,59 EUR/kg",
+   "prix": "1,55",
+   "remise": false,
+   "detail": "0,598 kg x 2,59 EUR/kg",
+   "doute": false
+  },
+  {
+   "libelle": "Bouquets garnis",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,69",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Biscuit chocolat",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,94",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Capsules Lungo UTZ",
+   "quantite": 3,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "8,07",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Bordeaux Blanc AOP",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "3,49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Bordeaux élevé Fût",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Monbazillac AOP",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "5,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  }
+ ],
+ "total": "109,09"
+}

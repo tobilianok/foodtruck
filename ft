@@ -7,6 +7,7 @@
 #   ./ft composer install
 #   ./ft reset            remise à zéro du planning, des listes et du stock (avec sauvegarde)
 #   ./ft vider-recettes   suppression de toutes les recettes, puis relecture des fiches Paperless (avec sauvegarde)
+#   ./ft vider-tickets    suppression de tous les tickets de caisse, puis relecture de la liste Paperless (avec sauvegarde)
 cd "$(dirname "$0")" || exit 1
 if [ -t 0 ] && [ -t 1 ]; then TTY=""; else TTY="-T"; fi
 
@@ -38,6 +39,21 @@ if [ "${1:-}" = "vider-recettes" ]; then
     chmod 600 "$BACKUP"
     echo "Base sauvegardée dans $PWD/$BACKUP (les photos des recettes ne sont pas dans la sauvegarde)"
     exec docker compose exec $TTY -u www-data app php artisan foodtruck:vider-recettes --oui "$@"
+fi
+
+if [ "${1:-}" = "vider-tickets" ]; then
+    shift
+    docker compose exec $TTY -u www-data app php artisan foodtruck:vider-tickets --apercu || exit 1
+    printf '\nATTENTION : suppression définitive de tous les tickets de caisse (et des prix relevés dessus). Pour confirmer, tape EFFACER : '
+    read -r ANSWER
+    [ "$ANSWER" = "EFFACER" ] || { echo "Annulé : rien n'a été effacé."; exit 1; }
+    mkdir -p backups
+    BACKUP="backups/foodtruck-avant-vider-tickets-$(date +%Y%m%d-%H%M%S).sql.gz"
+    docker compose exec -T db sh -c 'exec mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction --routines foodtruck' | gzip > "$BACKUP"
+    [ "$(gzip -dc "$BACKUP" | grep -c 'CREATE TABLE')" -gt 0 ] || { echo "Sauvegarde vide : arrêt, rien n'a été effacé."; rm -f "$BACKUP"; exit 1; }
+    chmod 600 "$BACKUP"
+    echo "Base sauvegardée dans $PWD/$BACKUP"
+    exec docker compose exec $TTY -u www-data app php artisan foodtruck:vider-tickets --oui "$@"
 fi
 
 exec docker compose exec $TTY -u www-data app "$@"

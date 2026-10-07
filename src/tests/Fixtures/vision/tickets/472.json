@@ -1,0 +1,347 @@
+{
+ "magasin": "E.Leclerc DRIVE",
+ "date_imprimee": "28/09/2026",
+ "lignes": [
+  {
+   "libelle": "Hauts de cuisse Eco+ - Poulet blanc - 1kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4.49",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Escalopes de poulet Eco+ - x5 - 600g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "6.09",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Poivron doux rouge - 1p",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0.99",
+   "remise": false,
+   "detail": "Origine : ESPAGNE • Catégorie : CAT-1- • Calibre : 80/100MM",
+   "doute": false
+  },
+  {
+   "libelle": "Poivron doux vert - 1p",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0.89",
+   "remise": false,
+   "detail": "Origine : FRANCE • Catégorie : CAT-1- • Calibre : 80/100MM",
+   "doute": false
+  },
+  {
+   "libelle": "Carottes Eco+ - Sachet de 2kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2.49",
+   "remise": false,
+   "detail": "Origine : FRANCE • Catégorie : CAT-2- • Calibre : 20/50MM",
+   "doute": false
+  },
+  {
+   "libelle": "Pommes de terre Grenailles - Panier du Primeur - 1kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.99",
+   "remise": false,
+   "detail": "Origine : FRANCE • Catégorie : CAT-1- • Calibre : 28/38MM • Variété : JAZZY • Nature : De consommation à chair ferme • Traitement :-",
+   "doute": false
+  },
+  {
+   "libelle": "Salade Batavia verte - 1p",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.59",
+   "remise": false,
+   "detail": "Origine : FRANCE • Catégorie : CAT-1- • Variété : BATAVIA",
+   "doute": false
+  },
+  {
+   "libelle": "Pain de mie Harrys - Nature extra moelleux - 500g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.29",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Oeufs Marque répere - De Nos Régions - x20",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4.28",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Lait entier Déliisse - UHT - Brique : 1L",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.08",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Beurre gastronomique Les Croisé - Doux - 82% MG - 25",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2.35",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Crème légère fluide UHT Déliisse - 12%mg - 3x20cl",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "3.68",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Fromage Emmental Croque - Les Croisés 10 Tranches",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.19",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Emmental Fromage râpé - Les Croisés - 3x70g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.89",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Petits Suisses Gervais - 9,5%MG - 12x60g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2.44",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Yaourts brassés Déliisse - Panaché de fruits - 16x125g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "3.25",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Crème dessert Déliisse - Vanille - 6x125g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.33",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Compote Andros - Pomme Fraise - 8x100g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2.63",
+   "remise": false,
+   "detail": "PROMO",
+   "doute": false
+  },
+  {
+   "libelle": "Compote Andros - Pomme Poire - 8x100g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2.63",
+   "remise": false,
+   "detail": "PROMO",
+   "doute": false
+  },
+  {
+   "libelle": "Jambon supérieur Eco+ - Avec couenne 6 tranches - 24",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "3.82",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Knacks pur porc Tradilège - Fumées au bois x10 - 350g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.38",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Carottes râpées Eco+ - Assaisonnées - 500g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0.82",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Salade Menu Fraîcheur - Concombre au fromage blanc",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.59",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pâte brisée Tablier Blanc - Prête à dérouler - 230g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0.65",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Boulettes de boeuf Eco+ - x30 - 900g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "7.17",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Dos de Colin d'Alaska Findus - MSC - x6 - 660g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "8.95",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Petits pois carottes Très fins - Notre Jardin -A l'étuvée -5",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "2.66",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pâtes coquillettes Panzani - 1kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.61",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Pâtes Panzani - Serpentini - 1kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.83",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Riz Basmati Comptoir du Grain - Sélection Riz long - 1k",
+   "quantite": 2,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "5.16",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Riz Risotto Comptoir du Grain - 500g",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.48",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Couscous Comptoir du Grain - Grain moyen - 1kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.50",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Mouchoirs Blancs 4 plis Caressé - 15 Etuis Pocket x9",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1.16",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "Cuisse de poulet Maître Coq - 1.4kg",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "5.00",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  }
+ ],
+ "total": "91.35"
+}

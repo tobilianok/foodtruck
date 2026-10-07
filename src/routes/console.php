@@ -91,6 +91,57 @@ Artisan::command('foodtruck:vider-recettes {--apercu : Affiche seulement ce qui 
  * ./ft php artisan foodtruck:check
  * Contrôle rapide du socle : base de données, URL publique, Authentik.
  */
+/*
+ * ./ft vider-tickets (avec sauvegarde) ou ./ft php artisan foodtruck:vider-tickets [--apercu] [--oui]
+ * v0.19.0 : supprime tous les tickets déjà importés (et les prix et libellés appris sur eux), puis relit la liste de
+ * Paperless : les tickets reviennent « à envoyer à l'IA » (rien n'est envoyé sans le bouton).
+ */
+Artisan::command('foodtruck:vider-tickets {--apercu : Affiche seulement ce qui serait effacé} {--oui : Efface sans demander confirmation}', function (ReceiptSync $sync) {
+    $counts = App\Support\ReceiptWipe::counts();
+
+    $this->info('Suppression de tous les tickets de caisse');
+    foreach ($counts as $label => $count) {
+        $this->line(sprintf('  %-32s %d', $label, $count));
+    }
+    $this->line('  Conservé : comptes, foyers, ingrédients et conditionnements, prix saisis à la main, magasins, stock, listes de courses, recettes.');
+
+    if ($this->option('apercu')) {
+        return 0;
+    }
+    if (array_sum($counts) === 0) {
+        $this->info('Rien à effacer.');
+    } else {
+        if (! $this->option('oui') && $this->ask('Pour confirmer, tape EFFACER') !== 'EFFACER') {
+            $this->warn('Annulé : rien n\'a été effacé.');
+
+            return 1;
+        }
+        // Pas pendant une lecture par l'IA (fiche ou ticket) : même verrou que le planificateur
+        $lock = Cache::lock(\App\Support\RecipeScan\RecipeLayoutRunner::LOCK, 600);
+        if (! $lock->get()) {
+            $this->error('Une analyse par l\'IA est en cours : réessaie dans quelques minutes. Rien n\'a été effacé.');
+
+            return 1;
+        }
+        try {
+            App\Support\ReceiptWipe::run();
+        } finally {
+            $lock->release();
+        }
+        $this->info('Tous les tickets sont supprimés.');
+    }
+
+    // Les tickets de Paperless reviennent aussitôt, « à envoyer à l'IA » (rien n'est envoyé sans le bouton)
+    foreach (Household::all()->filter->hasPaperless() as $household) {
+        $this->line("{$household->name} : ".ReceiptSync::summary($sync->run($household)));
+    }
+    if (App\Support\RecipeScan\VisionClient::ready()) {
+        $this->line('Envoie-les à l\'IA un par un : Plus → Tickets de caisse, bouton « Envoyer à l\'IA pour analyse ».');
+    }
+
+    return 0;
+})->purpose('Supprime tous les tickets de caisse et relit la liste de Paperless');
+
 Artisan::command('foodtruck:check', function (OidcClient $oidc) {
     $ok = fn (string $msg) => $this->line("  <fg=green>OK</>    {$msg}");
     $ko = fn (string $msg) => $this->line("  <fg=red>ERREUR</> {$msg}");
@@ -317,15 +368,17 @@ Artisan::command('foodtruck:reparse {--tout : relire aussi les tickets déjà tr
     $statuses = $this->option('tout')
         ? [\App\Models\Receipt::STATUS_TO_REVIEW, \App\Models\Receipt::STATUS_DONE]
         : [\App\Models\Receipt::STATUS_TO_REVIEW];
-    $receipts = \App\Models\Receipt::whereIn('status', $statuses)->get();
+    // v0.19.0 : les tickets qui attendent l'IA (à envoyer, en file) ne sont pas lus depuis le texte de Paperless
+    $receipts = \App\Models\Receipt::whereIn('status', $statuses)
+        ->where(fn ($q) => $q->whereNull('vision_status')->orWhereNotIn('vision_status', [\App\Models\Receipt::VISION_TO_SEND, \App\Models\Receipt::VISION_PENDING]))->get();
 
     foreach ($receipts as $receipt) {
-        $receipt->total_cents = null;
-        $processor->ingest($receipt);
+        $processor->reread($receipt);
     }
 
-    $done = $receipts->filter(fn ($r) => $r->fresh()->status === \App\Models\Receipt::STATUS_DONE)->count();
-    $this->info($receipts->count().' ticket(s) relu(s) : '.$done.' entièrement reconnu(s), '.($receipts->count() - $done).' à valider.');
+    // v0.19.0 : un ticket déjà validé et toujours entièrement reconnu reste traité ; les autres sont à valider
+    $done = $receipts->filter(fn ($r) => $r->fresh()->status === \App\Models\Receipt::STATUS_DONE || $processor->isFullyKnown($r->fresh('lines')))->count();
+    $this->info($receipts->count().' ticket(s) relu(s) : '.$done.' entièrement reconnu(s), '.($receipts->count() - $done).' avec des lignes à vérifier.');
 })->purpose('Relit les tickets avec les règles de lecture à jour');
 
 /*
@@ -400,8 +453,14 @@ Artisan::command('foodtruck:lire-fiches {--toutes : Les fiches à relire pas enc
         $this->info($counts['read'].' fiche(s) analysée(s) par l\'IA, '.$counts['failed'].' en échec (erreur affichée sur la fiche).');
     }
 
-    return $counts['failed'] > 0 ? 1 : 0;
-})->purpose('Analyse les fiches envoyées à l\'IA (Ollama), une à la fois');
+    // v0.19.0 : puis les tickets envoyés à l'IA (même verrou : un document à la fois)
+    $tickets = (new \App\Support\Receipts\ReceiptVisionRunner)->processPending(50);
+    if ($tickets['read'] + $tickets['failed'] > 0) {
+        $this->info($tickets['read'].' ticket(s) analysé(s) par l\'IA, '.$tickets['failed'].' en échec (erreur affichée sur le ticket).');
+    }
+
+    return $counts['failed'] + $tickets['failed'] > 0 ? 1 : 0;
+})->purpose('Analyse les fiches et les tickets envoyés à l\'IA (Ollama), un document à la fois');
 
 // v0.18.0 : une lecture par le modèle de vision dure 30 minutes au plus (verrou d'une heure, comme celui du lecteur)
 Schedule::command('foodtruck:lire-fiches')->everyMinute()->withoutOverlapping(60)->runInBackground();

@@ -20,7 +20,8 @@ use Throwable;
  */
 class RecipeLayoutRunner
 {
-    private const LOCK = 'foodtruck:lecture-fiches';
+    /** Un seul envoi à la fois chez Ollama : fiches de recettes et tickets (v0.19.0) partagent ce verrou. */
+    public const LOCK = 'foodtruck:lecture-fiches';
 
     /** Une lecture dure environ une minute ; 30 minutes au plus (délai de VisionClient) : verrou d'une heure. */
     private const LOCK_SECONDS = 3600;

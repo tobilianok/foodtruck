@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Foodtruck - service interne « pages » (v0.18.0) : PDF ou photo d'une fiche → images pour le modèle de vision.
-# Aucune reconnaissance de texte (c'est le modèle de srv-nas qui lit). Aucun port publié : réseau foodtruck_internal.
+# Aucune reconnaissance de texte (c'est le modèle de vision d'Ollama qui lit). Aucun port publié : réseau foodtruck_internal.
 FROM debian:bookworm-slim
 
 RUN apt-get update \
