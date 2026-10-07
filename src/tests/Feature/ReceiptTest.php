@@ -202,7 +202,13 @@ class ReceiptTest extends TestCase
         ]);
 
         $counts = (new ReceiptSync)->run($household);
-        $this->assertSame(['new' => 1, 'updated' => 0, 'auto' => 0, 'to_send' => 0, 'error' => null], $counts);
+        $this->assertSame(['new' => 1, 'updated' => 0, 'auto' => 0, 'to_send' => 0, 'visible' => 1, 'tag' => 'courses alimentaires', 'error' => null], $counts);
+
+        // v0.21.0 : rien de nouveau → le résumé dit combien de documents le compte voit et où donner le droit
+        $again = (new ReceiptSync)->run($household);
+        $this->assertSame(0, $again['new']);
+        $this->assertStringContainsString('1 document visible avec l\'étiquette « courses alimentaires »', ReceiptSync::summary($again));
+        $this->assertStringContainsString('ajoute l\'utilisateur foodtruck dans « Afficher »', ReceiptSync::summary($again));
 
         $receipt = Receipt::firstWhere('paperless_document_id', 42);
         $this->assertSame($this->leclerc->id, $receipt->store_id, 'Magasin déduit du correspondant');

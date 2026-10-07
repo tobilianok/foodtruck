@@ -14,6 +14,8 @@ use Throwable;
  * v0.19.0 : avec le modèle de vision configuré, un nouveau ticket arrive « à envoyer à l'IA » : rien n'est lu ni
  * envoyé tant que Louis n'a pas cliqué « Envoyer à l'IA pour analyse » (un document à la fois). Le texte de Paperless
  * n'est plus utilisé pour lire les articles.
+ *
+ * v0.21.0 : le résumé dit combien de documents étiquetés le compte voit (un ticket absent est un problème de droits).
  */
 class ReceiptSync
 {
@@ -21,10 +23,10 @@ class ReceiptSync
     {
     }
 
-    /** @return array{new: int, updated: int, auto: int, to_send: int, error: ?string} */
+    /** @return array{new: int, updated: int, auto: int, to_send: int, visible: int, tag: ?string, error: ?string} */
     public function run(Household $household, ?PaperlessClient $client = null): array
     {
-        $counts = ['new' => 0, 'updated' => 0, 'auto' => 0, 'to_send' => 0, 'error' => null];
+        $counts = ['new' => 0, 'updated' => 0, 'auto' => 0, 'to_send' => 0, 'visible' => 0, 'tag' => $household->paperlessTag(), 'error' => null];
         $vision = \App\Support\RecipeScan\VisionClient::ready();
 
         try {
@@ -32,7 +34,10 @@ class ReceiptSync
             $tagId = $client->tagId($household->paperlessTag());
             $correspondents = $client->correspondents();
 
-            foreach ($client->documents($tagId) as $document) {
+            $documents = $client->documents($tagId);
+            $counts['visible'] = count($documents);
+
+            foreach ($documents as $document) {
                 $id = (int) $document['id'];
                 $modified = isset($document['modified']) ? Carbon::parse($document['modified']) : null;
                 $receipt = Receipt::where('household_id', $household->id)->where('paperless_document_id', $id)->first();
@@ -97,7 +102,15 @@ class ReceiptSync
         }
 
         if ($counts['new'] + $counts['updated'] === 0) {
-            return 'Aucun nouveau ticket dans Paperless.';
+            // v0.21.0 : un ticket étiqueté mais absent est presque toujours un ticket que le compte Paperless de
+            // Foodtruck n'a pas le droit de voir (étiquette posée après l'import, modification en masse…)
+            if (! array_key_exists('visible', $counts)) {
+                return 'Aucun nouveau ticket dans Paperless.';
+            }
+            $visible = $counts['visible'];
+
+            return 'Aucun nouveau ticket dans Paperless ('.$visible.' document'.($visible > 1 ? 's' : '').' visible'.($visible > 1 ? 's' : '')
+                .' avec l\'étiquette « '.($counts['tag'] ?? '').' »). Un ticket manque ? Foodtruck n\'a sans doute pas le droit de le voir : dans Paperless, ouvre le ticket, onglet « Permissions », et ajoute l\'utilisateur foodtruck dans « Afficher ».';
         }
 
         $parts = [];

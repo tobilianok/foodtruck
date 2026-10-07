@@ -19,6 +19,14 @@ use Illuminate\Support\Str;
  *   6. contrôle quantité × prix unitaire = prix ; chiffre douteux signalé : la ligne est « à vérifier » ;
  *   7. un seul prix illisible : déduit du total (signalé, à vérifier) ;
  *   8. date recopiée telle qu'imprimée (« 24.09.26 ») puis convertie ici.
+ *
+ * v0.21.0, n'importe quelle enseigne (premier ticket Carrefour, scanné sur deux pages A4 qui se chevauchent) :
+ *   9. titres de rayon (« << BOISSONS >> ») écartés ;
+ *  10. lettre de TVA en tête de libellé (« D PET 1.5L ORANGINA ») retirée quand la plupart des articles en ont une ;
+ *  11. le ticket s'arrête au total : ce que l'IA a recopié après (coupons, cagnotte, détail des promotions, avantages
+ *      fidélité) est écarté quand le début des lignes retombe exactement sur le total imprimé ;
+ *  12. lignes recopiées deux fois de suite (fin d'une page répétée au début de la suivante) : le second exemplaire est
+ *      écarté, seulement si le compte retombe alors au centime sur le total.
  */
 class VisionReceiptParser
 {
@@ -39,11 +47,17 @@ class VisionReceiptParser
     /** Débuts de libellés qui ne sont pas des articles. */
     private const NOT_ARTICLE = '/^\s*(?:nombre\s+d[e\'’]?\s*(?:lignes?|articles?)|nb\.?\s+articles?|sous[- ]?total|s\/total|total\b|(?:net\s+)?[àa]\s+payer|montant\b|carte\s+bancaire|cb\b|esp[eè]ces|rendu\b|monnaie\b|t\.?v\.?a\b|avec\s+lidl\s+plus|vous\s+avez\s+[ée]conomis)/iu';
 
+    /** Titre de rayon : « << BOISSONS >> », « ** EPICERIE ** », « -- FRAIS -- ». */
+    private const SECTION = '/^\s*(?:<<|«|\*{2,}|={2,}|-{2,}).*(?:>>|»|\*{2,}|={2,}|-{2,})\s*$/u';
+
+    /** Lettre de TVA en tête de libellé (Carrefour : « D PET 1.5L ORANGINA », « F FRIGOBLOC »). */
+    private const VAT_PREFIX = '/^[A-Z]\s+(?=\S{2,})/u';
+
     /** Écart toléré entre quantité × prix unitaire et le prix (arrondis du magasin). */
     private const TOLERANCE = 0.02;
 
     /**
-     * @return array{lines: array<int, array<string, mixed>>, total_cents: ?int, date: ?string, expected_lines: null, unread: array<int, string>, store_text: string}
+     * @return array{lines: array<int, array<string, mixed>>, total_cents: ?int, date: ?string, expected_lines: null, unread: array<int, string>, ignored: array<int, string>, store_text: string}
      */
     public function parse(array $answer): array
     {
@@ -54,7 +68,7 @@ class VisionReceiptParser
                 continue;
             }
             $label = trim(preg_replace('/\s+/u', ' ', (string) ($line['libelle'] ?? '')));
-            if ($label === '' || preg_match(self::NOT_ARTICLE, $label) === 1) {
+            if ($label === '' || preg_match(self::NOT_ARTICLE, $label) === 1 || preg_match(self::SECTION, $label) === 1) {
                 continue;
             }
             $last = array_key_last($rows);
@@ -75,9 +89,24 @@ class VisionReceiptParser
             $read[] = $this->interpret($line);
         }
 
-        // 7. Un seul prix illisible : déduit du total
         $total = self::amount($answer['total'] ?? null);
         $total = $total !== null && $total > 0 ? $total : null;
+
+        // 11 et 12. Ce qui suit le total, lignes répétées d'une page à l'autre
+        $ignored = [];
+        if ($total !== null) {
+            [$read, $ignored] = self::fitTotal($read, (int) round($total * 100));
+        }
+
+        // 10. Lettre de TVA en tête de libellé, quand la plupart des lignes gardées en ont une
+        $prefixed = count(array_filter($read, fn ($r) => preg_match(self::VAT_PREFIX, $r['label']) === 1));
+        if (count($read) >= 3 && $prefixed >= 0.6 * count($read)) {
+            foreach ($read as $i => $r) {
+                $read[$i]['label'] = preg_replace(self::VAT_PREFIX, '', $r['label']);
+            }
+        }
+
+        // 7. Un seul prix illisible : déduit du total
         $missing = array_keys(array_filter($read, fn ($r) => $r['price'] === null));
         $unread = [];
         if (count($missing) === 1 && $total !== null) {
@@ -128,6 +157,7 @@ class VisionReceiptParser
             'date' => self::date($answer['date_imprimee'] ?? ($answer['date'] ?? null)),
             'expected_lines' => null,
             'unread' => $unread,
+            'ignored' => $ignored,
             'store_text' => Str::limit(trim((string) ($answer['magasin'] ?? '')), 120, ''),
         ];
     }
@@ -207,6 +237,66 @@ class VisionReceiptParser
             'note' => $note,
             'uncertain' => $uncertain,
         ];
+    }
+
+    /**
+     * Lignes qui retombent au centime sur le total imprimé : telles quelles si c'est déjà le cas ; sinon sans ce qui suit
+     * le total (11), au besoin après avoir retiré une série de lignes recopiée deux fois de suite (12). Rien n'est
+     * retiré si aucune de ces corrections ne retombe exactement sur le total, ni si un prix est illisible.
+     *
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, string>} lignes gardées, libellés écartés
+     */
+    private static function fitTotal(array $read, int $total): array
+    {
+        if ($read === [] || in_array(null, array_column($read, 'price'), true)) {
+            return [$read, []];
+        }
+
+        $fit = self::cutAtTotal($read, $total);
+        if ($fit !== null) {
+            return $fit;
+        }
+
+        // Série répétée juste après elle-même (2 lignes au moins : deux articles identiques à la suite sont courants)
+        $key = fn (array $r) => mb_strtolower($r['label']).'|'.(int) round($r['price'] * 100);
+        $keys = array_map($key, $read);
+        $n = count($keys);
+        for ($length = intdiv($n, 2); $length >= 2; $length--) {
+            for ($i = 0; $i + 2 * $length <= $n; $i++) {
+                if (array_slice($keys, $i, $length) !== array_slice($keys, $i + $length, $length)) {
+                    continue;
+                }
+                $removed = array_slice($read, $i + $length, $length);
+                $rest = array_merge(array_slice($read, 0, $i + $length), array_slice($read, $i + 2 * $length));
+                $fit = self::cutAtTotal($rest, $total);
+                if ($fit !== null) {
+                    return [$fit[0], array_merge(array_column($removed, 'label'), $fit[1])];
+                }
+            }
+        }
+
+        return [$read, []];
+    }
+
+    /** @return ?array{0: array<int, array<string, mixed>>, 1: array<int, string>} */
+    private static function cutAtTotal(array $read, int $total): ?array
+    {
+        $sums = [];
+        $sum = 0;
+        foreach ($read as $i => $r) {
+            $sum += (int) round($r['price'] * 100);
+            $sums[$i] = $sum;
+        }
+        if ($sum === $total) {
+            return [$read, []];
+        }
+        for ($k = count($read) - 2; $k >= 0; $k--) {
+            if ($sums[$k] === $total) {
+                return [array_slice($read, 0, $k + 1), array_column(array_slice($read, $k + 1), 'label')];
+            }
+        }
+
+        return null;
     }
 
     /** « 2,83 », « -0,71 », « 12,19 € », « 4.49 », « 1,79 EUR » → 2.83, -0.71… ; null si illisible. */

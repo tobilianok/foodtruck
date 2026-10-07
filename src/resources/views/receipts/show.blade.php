@@ -42,6 +42,15 @@
                 @endforeach
             </div>
         @endif
+        @if (! empty($ignored))
+            {{-- v0.21.0 : lignes recopiées par l'IA mais écartées pour retomber au centime sur le total imprimé --}}
+            <details class="hint small">
+                <summary>{{ count($ignored) }} ligne{{ count($ignored) > 1 ? 's' : '' }} recopiée{{ count($ignored) > 1 ? 's' : '' }} par l'IA mais écartée{{ count($ignored) > 1 ? 's' : '' }} (après le total, ou en double d'une page à l'autre)</summary>
+                @foreach ($ignored as $label)
+                    <span class="mono">« {{ $label }} »</span>@if (! $loop->last), @endif
+                @endforeach
+            </details>
+        @endif
         @if ($receipt->paperlessUrl())
             <p class="small"><a href="{{ $receipt->paperlessUrl() }}" target="_blank" rel="noopener">Voir le ticket dans Paperless ↗</a></p>
         @endif

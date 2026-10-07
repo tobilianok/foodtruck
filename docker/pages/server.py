@@ -4,7 +4,8 @@
                  → {"pages": ["<PNG en base64>", ...]}  4 pages au plus, 2600 pixels au plus de côté, couleur
                  En-tête X-Mode: ticket (v0.19.0) : un ticket long et étroit (Lidl Plus : 1290 × 8648 pixels) est découpé
                  en morceaux successifs lisibles (voir decouper) ; les pages ordinaires (A4 du Leclerc Drive) sont
-                 rendues comme d'habitude.
+                 rendues comme d'habitude. v0.21.0 : chaque page est recadrée sur le ticket (ticket scanné sur une
+                 page A4 à la photocopieuse, photo), voir cadre_ticket.
     GET  /sante  → {"ok": true, "poppler": "…"}
 
 Aucune reconnaissance de texte ici : la lecture est faite par le modèle de vision (Ollama sur le PC de Louis). Uniquement
@@ -155,8 +156,63 @@ def tailles_pdf(source):
             for m in re.finditer(r'^Page\s+(\d+)\s+size:\s+([\d.]+)\s+x\s+([\d.]+)', sortie, re.M)}
 
 
+def cadre_ticket(image):
+    """v0.21.0 : rectangle (x1, y1, x2, y2) du ticket dans la page, ou None. Un ticket scanné à la photocopieuse n'occupe
+    qu'une bande de la page A4 : sans ce recadrage, Ollama réduit la page entière et le ticket ne fait plus que ~300 pixels
+    de large (centimes illisibles). Les poussières du scanner et les traits du bord de la vitre sont ignorés : on garde
+    les colonnes où il y a vraiment de l'encre (au moins 0,4 % des lignes de pixels), hors du 1 % du bord de la page."""
+    masque = _encre(image)
+    largeur, hauteur = masque.size
+    bord_x, bord_y = max(2, largeur // 100), max(2, hauteur // 100)
+    interieur = masque.crop((bord_x, bord_y, largeur - bord_x, hauteur - bord_y))
+    w, h = interieur.size
+    if w < 20 or h < 20:
+        return None
+    colonnes = [v * h / 255 for v in interieur.resize((w, 1), Image.BOX).tobytes()]
+    seuil = max(3, h * 0.004)
+    denses = [x for x, v in enumerate(colonnes) if v >= seuil]
+    if not denses:
+        return None
+    # Blocs de colonnes séparés par plus de 3 % de blanc ; on garde ceux qui pèsent au moins 8 % du plus gros
+    ecart = max(8, w * 3 // 100)
+    blocs, debut, avant = [], denses[0], denses[0]
+    for x in denses[1:]:
+        if x - avant > ecart:
+            blocs.append((debut, avant))
+            debut = x
+        avant = x
+    blocs.append((debut, avant))
+    poids = [sum(colonnes[a:b + 1]) for a, b in blocs]
+    gardes = [blocs[i] for i, p in enumerate(poids) if p >= 0.08 * max(poids)]
+    x1, x2 = min(a for a, _ in gardes), max(b for _, b in gardes) + 1
+    lignes = [v * (x2 - x1) / 255 for v in interieur.crop((x1, 0, x2, h)).resize((1, h), Image.BOX).tobytes()]
+    pleines = [y for y, v in enumerate(lignes) if v >= 2]
+    if not pleines:
+        return None
+    y1, y2 = pleines[0], pleines[-1] + 1
+    marge = max(10, largeur // 100)
+    return (max(0, x1 + bord_x - marge), max(0, y1 + bord_y - marge),
+            min(largeur, x2 + bord_x + marge), min(hauteur, y2 + bord_y + marge))
+
+
+def _rendre(source, workdir, n, taille):
+    prefixe = os.path.join(workdir, 'p%d-%s' % (n, taille[1]))
+    run(['pdftoppm', *taille, '-f', str(n), '-l', str(n), '-png', source, prefixe])
+    noms = sorted(x for x in os.listdir(workdir) if x.startswith(os.path.basename(prefixe)) and x.endswith('.png'))
+    if not noms:
+        return None
+    with Image.open(os.path.join(workdir, noms[0])) as image:
+        return image.convert('RGB')
+
+
 def ticket(body, mime, dpi):
-    """v0.19.0 : images d'un ticket. Pages longues découpées en morceaux, pages ordinaires rendues à `dpi`."""
+    """Images d'un ticket, prêtes pour le modèle de vision.
+
+    v0.19.0 : page longue (Lidl Plus) découpée en morceaux, pages ordinaires rendues à `dpi`.
+    v0.21.0 : chaque page est d'abord recadrée sur le ticket (ticket scanné sur une page A4, photo avec des marges) et
+    rendue assez fine pour que le ticket fasse ~LARGEUR pixels de large (300 dpi au plus) ; le ticket recadré est découpé
+    s'il est long. Un bon de commande A4 qui occupe toute la page (Leclerc Drive) reste rendu à `dpi`.
+    """
     images = []
     if body[:5] == b'%PDF-' or mime == 'application/pdf':
         with tempfile.TemporaryDirectory(prefix='foodtruck-pages-') as workdir:
@@ -168,28 +224,43 @@ def ticket(body, mime, dpi):
                 if tailles and n not in tailles:
                     break
                 w, h = tailles.get(n, (0, 0))
+                long_pdf = h > LONG * w > 0
                 # Ticket long : rendu à 1600 pixels de large (assez pour la découpe, sans image géante)
-                taille = ['-scale-to-x', '1600', '-scale-to-y', '-1'] if h > LONG * w > 0 else ['-r', str(dpi)]
-                prefixe = os.path.join(workdir, 'p%d' % n)
+                taille = ['-scale-to-x', '1600', '-scale-to-y', '-1'] if long_pdf else ['-r', str(dpi)]
                 try:
-                    run(['pdftoppm', *taille, '-f', str(n), '-l', str(n), '-png', source, prefixe])
+                    image = _rendre(source, workdir, n, taille)
                 except PagesError:
                     if n == 1:
                         raise
                     break
-                noms = sorted(x for x in os.listdir(workdir) if x.startswith('p%d' % n) and x.endswith('.png'))
-                if not noms:
+                if image is None:
                     break
-                with Image.open(os.path.join(workdir, noms[0])) as image:
-                    images.append(image.convert('RGB'))
+                # Ticket long (Lidl Plus) : déjà au format, decouper retire ses marges (réglages validés en v0.19.0)
+                cadre = None if long_pdf else cadre_ticket(image)
+                if cadre:
+                    largeur = cadre[2] - cadre[0]
+                    if largeur < LARGEUR * 0.95 and dpi < 300:
+                        # Ticket étroit dans une page : rendu plus fin, pour qu'il garde ~LARGEUR pixels de large
+                        fin = min(300, -(-dpi * LARGEUR // max(1, largeur)))
+                        if fin > dpi:
+                            try:
+                                plus_fin = _rendre(source, workdir, n, ['-r', str(fin)])
+                            except PagesError:
+                                plus_fin = None
+                            if plus_fin is not None:
+                                image, cadre = plus_fin, cadre_ticket(plus_fin)
+                if cadre:
+                    image = image.crop(cadre)
+                images.append(image)
         if not images:
             raise PagesError('PDF sans page lisible.')
     else:
         try:
-            image = Image.open(io.BytesIO(body))
-            images.append(ImageOps.exif_transpose(image).convert('RGB'))
+            image = ImageOps.exif_transpose(Image.open(io.BytesIO(body))).convert('RGB')
         except Exception as e:
             raise PagesError(f'Fichier illisible ({mime}) : {e}')
+        cadre = cadre_ticket(image)
+        images.append(image.crop(cadre) if cadre else image)
 
     out = []
     for image in images:

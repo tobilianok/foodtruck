@@ -1,0 +1,247 @@
+{
+ "magasin": "Carrefour Hypermarché Vichy",
+ "date_imprimee": "lun. 05/10/26",
+ "total": "60,64",
+ "lignes": [
+  {
+   "libelle": "<< BOISSONS >>",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": null,
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D PET 1.5L ORANGINA REG ORA",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "3,78",
+   "remise": false,
+   "detail": "2 x 1.89 €",
+   "doute": false
+  },
+  {
+   "libelle": "<< EPICERIE >>",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": null,
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D 500G ESPRESSO INT 7 GRAIN",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "9,55",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D 500G ESPRESSO INT 9 GRAIN",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "8,30",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "<< CHARCUT.TRAITEUR >>",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": null,
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D CANTAL JEUNE AOP 1/4",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4,71",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D BEAUMONT DE SAVOIE",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "3,94",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "<< FRUITS ET LEGUMES >>",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": null,
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D BANANES",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,83",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D POIRE ROCHAS VRAC",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "1,71",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D BQ 500G FIGU VIOLT RDF FR",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "6,99",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "D KIWI VERT PIECE",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4,14",
+   "remise": false,
+   "detail": "6 x 0.69 €",
+   "doute": false
+  },
+  {
+   "libelle": "Remise",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "-0,26",
+   "remise": true,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "<< LIBRAIRIE >>",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": null,
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "F FRIGOBLOC MENSUEL 27 ART",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "15,95",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "COUPON CARREFOUR",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4,98",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "COUPON CARREFOUR",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0,95",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "PROMOTIONS",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "6,19",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "500G ESPRESSO INT 9 GRAIN",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4,98",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "PET 1.5L ORANGINA REG ORA",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0,95",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "KIWI VERT PIECE",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0,26",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "500G ESPRESSO INT 9 GRAIN",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "4,98",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  },
+  {
+   "libelle": "PET 1.5L ORANGINA REG ORA",
+   "quantite": 1,
+   "unite": "pièce",
+   "prix_unitaire": null,
+   "prix": "0,95",
+   "remise": false,
+   "detail": null,
+   "doute": false
+  }
+ ]
+}

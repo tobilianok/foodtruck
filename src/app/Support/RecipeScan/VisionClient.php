@@ -43,9 +43,11 @@ TXT;
      * v0.19.0 : consigne des tickets de caisse, validée par l'essai du 7 octobre 2026 sur les 6 tickets de Louis
      * (Leclerc Drive et Lidl Plus : les 6 totaux justes au centime avec les règles du code). Le modèle recopie ; c'est le code
      * (Receipts\VisionReceiptParser) qui interprète et contrôle : pesées, poids, remises, total.
+     * v0.21.0 : n'importe quelle enseigne (Carrefour) : pages scannées qui se chevauchent, titres de rayon, lettre de
+     * TVA en tête de libellé et tout ce qui suit le total sont signalés au modèle (et filtrés par le code de toute façon).
      */
     public const RECEIPT_PROMPT = <<<'TXT'
-Voici un ticket de caisse (ou un bon de commande de drive). Un ticket long est envoyé en plusieurs images : ce sont des morceaux successifs du même ticket, de haut en bas, coupés entre deux lignes (aucune ligne n'est répétée d'une image à l'autre). Recopie-le exactement tel qu'il est imprimé, sans rien inventer, sans rien calculer, sans rien corriger.
+Voici un ticket de caisse (ou un bon de commande de drive), de n'importe quelle enseigne. Un ticket long est envoyé en plusieurs images : ce sont des morceaux successifs du même ticket, de haut en bas. S'il a été scanné en plusieurs pages, le bas d'une page peut se répéter en haut de la suivante : recopie chaque ligne une seule fois. Recopie le ticket exactement tel qu'il est imprimé, sans rien inventer, sans rien calculer, sans rien corriger.
 
 - magasin : l'enseigne (et la ville si elle est imprimée).
 - date_imprimee : la date d'achat recopiée exactement telle qu'imprimée (« 24.09.26 », « 02/10/2025 »), sans la convertir ; sinon null.
@@ -61,7 +63,7 @@ Voici un ticket de caisse (ou un bon de commande de drive). Un ticket long est e
   Une ligne de détail fait partie de l'article du dessus : recopie-la dans son champ « detail », jamais comme une ligne à part.
 - total : le montant total à payer (« A payer », « Total », « Montant TTC »), recopié en texte (« 109,09 »).
 
-Ignore tout le reste : le nombre de lignes, les sous-totaux, les moyens de paiement, le rendu de monnaie, le récapitulatif de TVA, le « Total Promotion », les économies réalisées, les points et offres de fidélité, le code-barres, les messages publicitaires et les mentions légales.
+Ignore tout le reste : les titres de rayon (« << BOISSONS >> »), la lettre de TVA en tête de libellé, le nombre de lignes, les sous-totaux, tout ce qui est imprimé après le total (coupons, cagnotte, détail des promotions), les moyens de paiement, le rendu de monnaie, le récapitulatif de TVA, le « Total Promotion », les économies réalisées, les points et offres de fidélité, le code-barres, les messages publicitaires et les mentions légales.
 TXT;
 
     /** Réglages des tickets : jusqu'à ~12 000 jetons d'image (3 pages A4) et des réponses longues (drive de 60 articles). */

@@ -200,6 +200,45 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - v0.18.1 : le script (foodtruck-update-v0.18.1.sh) exige la v0.18.0, sauvegarde la base, applique le correctif, lance les tests, migre, recharge foodtruck-app et foodtruck-scheduler, vérifie le site (retour arrière automatique sinon), puis remet « à envoyer » les fiches à relire pas encore lues par l'IA. Aucune image à reconstruire.
 - srv-nas : Ollama désactivé (sudo systemctl disable --now ollama) ; désinstallation complète possible (voir srv-nas-ollama-install.sh).
 
+## N'importe quel ticket (v0.21.0)
+
+- Le script (foodtruck-update-v0.21.0.sh) exige la v0.20.1 et un dépôt propre, refuse de tourner pendant une analyse par l'IA, sauvegarde la base, applique le correctif vérifié, garde l'image foodtruck-pages en place sous le nom foodtruck-pages:avant-v0.21.0, reconstruit foodtruck-pages (recadrage des tickets scannés), lance les tests, recrée foodtruck-pages, vérifie le recadrage dans le conteneur, recharge foodtruck-app et foodtruck-scheduler et vérifie le site. Retour arrière automatique (correctif retiré, ancienne image remise) si une étape échoue. Aucune migration.
+- Après coup, l'ancienne image peut être supprimée : docker image rm foodtruck-pages:avant-v0.21.0
+
+### Un ticket n'arrive pas dans Foodtruck
+
+- Foodtruck ne voit que les documents que le compte Paperless « foodtruck » a le droit d'afficher. Depuis la v0.21.0, « Synchroniser Paperless » dit combien de documents étiquetés il voit.
+- Partage à la main d'un ticket : Paperless → le ticket → onglet « Permissions » → « Afficher » : utilisateur foodtruck → Enregistrer.
+- Diagnostic (lecture seule) : quels tickets étiquetés foodtruck voit, et réglages des workflows.
+
+      cd /opt/stacks/paperless && docker compose exec -T webserver python3 manage.py shell -c "
+      NOM = 'courses alimentaires'
+      from django.contrib.auth.models import User
+      from documents.models import Tag, Document
+      from guardian.shortcuts import get_perms
+      u = User.objects.get(username='foodtruck')
+      t = Tag.objects.get(name__iexact=NOM)
+      vu = lambda o, p: o is not None and (o.owner_id is None or p in get_perms(u, o))
+      docs = Document.objects.filter(tags=t).order_by('id')
+      print('Etiquette', t.name, ': visible par foodtruck =', vu(t, 'view_tag'), '|', docs.count(), 'document(s)')
+      for d in docs:
+          c = d.correspondent
+          print('  n.', d.id, '| visible :', 'oui' if vu(d, 'view_document') else 'NON', '| magasin', c.name if c else '-', ':', ('oui' if vu(c, 'view_correspondent') else 'NON') if c else '-', '| proprietaire :', d.owner.username if d.owner else 'aucun', '|', d.title)
+      try:
+          from documents.models import Workflow
+          for w in Workflow.objects.all().order_by('order'):
+              print('Workflow', repr(w.name), 'actif' if w.enabled else 'DESACTIVE')
+              for tr in w.triggers.all():
+                  print('   declencheur :', tr.get_type_display(), '| etiquettes :', ', '.join(x.name for x in tr.filter_has_tags.all()) or '-')
+              for a in w.actions.all():
+                  print('   action : afficher pour', ', '.join(x.username for x in a.assign_view_users.all()) or '-')
+      except Exception as e:
+          print('Workflows illisibles :', e)
+      "
+
+- Correction : le script assign_perm de la section Paperless (plus haut) donne le droit « Afficher » à foodtruck sur l'étiquette, tous ses documents et leurs magasins, sans doublon. Pour les tickets à venir, le workflow des tickets doit avoir deux déclencheurs, « Document ajouté » ET « Document mis à jour », chacun filtré sur l'étiquette « courses alimentaires », avec l'action « Affecter des autorisations de consultation » → foodtruck (comme celui des recettes).
+- 2026-10-07 : ticket Carrefour n° 519 absent de Foodtruck (« Aucun nouveau ticket ») ; diagnostic ci-dessus demandé à Louis.
+
 ## Unités dans les recettes (v0.20.1)
 
 - Le script (foodtruck-update-v0.20.1.sh) exige la v0.20.0 et un dépôt propre, sauvegarde la base, applique le correctif vérifié, lance les tests, recharge foodtruck-app et foodtruck-scheduler et vérifie le site (retour arrière automatique sinon). Aucune migration, aucune image.

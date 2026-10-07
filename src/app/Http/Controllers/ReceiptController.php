@@ -203,6 +203,7 @@ class ReceiptController extends Controller
             'lists' => $receipt->household->shoppingLists()->limit(8)->get(),
             'problems' => $receipt->lines->where('kind', 'produit')->mapWithKeys(fn (ReceiptLine $l) => [$l->id => self::problem($l)])->filter()->all(),
             'fullyKnown' => (new ReceiptProcessor)->isFullyKnown($receipt),
+            'ignored' => ($answer = $receipt->visionAnswer()) !== null ? (new VisionReceiptParser)->parse($answer)['ignored'] : [],
         ]);
     }
 

@@ -146,6 +146,57 @@ class VisionReceiptParserTest extends TestCase
         $this->assertSame([1.0, 'piece', 609], [$escalopes['quantity'], $escalopes['quantity_unit'], $escalopes['total_cents']]);
     }
 
+    /**
+     * v0.21.0 : ticket Carrefour (Paperless n° 519, scanné sur deux pages A4 qui se chevauchent), réponse simulée dans
+     * le pire des cas : titres de rayon sans prix, lettre de TVA en tête des libellés, coupons et détail des promotions
+     * recopiés après le total, page 2 qui répète le bas de la page 1.
+     */
+    public function test_ticket_carrefour_sections_tva_et_lignes_apres_le_total(): void
+    {
+        $parsed = (new VisionReceiptParser)->parse(self::answer('simule-carrefour'));
+
+        $this->assertSame(6064, $parsed['total_cents']);
+        $this->assertSame(6064, self::paid($parsed));
+        $this->assertSame('2026-10-05', $parsed['date']);
+        $this->assertSame([], $parsed['unread'], 'Les titres de rayon ne sont pas des prix illisibles');
+        $labels = array_column($parsed['lines'], 'label');
+        $this->assertSame(['PET 1.5L ORANGINA REG ORA', '500G ESPRESSO INT 7 GRAIN', '500G ESPRESSO INT 9 GRAIN', 'CANTAL JEUNE AOP 1/4',
+            'BEAUMONT DE SAVOIE', 'BANANES', 'POIRE ROCHAS VRAC', 'BQ 500G FIGU VIOLT RDF FR', 'KIWI VERT PIECE', 'FRIGOBLOC MENSUEL 27 ART'], $labels);
+        $this->assertCount(8, $parsed['ignored']);
+        $this->assertSame('COUPON CARREFOUR', $parsed['ignored'][0]);
+
+        $orangina = self::line($parsed, 'PET 1.5L ORANGINA REG ORA');
+        $this->assertSame([2.0, 'piece', 189, 378], [$orangina['quantity'], $orangina['quantity_unit'], $orangina['unit_price_cents'], $orangina['total_cents']]);
+        $kiwi = self::line($parsed, 'KIWI VERT PIECE');
+        $this->assertSame([6.0, 69, 26], [$kiwi['quantity'], $kiwi['unit_price_cents'], $kiwi['discount_cents']]);
+    }
+
+    public function test_pages_qui_se_chevauchent(): void
+    {
+        $line = fn (string $label, string $price) => ['libelle' => $label, 'quantite' => 1, 'unite' => 'pièce', 'prix_unitaire' => null, 'prix' => $price, 'remise' => false, 'detail' => null, 'doute' => false];
+        $answer = fn (array $lines, string $total) => ['magasin' => 'Intermarché', 'date_imprimee' => '03/10/26', 'total' => $total, 'lignes' => $lines];
+
+        // Bas de la page 1 (Lait, Oeufs, Beurre) répété en haut de la page 2
+        $parsed = (new VisionReceiptParser)->parse($answer([$line('Pain', '1,20'), $line('Lait', '0,95'), $line('Oeufs', '2,40'), $line('Beurre', '2,10'),
+            $line('Lait', '0,95'), $line('Oeufs', '2,40'), $line('Beurre', '2,10'), $line('Pommes', '3,05')], '9,70'));
+        $this->assertSame(['Pain', 'Lait', 'Oeufs', 'Beurre', 'Pommes'], array_column($parsed['lines'], 'label'));
+        $this->assertSame(['Lait', 'Oeufs', 'Beurre'], $parsed['ignored']);
+
+        // Deux articles identiques à la suite : un vrai achat, gardé
+        $parsed = (new VisionReceiptParser)->parse($answer([$line('Yaourt', '1,10'), $line('Yaourt', '1,10'), $line('Pain', '1,20')], '3,40'));
+        $this->assertCount(3, $parsed['lines']);
+        $this->assertSame([], $parsed['ignored']);
+
+        // Série répétée mais le total le confirme (deux fois le même panier) : rien n'est retiré
+        $parsed = (new VisionReceiptParser)->parse($answer([$line('Lait', '0,95'), $line('Oeufs', '2,40'), $line('Lait', '0,95'), $line('Oeufs', '2,40')], '6,70'));
+        $this->assertCount(4, $parsed['lines']);
+
+        // Aucune correction ne retombe sur le total : tout est gardé (la différence est signalée sur la page du ticket)
+        $parsed = (new VisionReceiptParser)->parse($answer([$line('Pain', '1,20'), $line('Lait', '0,95'), $line('Coupon', '0,50')], '3,00'));
+        $this->assertCount(3, $parsed['lines']);
+        $this->assertSame([], $parsed['ignored']);
+    }
+
     public function test_montants_et_dates(): void
     {
         $this->assertSame(2.83, VisionReceiptParser::amount('2,83'));

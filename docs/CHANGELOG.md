@@ -1,5 +1,19 @@
 # Journal des versions - Foodtruck
 
+## v0.21.0 - 2026-10-07 - N'importe quel ticket, de n'importe quelle enseigne (premier ticket Carrefour)
+
+- Signalé par Louis : ticket Carrefour (Paperless n° 519, étiquette « courses alimentaires ») absent de Foodtruck, « Aucun nouveau ticket dans Paperless. ». Cause : le compte Paperless « foodtruck » ne voit que les documents sur lesquels il a le droit « Afficher » (workflow Paperless ou script) ; ce ticket n'en avait pas. Réglé côté Paperless (diagnostic puis droits, voir DEPLOIEMENT.md « Un ticket n'arrive pas dans Foodtruck »). Demande de Louis : « pouvoir importer n'importe quel ticket de caisse de n'importe quelle enseigne ».
+- Synchronisation : quand rien n'est nouveau, le message dit combien de documents étiquetés le compte voit et comment partager un ticket manquant (Paperless → le ticket → onglet « Permissions » → « Afficher » : foodtruck).
+- Tickets scannés à la photocopieuse (le ticket n'occupe qu'une bande d'une page A4, comme ce Carrefour) : chaque page est recadrée sur le ticket et rendue assez fine pour qu'il garde ~1 000 pixels de large, puis découpée en morceaux lisibles. Avant, la page A4 entière partait et le modèle la réduisait : le ticket ne faisait plus que ~300 pixels de large (centimes illisibles). Poussières du scanner et traits du bord de la vitre ignorés. Tickets Lidl Plus (PDF longs) : préparation inchangée (mêmes morceaux qu'en v0.19.0, vérifié sur les tickets 476 et 478) ; photos de ticket recadrées aussi.
+- Lecture, règles valables pour toutes les enseignes :
+  - titres de rayon (« << BOISSONS >> ») écartés : ce ne sont plus des « lignes illisibles » ;
+  - lettre de TVA en tête des libellés (« D PET 1.5L ORANGINA », « F FRIGOBLOC ») retirée quand la plupart des articles en ont une ;
+  - le ticket s'arrête au total : ce que l'IA recopierait après (coupons, cagnotte, détail des promotions, avantages fidélité) est écarté quand le début des lignes retombe exactement sur le total imprimé ;
+  - ticket scanné en plusieurs pages qui se chevauchent : les lignes recopiées deux fois de suite sont écartées, seulement si le compte retombe alors au centime sur le total (deux articles identiques à la suite restent deux achats) ;
+  - les lignes écartées sont listées sur la page du ticket (« N lignes recopiées par l'IA mais écartées ») ;
+  - consigne de l'IA : « de n'importe quelle enseigne », pages qui se chevauchent, titres de rayon, lettre de TVA et ce qui suit le total signalés.
+- Image foodtruck-pages reconstruite. Aucune migration. 290 tests automatisés (ticket Carrefour simulé dans le pire des cas, pages qui se chevauchent).
+
 ## v0.20.1 - 2026-10-07 - « Choisir mes repas » mène au planning ; ml d'un produit compté à la pièce sans aller-retour
 
 - Demandes de Louis :

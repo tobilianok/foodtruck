@@ -127,7 +127,7 @@ class ReceiptVisionTest extends TestCase
 
         $this->actingAs($this->user)->get('/tickets/'.$receipt->id.'/ia')->assertOk()
             ->assertSee('Images envoyées')->assertSee('Morceau 4')->assertSee(self::VISION)->assertSee('qwen3-vl:8b-instruct-q8_0')
-            ->assertSee('date_imprimee')->assertSee('Recopie-le exactement tel qu', false);
+            ->assertSee('date_imprimee')->assertSee('Recopie le ticket exactement tel qu', false);
 
         // Mode ticket demandé à foodtruck-pages ; rien vers Ollama
         Http::assertSent(fn (Request $r) => $r->url() === self::PAGES.'/pages' && $r->header('X-Mode') === ['ticket']);
@@ -166,6 +166,21 @@ class ReceiptVisionTest extends TestCase
         $page = $this->actingAs($this->user)->get('/tickets/'.$receipt->id)->assertOk();
         $page->assertSee('Lu par l\'IA (qwen3-vl:8b-instruct-q8_0)', false)->assertSee('Somme des lignes = total')
             ->assertSee('receipt-fix', false)->assertSee('Valider le ticket et enregistrer les prix')->assertSee('Ce que l\'IA a recopié', false);
+    }
+
+    /** v0.21.0 : ticket Carrefour (n'importe quelle enseigne) : lignes après le total écartées et montrées à Louis. */
+    public function test_ticket_carrefour_lignes_ecartees_visibles(): void
+    {
+        $receipt = $this->readByAi('simule-carrefour');
+
+        $this->assertSame(Receipt::VISION_DONE, $receipt->vision_status);
+        $this->assertSame(6064, $receipt->total_cents);
+        $this->assertSame(6064, $receipt->linesTotalCents());
+        $this->assertSame('2026-10-05', $receipt->purchased_on->toDateString());
+        $this->actingAs($this->user)->get('/tickets/'.$receipt->id)->assertOk()
+            ->assertSee('8 lignes recopiées par l\'IA mais écartées', false)
+            ->assertSee('COUPON CARREFOUR')
+            ->assertSee('FRIGOBLOC MENSUEL 27 ART');
     }
 
     public function test_corrections_faites_dans_la_fenetre(): void
