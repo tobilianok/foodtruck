@@ -1,5 +1,14 @@
 # Journal des versions - Foodtruck
 
+## v0.20.0 - 2026-10-07 - Accueil cohérent : étapes établies par les faits, plus de liste de courses vide
+
+- Signalé par Louis : camion sur « Courses » alors que le planning et la liste étaient vides. Cause : l'accueil regardait seulement s'il existait une liste ouverte ; il restait deux listes vides du 5 au 11 octobre (une ouverte, une classée), calculées avant la suppression des recettes. Supprimées à la main le 2026-10-07 (sauvegarde faite), et la migration de cette version fait le même ménage.
+- Choix de Louis : étapes établies par les faits avec une ligne d'état ; bandeau « planning changé » avec mise à jour en un clic ; listes vides supprimées automatiquement.
+- Accueil : chaque étape est cliquable et dit où on en est vraiment : « 2 plats cette semaine » / « Aucun plat cette semaine », « 8 articles à acheter » / « À mettre à jour » / « Pas encore de liste », « 3 / 8 cochés » / « Terminées le 05/10 », « 1 ticket à traiter » / « Ticket rattaché » / « En attente du ticket ».
+- Planning modifié après la création de la liste (et rien encore coché) : le camion revient sur « Liste », « Ton planning a changé », bouton « Mettre à jour la liste » (articles ajoutés à la main, magasins choisis et cases cochées gardés). Courses déjà commencées : on reste sur « Courses », avec un rappel ; le bandeau de la liste fait la mise à jour.
+- Plus jamais de liste vide : une liste sans article, sans ticket rattaché et sans produit rangé en stock est supprimée (à l'accueil, sur la page Courses, après une mise à jour qui la vide, et au lieu de « Courses terminées »). Créer une liste sur une période sans aucun repas ne crée rien : retour au planning avec un message, et la liste en cours avant la demande le reste.
+- Une migration (suppression des listes vides existantes). 284 tests automatisés (HomeFlowTest : liste vide ignorée et supprimée, planning modifié après la liste).
+
 ## v0.19.0 - 2026-10-07 - Tickets de caisse lus par l'IA, validés un par un avec corrections en fenêtre ; photos des recettes alignées
 
 - Demande de Louis : « que cette IA locale puisse traiter aussi tout ce qui est tickets de caisse », avec le même contrôle que pour les fiches, et « valider les tickets systématiquement avec les corrections en popup sans quitter la correction du ticket ». Modèle inchangé (qwen3-vl:8b-instruct-q8_0 sur le PC, choix de Louis : « on ne garde que le 8B »).

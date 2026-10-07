@@ -67,6 +67,53 @@ class HomeFlowTest extends TestCase
         $this->assertFalse($flow->done);
     }
 
+    /** v0.20.0 : une liste vide ne compte jamais ; elle est supprimée (signalé par Louis : camion sur « Courses », planning vide). */
+    public function test_liste_vide_ignoree_et_supprimee(): void
+    {
+        $household = $this->louis->household;
+        ShoppingList::create(['household_id' => $household->id, 'date_from' => '2026-09-28', 'date_to' => '2026-10-04', 'archived_at' => now()]);
+        ShoppingList::create(['household_id' => $household->id, 'date_from' => '2026-09-28', 'date_to' => '2026-10-04']);
+
+        $this->actingAs($this->louis)->get('/')->assertOk()->assertSee('Choisis les repas de la semaine')
+            ->assertSee('Aucun plat cette semaine')->assertSee('Pas encore de liste')->assertSee('Pas commencées');
+        $this->assertSame(0, ShoppingList::count());
+        $this->assertSame(0, WeekFlow::for($household->fresh())->index);
+
+        // Créer une liste sans aucun repas prévu : pas de liste vide, retour au planning
+        $this->post('/courses', ['date_from' => '2026-09-28', 'date_to' => '2026-10-04'])->assertRedirect('/planning')->assertSessionHasErrors('list');
+        $this->assertSame(0, ShoppingList::count());
+    }
+
+    /** v0.20.0 : le planning change après la liste : « Mettre à jour la liste » tant que rien n'est coché. */
+    public function test_planning_change_apres_la_liste(): void
+    {
+        $this->actingAs($this->louis);
+        $hachis = Recipe::firstWhere('slug', 'hachis-parmentier-aux-legumes-caches');
+        $this->post('/planning/repas', ['kind' => 'recette', 'recipe_id' => $hachis->id, 'date' => '2026-09-30', 'slot' => 'diner']);
+        $this->get('/')->assertSee('1 plat cette semaine');
+        $this->post('/courses', ['date_from' => '2026-09-28', 'date_to' => '2026-10-04'])->assertRedirect('/courses');
+        $list = ShoppingList::firstOrFail();
+        $count = $list->items()->where('section', 'achat')->count();
+        $this->get('/')->assertSee('Fais tes courses')->assertSee($count.' articles à acheter')->assertSee('0 / '.$count.' coché');
+
+        // Un plat de plus : la liste ne correspond plus
+        $other = Recipe::where('id', '!=', $hachis->id)->where('category', 'plat')->firstOrFail();
+        $this->post('/planning/repas', ['kind' => 'recette', 'recipe_id' => $other->id, 'date' => '2026-10-01', 'slot' => 'diner']);
+        $flow = WeekFlow::for($this->louis->household->fresh());
+        $this->assertSame(['list', 1, true, 'post'], [$flow->key, $flow->index, $flow->stale, $flow->method]);
+        $this->get('/')->assertSee('Ton planning a changé')->assertSee('Mettre à jour la liste')->assertSee('À mettre à jour')
+            ->assertSee('action="'.route('shopping.refresh', $list).'"', false);
+
+        // Mise à jour en un clic : retour aux courses
+        $this->post(route('shopping.refresh', $list))->assertRedirect('/courses');
+        $this->get('/')->assertSee('Fais tes courses')->assertSee('2 plats cette semaine');
+
+        // Courses commencées puis planning modifié : on reste sur les courses, avec un rappel
+        $list->items()->where('section', 'achat')->limit(1)->update(['is_checked' => true]);
+        $this->post('/planning/repas', ['kind' => 'recette', 'recipe_id' => $hachis->id, 'date' => '2026-10-02', 'slot' => 'diner']);
+        $this->get('/')->assertSee('Fais tes courses')->assertSee('Le planning a changé depuis');
+    }
+
     public function test_navigation_a_cinq_onglets(): void
     {
         $page = $this->actingAs($this->louis)->get('/')->assertOk()->getContent();

@@ -126,6 +126,12 @@ Lecture des fiches par un modèle de vision (décision du 2026-10-06, v0.18.0) :
 - Aucun autre outil d'OCR en secours (choix de Louis).
 - Suppression de toutes les recettes (demande de Louis, choix « recettes et dépendances ») : ./ft vider-recettes, à lancer après validation de la v0.18.0 sur une fiche ; les recettes ne viennent plus que de ses fiches.
 
+Accueil cohérent (décisions du 2026-10-07, v0.20.0)
+- Constat de Louis : camion sur « Courses » avec un planning et une liste vides (deux listes vides restées après ./ft vider-recettes). Choix : étapes établies par les faits avec une ligne d'état sous chaque étape ; planning modifié = bandeau et mise à jour en un clic (pas de mise à jour automatique) ; liste vide supprimée automatiquement.
+- WeekFlow : liste en cours (la plus récente non classée) ; si elle ne correspond plus au planning (ShoppingListBuilder::isStale) et que rien n'est coché → étape « Liste », bouton POST shopping.refresh ; tout coché → « Courses terminées ? » ; sinon « Courses » (rappel si le planning a changé). Sans liste : repas prévus → « Liste », sinon « Repas ». Liste classée récente : bilan. Lignes d'état et liens par étape (WeekFlow::stops).
+- ShoppingList::isEmptyShell / purgeEmpty : aucun article, aucun ticket, aucun produit de stock rattaché → supprimée (HomeController, ShoppingController::index, refresh, update, archive ; store ne crée pas de liste vide et rouvre la liste précédente). Migration 2026_10_07_200001 pour les listes existantes.
+- Laissé de côté (proposé, non retenu pour l'instant) : une seule liste par période avec réouverture, clôture d'une liste dont la semaine est passée, semaine affichée et bascule, tickets dans le parcours au-delà de la ligne d'état, carte « Aujourd'hui » enrichie.
+
 Tickets de caisse lus par le modèle de vision (décisions du 2026-10-07, v0.19.0)
 - Demandes de Louis : l'IA locale traite aussi les tickets (recoupements avec les listes, déductions) ; même modèle 8B (« on ne garde que le 8B, ça complexifie trop sinon ») ; supprimer tous les tickets déjà importés pour repartir sur une base saine (./ft vider-tickets) ; valider chaque ticket, corrections en fenêtre sans quitter le ticket.
 - Le modèle n'apprend pas tout seul au fil des tickets (poids figés) : ce qui s'améliore, ce sont les libellés mémorisés (receipt_aliases) et les règles du code.
@@ -333,9 +339,11 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - Cartes HelloFresh : sachets et paquets comptés en pièces ; à décider avec Louis : (1) donner un poids à chaque sachet ou paquet par ingrédient (lu sur les emballages), ou (2) garder la quantité telle quelle, marquée « à estimer ». (3) Lecture avec coordonnées (Tesseract dans l'image PHP, PDF téléchargé depuis Paperless) : option mise de côté, à rouvrir seulement si les cartes à colonnes deviennent trop nombreuses.
 - Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.
 
-## Pour reprendre dans une nouvelle conversation (état au 2026-10-07, après la livraison de la v0.19.0)
+## Pour reprendre dans une nouvelle conversation (état au 2026-10-07, après la livraison de la v0.20.0)
 
 État
+- v0.20.0 (accueil cohérent : étapes par les faits avec ligne d'état, « Mettre à jour la liste » quand le planning a changé, plus de liste vide) : livrée le 2026-10-07, script foodtruck-update-v0.20.0.sh (exige la v0.19.0, une migration, aucune image), en attente de validation. 284 tests automatisés.
+- v0.19.0 : appliquée et poussée par Louis le 2026-10-07 (commit fba8faa) ; les deux listes vides du 5 au 11 octobre supprimées à la main le même jour.
 - v0.19.0 (tickets lus par l'IA avec découpe des tickets longs, page de contrôle, un document à la fois ; validation systématique avec corrections en fenêtre ; ./ft vider-tickets ; photos des recettes alignées) : livrée le 2026-10-07, script foodtruck-update-v0.19.0.sh (exige la v0.18.1, une migration, image foodtruck-pages reconstruite), en attente de validation. Ensuite, chez Louis : ./ft vider-tickets, puis envoyer les 6 tickets un par un (Paperless 472, 473, 474, 476, 477, 478). 282 tests automatisés.
 - v0.18.1 : appliquée et poussée par Louis le 2026-10-06 (commit 4c08063) ; lecture des fiches par l'IA validée (« ça marche extrêmement bien »).
 - Essais des tickets du 2026-10-07 (scripts foodtruck-essai-tickets*.sh, lecture seule) : v1 prix Lidl arrondis, v2 découpe (4/6 justes), v3 consigne finale (5/6 justes par l'IA seule, 6/6 avec les règles du code).
@@ -368,6 +376,7 @@ Ce que Louis doit encore fournir
 - Réponse sur les sachets et paquets des cartes HelloFresh (voir Questions ouvertes).
 
 Où est le code (dépôt git@github.com:tobilianok/foodtruck.git, branche main, public depuis le 2026-10-05)
+- v0.20.0 : App\Support\WeekFlow (étapes, statuses, updateList), ShoppingList::isEmptyShell/purgeEmpty, HomeController, ShoppingController (store, update, refresh, archive), resources/views/home.blade.php ; tests HomeFlowTest.
 - v0.19.0 : docker/pages/server.py (ticket, decouper), PagesClient::pages(..., ticket: true), VisionClient::readReceipt/RECEIPT_PROMPT/receiptSchema (chat() commun aux fiches et aux tickets), Receipts\VisionReceiptParser (interprétation), Receipts\ReceiptVisionRunner (analyse en arrière-plan), ReceiptProcessor::ingest (réponse de l'IA sinon texte, plus de traitement automatique) et reread, ReceiptSync (tickets « à envoyer »), VisionQueue (un document à la fois), ReceiptWipe (./ft vider-tickets), ReceiptController::ai/aiSend/aiCancel/progress/problem/correctReading, vues receipts/ai, receipts/index, receipts/show (fenêtre #receipt-fix), bloc v0.19.0 de public/js/app.js ; tests ReceiptVisionTest, tests/Unit/VisionReceiptParserTest.php.
 - v0.18.1 : RecipeImportController::ai/aiSend/aiCancel (page de contrôle recipes/ai.blade.php), RecipeImport::canBeSent et LAYOUT_TO_SEND, ScanPhoto (découpage de la photo), RecipePhoto::storeFromDisk.
 - v0.18.0 : RecipeLayoutRunner (analyse en arrière-plan des fiches envoyées, avancement), PagesClient (service docker/pages), VisionClient (Ollama, consigne et schéma JSON), VisionUnavailable, VisionComposer (JSON → texte), RecipeWipe (./ft vider-recettes) ; tests RecipeScanVisionTest, RecipeWipeTest, tests/Unit/VisionComposerTest.php (fixture tests/Fixtures/vision/hellofresh-piemontaise.json = réponse réelle du modèle). OcrClient, LayoutComposer, docker/ocr et tests/Fixtures/layout supprimés.

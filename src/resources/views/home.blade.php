@@ -16,10 +16,14 @@
     <ol class="route" style="--i: {{ $flow->index }}" aria-label="Les 4 étapes de la semaine">
         @foreach ($flow->stops() as $stop)
             <li @class(['route-stop', 'is-done' => $stop['state'] === 'done', 'is-current' => $stop['state'] === 'current'])>
-                <span class="route-dot">
-                    @if ($stop['state'] === 'done') @include('partials.icon', ['name' => 'check']) @else {{ $loop->iteration }} @endif
-                </span>
-                <span class="route-label">{{ $stop['label'] }}</span>
+                {{-- v0.20.0 : chaque étape dit où on en est vraiment, et mène à sa page --}}
+                <a class="route-link" href="{{ $stop['url'] }}">
+                    <span class="route-dot">
+                        @if ($stop['state'] === 'done') @include('partials.icon', ['name' => 'check']) @else {{ $loop->iteration }} @endif
+                    </span>
+                    <span class="route-label">{{ $stop['label'] }}</span>
+                    <span class="route-status">{{ $stop['status'] }}</span>
+                </a>
             </li>
         @endforeach
         <span class="route-truck">@include('partials.truck')</span>
@@ -30,7 +34,11 @@
             <h2>{{ $flow->title }}</h2>
             <p>{{ $flow->text }}</p>
         </div>
-        <a class="btn btn-big" href="{{ $flow->url }}">{{ $flow->button }}</a>
+        @if ($flow->method === 'post')
+            <form method="post" action="{{ $flow->url }}">@csrf <button type="submit" class="btn btn-big">{{ $flow->button }}</button></form>
+        @else
+            <a class="btn btn-big" href="{{ $flow->url }}">{{ $flow->button }}</a>
+        @endif
         @if ($flow->more)
             <p class="next-more"><a href="{{ $flow->moreUrl }}">{{ $flow->more }}</a></p>
         @endif

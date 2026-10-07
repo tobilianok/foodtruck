@@ -200,6 +200,11 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - v0.18.1 : le script (foodtruck-update-v0.18.1.sh) exige la v0.18.0, sauvegarde la base, applique le correctif, lance les tests, migre, recharge foodtruck-app et foodtruck-scheduler, vérifie le site (retour arrière automatique sinon), puis remet « à envoyer » les fiches à relire pas encore lues par l'IA. Aucune image à reconstruire.
 - srv-nas : Ollama désactivé (sudo systemctl disable --now ollama) ; désinstallation complète possible (voir srv-nas-ollama-install.sh).
 
+## Accueil cohérent (v0.20.0)
+
+- Le script (foodtruck-update-v0.20.0.sh) exige la v0.19.0 et un dépôt propre, sauvegarde la base, applique le correctif vérifié, lance les tests, migre (suppression des listes de courses vides : aucun article, aucun ticket, aucun produit de stock rattaché), recharge foodtruck-app et foodtruck-scheduler et vérifie le site (retour arrière automatique sinon). Aucune image à reconstruire.
+- Retour arrière après coup : la migration n'a supprimé que des listes vides ; la sauvegarde backups/foodtruck-avant-v0.20.0-*.sql.gz les contient au besoin.
+
 ## Tickets de caisse lus par le modèle de vision (v0.19.0)
 
 - Même Ollama et même modèle que les fiches (rien à changer sur le PC). Réglages propres aux tickets : num_ctx 24576 et num_predict 8192 (Ollama recharge le modèle quand on passe d'une fiche à un ticket : quelques secondes de plus). Environ 13 à 14 Go sur la carte graphique pendant un ticket.
@@ -263,7 +268,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 
 ## État du dépôt
 
-- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0, v0.15.0 et v0.15.1 livrées le 2026-10-05, v0.15.2 appliquée sur la VM et poussée le 2026-10-06 ; v0.15.3, v0.15.4, v0.16.0, v0.16.1 et v0.16.2 appliquées et poussées le 2026-10-06 ; v0.16.3 et v0.16.4 appliquées et poussées le 2026-10-06 ; v0.17.0 appliquée le 2026-10-06 ; v0.18.0 appliquée et poussée le 2026-10-06 ; v0.18.1 appliquée et poussée le 2026-10-06, commit 4c08063 ; v0.19.0 livrée le 2026-10-07) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
+- git@github.com:tobilianok/foodtruck.git, branche main, tags v0.1.0 à v0.12.0 (v0.12.1 appliquée sur la VM le 2026-10-05 ; v0.12.2, v0.13.0, v0.13.1, v0.13.2, v0.14.0, v0.15.0 et v0.15.1 livrées le 2026-10-05, v0.15.2 appliquée sur la VM et poussée le 2026-10-06 ; v0.15.3, v0.15.4, v0.16.0, v0.16.1 et v0.16.2 appliquées et poussées le 2026-10-06 ; v0.16.3 et v0.16.4 appliquées et poussées le 2026-10-06 ; v0.17.0 appliquée le 2026-10-06 ; v0.18.0 appliquée et poussée le 2026-10-06 ; v0.18.1 appliquée et poussée le 2026-10-06, commit 4c08063 ; v0.19.0 appliquée et poussée le 2026-10-07, commit fba8faa ; v0.20.0 livrée le 2026-10-07) ; v0.9.1, v0.10.0 et v0.11.0 validées le 2026-10-05. Dépôt rendu public par Louis le 2026-10-05 pour que Claude puisse le lire (accès anonyme en lecture, sans droit d'écriture) ; pour le remettre en privé, autoriser l'application GitHub de Claude sur ce dépôt.
 - Accès depuis la VM par clé de déploiement "vm-docker" (écriture) ; identité Git réglée dans le dépôt uniquement.
 
 ## Sauvegardes

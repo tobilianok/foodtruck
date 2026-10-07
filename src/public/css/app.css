@@ -943,3 +943,11 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .fix-dialog .is-ko { color: var(--tomato-ink); font-weight: 600; }
 @media (prefers-color-scheme: dark) { .fix-dialog .is-ko { color: #ef9a8e; } }
 @media (min-width: 861px) { .receipt-line { grid-template-columns: minmax(180px, 1.3fr) 110px minmax(220px, 2fr) auto; } }
+
+/* v0.20.0 : accueil, étapes cliquables avec leur état réel */
+.route-link { display: flex; flex-direction: column; align-items: center; gap: 8px; color: inherit; text-decoration: none; border-radius: 12px; padding: 0 4px 6px; }
+.route-link:hover .route-label, .route-link:focus-visible .route-label { text-decoration: underline; }
+.route-status { font-size: .78rem; line-height: 1.3; color: var(--muted); max-width: 16ch; }
+.route-stop.is-current .route-status { color: var(--text-2); font-weight: 600; }
+.next-step form { margin: 0; }
+@media (max-width: 560px) { .route-status { font-size: .7rem; } }

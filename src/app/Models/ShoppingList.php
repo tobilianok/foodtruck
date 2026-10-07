@@ -43,6 +43,29 @@ class ShoppingList extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * v0.20.0 : liste vide (aucun article, aucun ticket rattaché, rien rangé dans le stock). Une telle liste ne sert à
+     * rien et faussait l'accueil (camion sur « Courses » avec un planning vide) : elle est supprimée.
+     */
+    public function isEmptyShell(): bool
+    {
+        return ! $this->items()->exists() && ! $this->receipts()->exists() && ! PantryItem::where('shopping_list_id', $this->id)->exists();
+    }
+
+    /** Supprime les listes vides du foyer (en cours ou classées). Renvoie le nombre de listes supprimées. */
+    public static function purgeEmpty(Household $household): int
+    {
+        $removed = 0;
+        foreach ($household->shoppingLists()->get() as $list) {
+            if ($list->isEmptyShell()) {
+                $list->delete();
+                $removed++;
+            }
+        }
+
+        return $removed;
+    }
+
     public function isArchived(): bool
     {
         return $this->archived_at !== null;

@@ -321,6 +321,7 @@ class ShoppingListTest extends TestCase
 
         $this->get("/courses/liste/{$first->id}")->assertOk()->assertSee('Rouvrir cette liste')->assertDontSee('Ajouter un article');
 
+        $this->plan($this->galettes, '2026-10-07');
         $second = $this->createList('2026-10-06', '2026-10-12');
         $this->assertSame(1, ShoppingList::whereNull('archived_at')->count());
 

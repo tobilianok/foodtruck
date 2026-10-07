@@ -17,6 +17,8 @@ class HomeController extends Controller
     {
         $user = $request->user();
         $household = $user->household->loadMissing('members');
+        // v0.20.0 : une liste vide ne compte jamais (elle faisait croire que la liste et les courses étaient en cours)
+        \App\Models\ShoppingList::purgeEmpty($household);
         $start = MealPlanner::weekStart();
         $today = now('Europe/Paris')->toDateString();
 

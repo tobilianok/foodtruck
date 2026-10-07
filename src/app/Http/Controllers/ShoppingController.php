@@ -31,6 +31,8 @@ class ShoppingController extends Controller
     public function index(Request $request)
     {
         $household = $request->user()->household;
+        // v0.20.0 : les listes vides sont supprimées (plus de liste fantôme ni de doublon dans l'historique)
+        ShoppingList::purgeEmpty($household);
         $list = $household->shoppingLists()->whereNull('archived_at')->first();
 
         if ($list === null) {
@@ -72,6 +74,7 @@ class ShoppingController extends Controller
         $household = $request->user()->household;
         $period = $this->period($request);
 
+        $previous = $household->shoppingLists()->whereNull('archived_at')->pluck('id')->all();
         $list = DB::transaction(function () use ($household, $period, $request) {
             // Une seule liste en cours : la précédente est classée
             $household->shoppingLists()->whereNull('archived_at')->update(['archived_at' => now()]);
@@ -83,10 +86,16 @@ class ShoppingController extends Controller
         ShoppingListBuilder::rebuild($list);
 
         $count = $list->items()->count();
+        if ($count === 0) {
+            // v0.20.0 : pas de liste vide ; la liste en cours avant la demande le reste
+            $list->delete();
+            ShoppingList::whereIn('id', $previous)->update(['archived_at' => null]);
 
-        return redirect()->route('shopping.index')->with('status', $count === 0
-            ? 'Liste créée, mais aucun plat n\'est prévu sur cette période : ajoute des repas dans le planning, puis mets la liste à jour.'
-            : "Liste créée : {$count} articles calculés d'après le planning.");
+            return redirect()->route('planning.index')->withErrors(['list' => 'Aucun plat n\'est prévu du '.Carbon::parse($period['date_from'])->locale('fr')->isoFormat('D MMMM').' au '
+                .Carbon::parse($period['date_to'])->locale('fr')->isoFormat('D MMMM').' : ajoute des repas au planning, puis crée la liste de courses.']);
+        }
+
+        return redirect()->route('shopping.index')->with('status', "Liste créée : {$count} articles calculés d'après le planning.");
     }
 
     /** Période et repas pris en compte. */
@@ -107,6 +116,11 @@ class ShoppingController extends Controller
         $list->setRelation('household', $request->user()->household);
 
         ShoppingListBuilder::rebuild($list);
+        if ($list->isEmptyShell()) {
+            $list->delete();
+
+            return redirect()->route('shopping.index')->with('status', 'Plus aucun plat ni article sur cette période : la liste vide a été supprimée.');
+        }
 
         return redirect()->route('shopping.index')->with('status', 'Période et repas mis à jour : liste recalculée.');
     }
@@ -118,6 +132,11 @@ class ShoppingController extends Controller
 
         $list->setRelation('household', $request->user()->household);
         ShoppingListBuilder::rebuild($list);
+        if ($list->isEmptyShell()) {
+            $list->delete();
+
+            return redirect()->route('shopping.index')->with('status', 'Plus aucun plat ni article sur cette période : la liste vide a été supprimée.');
+        }
 
         return redirect()->route('shopping.index')->with('status', 'Liste recalculée d\'après le planning (articles cochés et choix conservés).');
     }
@@ -125,6 +144,11 @@ class ShoppingController extends Controller
     public function archive(Request $request, ShoppingList $list)
     {
         $this->authorizeList($request, $list);
+        if ($list->isEmptyShell()) {
+            $list->delete();
+
+            return redirect()->route('shopping.index')->with('status', 'Liste vide supprimée : il n\'y avait rien à acheter.');
+        }
 
         $list->update(['archived_at' => now()]);
         $list->setRelation('household', $request->user()->household);
