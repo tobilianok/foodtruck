@@ -51,6 +51,7 @@
                         @endforeach
                     </select>
                 </label>
+                <p class="small"><a href="{{ route('recipes.tags') }}">Gérer les étiquettes</a></p>
             </div>
             <div class="checks">
                 <label class="check"><input type="checkbox" name="appareils" value="1" @checked(! empty($filters['appareils']))><span>Faisable avec mes appareils</span></label>

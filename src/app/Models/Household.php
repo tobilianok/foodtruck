@@ -89,6 +89,12 @@ class Household extends Model
         return $this->hasMany(MealPlanEntry::class);
     }
 
+    /** v0.22.0 : menus enregistrés (repas composés réutilisables), par nom. */
+    public function savedMenus(): HasMany
+    {
+        return $this->hasMany(SavedMenu::class)->orderBy('name');
+    }
+
     public function pantryItems(): HasMany
     {
         return $this->hasMany(PantryItem::class);

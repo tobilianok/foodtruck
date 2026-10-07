@@ -1,5 +1,20 @@
 # Journal des versions - Foodtruck
 
+## v0.22.0 - 2026-10-07 - Repas composés, menus enregistrés, étiquettes créées par le foyer
+
+- Demandes de Louis : « dans un repas du planning, mettre plusieurs recettes (une purée avec un jarret de porc) » ; choix : repas composé d'abord (la sous-recette, « pain pita » dans une soupe, viendra en v0.23.0), menus enregistrés depuis un repas du planning ; « profites-en pour rajouter la possibilité de créer les étiquettes des recettes ».
+- Repas composé :
+  - Ajouter un repas : sous la recette, « Avec » ajoute d'autres recettes (accompagnement, entrée, dessert…) au même repas, toutes calculées pour les mêmes convives et le même nombre de repas ; la liste de courses additionne tout.
+  - Le + d'une case déjà occupée rappelle ce que compte le repas (« Ce repas compte déjà : Jarret de porc ») et reprend ses convives.
+  - Modifier un plat d'un repas composé : case « Appliquer le jour, le repas et les convives à tout le repas » (cochée par défaut) ; le nombre de repas et les parts restent propres à chaque recette (purée doublée pour le lendemain). Bouton « + Ajouter une recette à ce repas » ; « Retirer « … » de ce repas » garde le reste du repas.
+  - Restes d'un repas composé gardés ensemble (jarret et purée réchauffés au même repas).
+  - Dans le planning, sous un repas composé : coût du repas et « Enregistrer comme menu » (ou le nom du menu d'où il vient).
+  - Ajouter une recette à un plat proposé par le menu automatique garde la proposition (le repas compte en entier dans les courses).
+  - « À préparer » n'est pas un repas : ses fournées (yaourts, cookies) restent indépendantes, et une fournée ne peut pas entrer dans un menu.
+- Menus enregistrés (Planning → Mes menus) : nommés depuis un repas composé (recettes à cocher), avec leurs recettes, le coût d'un repas pour le foyer et le nombre de fois planifié ; « Planifier » ouvre « Ajouter un repas » prérempli ; menu aussi au choix dans « Ajouter un repas » ; renommer, supprimer (les repas planifiés restent). Le menu garde les recettes, pas les convives.
+- Étiquettes : nouvelle page Recettes → « Gérer les étiquettes » (création, plusieurs d'un coup séparées par des virgules ; renommer et supprimer réservés aux administrateurs ; les étiquettes de départ, dont veggy et végan qui servent au menu automatique, se renomment mais ne se suppriment pas) ; champ « Nouvelle étiquette » dans le formulaire d'une recette (créée et cochée à l'enregistrement, jamais en double : « viandes » retrouve « Viandes », « végétarien » retrouve « Veggy » renommée). Une recette ne peut plus prendre l'adresse d'une page (« Étiquettes » devient etiquettes-recette). Les étiquettes restent communes à tous, comme les recettes ; « Accompagnement » existe aussi comme catégorie de recette.
+- Une migration (tables saved_menus et saved_menu_recipes, colonne meal_plan_entries.saved_menu_id). 298 tests automatisés (ComposedMealTest).
+
 ## v0.21.0 - 2026-10-07 - N'importe quel ticket, de n'importe quelle enseigne (premier ticket Carrefour)
 
 - Signalé par Louis : ticket Carrefour (Paperless n° 519, étiquette « courses alimentaires ») absent de Foodtruck, « Aucun nouveau ticket dans Paperless. ». Cause : le compte Paperless « foodtruck » ne voit que les documents sur lesquels il a le droit « Afficher » (workflow Paperless ou script) ; ce ticket n'en avait pas. Réglé côté Paperless (diagnostic puis droits, voir DEPLOIEMENT.md « Un ticket n'arrive pas dans Foodtruck »). Demande de Louis : « pouvoir importer n'importe quel ticket de caisse de n'importe quelle enseigne ».

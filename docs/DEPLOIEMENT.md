@@ -97,7 +97,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 ## Paperless (tickets de caisse)
 
 - Paperless-ngx tourne sur la même VM (stack paperless, port 8010, LAN/Tailscale uniquement). Foodtruck l'appelle en http://192.168.1.14:8010 depuis ses conteneurs ; rien n'est modifié côté Paperless hormis le compte dédié.
-- Compte Paperless « foodtruck » : non administrateur, permissions « Afficher » sur Documents, Étiquettes et Correspondants ; jeton d'API créé pour lui. Un workflow Paperless (déclencheur : document ajouté ou mis à jour avec l'étiquette « courses alimentaires ») lui donne la permission de lecture sur ces documents.
+- Compte Paperless « foodtruck » : non administrateur, permissions « Afficher » sur Documents, Étiquettes et Correspondants ; jeton d'API créé pour lui. Un workflow Paperless « Foodtruck – lecture des tickets » lui donne la permission de lecture sur ces documents : déclencheur 1 « Document ajouté » et (depuis le 2026-10-07) déclencheur 2 « Document mis à jour », chacun filtré sur l'étiquette « courses alimentaires » ; action « Affecter des autorisations de consultation » → foodtruck.
 - Réglage dans Foodtruck : Mon foyer → « Tickets de caisse : Paperless » (adresse, jeton, étiquette). Le jeton est chiffré en base avec APP_KEY.
 - L'étiquette « courses alimentaires » appartient au compte tobilianok : foodtruck a reçu le droit « Afficher » dessus (sinon Foodtruck répond « étiquette introuvable »). Connexion vérifiée le 2026-09-29 (HTTP 302 sans jeton, API OK avec le jeton).
 - Le workflow ne s'applique qu'aux documents ajoutés ou modifiés après sa création. Pour des tickets déjà présents (ou si une modification en masse ne déclenche pas le workflow), relancer ce script, sans risque de doublon : il donne uniquement le droit « Afficher » à foodtruck sur l'étiquette, ses documents et leurs correspondants.
@@ -200,6 +200,10 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
 - v0.18.1 : le script (foodtruck-update-v0.18.1.sh) exige la v0.18.0, sauvegarde la base, applique le correctif, lance les tests, migre, recharge foodtruck-app et foodtruck-scheduler, vérifie le site (retour arrière automatique sinon), puis remet « à envoyer » les fiches à relire pas encore lues par l'IA. Aucune image à reconstruire.
 - srv-nas : Ollama désactivé (sudo systemctl disable --now ollama) ; désinstallation complète possible (voir srv-nas-ollama-install.sh).
 
+## Repas composés et menus (v0.22.0)
+
+- Le script (foodtruck-update-v0.22.0.sh) exige la v0.21.0 et un dépôt propre, refuse de tourner pendant une analyse par l'IA, sauvegarde la base, applique le correctif vérifié, lance les tests, migre (tables saved_menus, saved_menu_recipes, colonne meal_plan_entries.saved_menu_id), recharge foodtruck-app et foodtruck-scheduler et vérifie le site. Retour arrière automatique (migration annulée, correctif retiré) si une étape échoue. Aucune image à reconstruire.
+
 ## N'importe quel ticket (v0.21.0)
 
 - Le script (foodtruck-update-v0.21.0.sh) exige la v0.20.1 et un dépôt propre, refuse de tourner pendant une analyse par l'IA, sauvegarde la base, applique le correctif vérifié, garde l'image foodtruck-pages en place sous le nom foodtruck-pages:avant-v0.21.0, reconstruit foodtruck-pages (recadrage des tickets scannés), lance les tests, recrée foodtruck-pages, vérifie le recadrage dans le conteneur, recharge foodtruck-app et foodtruck-scheduler et vérifie le site. Retour arrière automatique (correctif retiré, ancienne image remise) si une étape échoue. Aucune migration.
@@ -237,7 +241,7 @@ Chaque version est livrée sous forme de script ~/foodtruck-install-vX.Y.Z.sh (o
       "
 
 - Correction : le script assign_perm de la section Paperless (plus haut) donne le droit « Afficher » à foodtruck sur l'étiquette, tous ses documents et leurs magasins, sans doublon. Pour les tickets à venir, le workflow des tickets doit avoir deux déclencheurs, « Document ajouté » ET « Document mis à jour », chacun filtré sur l'étiquette « courses alimentaires », avec l'action « Affecter des autorisations de consultation » → foodtruck (comme celui des recettes).
-- 2026-10-07 : ticket Carrefour n° 519 absent de Foodtruck (« Aucun nouveau ticket ») ; diagnostic ci-dessus demandé à Louis.
+- 2026-10-07 : ticket Carrefour n° 519 absent de Foodtruck (« Aucun nouveau ticket »). Diagnostic : n° 519 et le magasin Carrefour invisibles pour foodtruck (les 6 autres tickets visibles) ; le workflow des tickets n'avait que le déclencheur « Document ajouté », or l'étiquette avait été posée après le dépôt. Correction : script assign_perm, puis déclencheur « Document mis à jour » ajouté au workflow des tickets.
 
 ## Unités dans les recettes (v0.20.1)
 

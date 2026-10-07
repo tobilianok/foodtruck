@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MealPlanEntry;
 use App\Models\Recipe;
+use App\Models\SavedMenu;
 use App\Support\AntiWaste;
 use App\Support\MealPlanner;
 use App\Support\Savings;
@@ -16,6 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Planning des repas de la semaine (lundi → dimanche), partagé par tout le foyer.
+ *
+ * v0.22.0 : repas composé : un repas peut réunir plusieurs recettes (plat + accompagnement, entrée, dessert), calculées
+ * pour les mêmes convives ; ajout de plusieurs recettes d'un coup, depuis un menu enregistré ou à la suite d'un plat
+ * déjà prévu ; modification appliquée à tout le repas.
  */
 class PlanningController extends Controller
 {
@@ -33,7 +38,7 @@ class PlanningController extends Controller
 
         $end = $start->copy()->addDays(6);
         $entries = $household->mealPlanEntries()
-            ->with([...self::COST_RELATIONS, 'source.recipe'])
+            ->with([...self::COST_RELATIONS, 'source.recipe', 'savedMenu'])
             ->where('is_frozen', false)
             ->whereDate('date', '>=', $start->toDateString())->whereDate('date', '<=', $end->toDateString())
             ->orderBy('position')->orderBy('id')
@@ -80,35 +85,128 @@ class PlanningController extends Controller
         $household = $request->user()->household->loadMissing('members');
         $recipe = $request->filled('recette') ? Recipe::visibleTo($request->user())->where('slug', $request->query('recette'))->first() : null;
 
+        $menu = $request->filled('menu') ? $household->savedMenus()->with('recipes')->find((int) $request->query('menu')) : null;
+
         $entry = new MealPlanEntry([
+            'household_id' => $household->id,
             'date' => $this->dateOrToday($request->query('date')),
             'slot' => in_array($request->query('creneau'), MealPlanEntry::slotCodes(), true) ? $request->query('creneau') : 'diner',
             'kind' => MealPlanEntry::KIND_RECIPE,
-            'recipe_id' => $recipe?->id,
+            'recipe_id' => $recipe?->id ?? $menu?->recipes->first()?->id,
             'meals' => 1,
         ]);
 
-        return view('planning.form', $this->formData($request, $entry));
+        // v0.22.0 : ajout à un repas déjà prévu : mêmes convives que son plat (purée calculée comme le jarret)
+        $companion = $entry->mealSiblings()->load('recipe')->first(fn (MealPlanEntry $e) => $e->recipe?->yield_unit === 'personnes' && ! $e->isProposal())
+            ?? $entry->mealSiblings()->load('recipe')->first(fn (MealPlanEntry $e) => $e->recipe?->yield_unit === 'personnes');
+        if ($companion) {
+            $entry->fill($companion->only(['eaters', 'guest_adults', 'guest_children', 'meals']));
+        }
+
+        return view('planning.form', array_merge($this->formData($request, $entry), [
+            'menu' => $menu,
+            'extras' => $menu ? array_slice($menu->recipeIds(), 1) : [],
+        ]));
     }
 
     public function store(Request $request)
     {
         $household = $request->user()->household;
         $data = $this->validated($request);
+        $extras = $this->extras($request, $data);
+        $menuId = $this->menuFor($request, $data, $extras);
 
-        $entry = DB::transaction(function () use ($household, $data, $request) {
-            $entry = MealPlanEntry::create($data + [
-                'household_id' => $household->id,
-                'created_by' => $request->user()->id,
-                'position' => (int) $household->mealPlanEntries()->whereDate('date', $data['date'])->where('slot', $data['slot'])->max('position') + 10,
-            ]);
-            $entry->setRelation('household', $household);
-            $unplaced = MealPlanner::placeLeftovers($entry);
+        [$entry, $unplaced, $added, $kept] = DB::transaction(function () use ($household, $data, $extras, $menuId, $request) {
+            // Ajout à un repas que le menu automatique a proposé : la proposition est gardée (sinon le plat ajouté
+            // compterait seul dans les courses, et resterait seul si l'on efface les propositions)
+            $kept = [];
+            if ($data['kind'] === MealPlanEntry::KIND_RECIPE && $data['batch_quantity'] === null) {
+                $probe = new MealPlanEntry(['household_id' => $household->id, 'date' => $data['date'], 'slot' => $data['slot']]);
+                foreach ($probe->mealSiblings()->filter(fn (MealPlanEntry $e) => $e->isProposal()) as $proposal) {
+                    \App\Support\MenuGenerator::keep($proposal);
+                    $kept[] = $proposal->recipe?->title;
+                }
+            }
 
-            return [$entry, $unplaced];
+            $position = (int) $household->mealPlanEntries()->whereDate('date', $data['date'])->where('slot', $data['slot'])->max('position');
+            $created = [];
+            foreach ([$data['recipe_id'], ...$extras->pluck('id')] as $i => $recipeId) {
+                $position += 10;
+                // Recettes ajoutées au plat : mêmes convives et même nombre de repas, sans réglage de parts ni fournée
+                $row = $i === 0 ? $data : array_merge($data, ['recipe_id' => $recipeId, 'parts_manual' => null, 'batch_quantity' => null]);
+                $created[] = MealPlanEntry::create($row + [
+                    'household_id' => $household->id,
+                    'saved_menu_id' => $menuId,
+                    'created_by' => $request->user()->id,
+                    'position' => $position,
+                ]);
+            }
+            $unplaced = 0;
+            foreach ($created as $entry) {
+                $entry->setRelation('household', $household);
+                $unplaced += MealPlanner::placeLeftovers($entry);
+            }
+
+            return [$created[0], $unplaced, $created, array_filter($kept)];
         });
 
-        return $this->backToWeek($entry[0], $this->message($entry[0], 'ajouté', $entry[1]));
+        $headline = count($added) > 1 ? collect($added)->map(fn (MealPlanEntry $e) => '« '.$e->recipe->title.' »')->join(', ', ' et ').' ajoutés' : null;
+        $message = $this->message($entry, 'ajouté', $unplaced, $headline);
+        if ($kept !== []) {
+            $message .= ' Plat proposé gardé avec : « '.implode(' », « ', $kept).' ».';
+        }
+
+        return $this->backToWeek($entry, $message);
+    }
+
+    /**
+     * v0.22.0 : recettes servies avec le plat (accompagnement, entrée, dessert), dans l'ordre choisi. Seulement des
+     * recettes en portions, visibles du foyer, sans doublon, et seulement quand le plat lui-même est en portions.
+     *
+     * @return \Illuminate\Support\Collection<int, Recipe>
+     */
+    private function extras(Request $request, array $data): \Illuminate\Support\Collection
+    {
+        $request->validate([
+            'avec' => ['nullable', 'array', 'max:'.(SavedMenu::MAX_RECIPES - 1)],
+            'avec.*' => ['integer'],
+        ], ['avec.max' => 'Au plus '.(SavedMenu::MAX_RECIPES - 1).' recettes en plus du plat.']);
+
+        $ids = collect($request->input('avec', []))->map(fn ($id) => (int) $id)->reject(fn ($id) => $id === (int) $data['recipe_id'])->unique()->values();
+        if ($ids->isEmpty() || $data['kind'] !== MealPlanEntry::KIND_RECIPE || $data['batch_quantity'] !== null) {
+            return collect();
+        }
+
+        $recipes = Recipe::visibleTo($request->user())->whereIn('id', $ids)->get()->keyBy('id');
+        foreach ($ids as $id) {
+            $recipe = $recipes->get($id);
+            if ($recipe === null) {
+                throw ValidationException::withMessages(['avec' => 'Recette introuvable parmi celles ajoutées au repas.']);
+            }
+            if ($recipe->yield_unit !== 'personnes') {
+                throw ValidationException::withMessages(['avec' => '« '.$recipe->title.' » se prépare en fournée ('.$recipe->yieldLabel().') : ajoute-la à part, dans « À préparer ».']);
+            }
+        }
+
+        return $ids->map(fn ($id) => $recipes->get($id));
+    }
+
+    /** Menu enregistré d'où viennent les recettes, s'il correspond toujours (mêmes recettes). */
+    private function menuFor(Request $request, array $data, \Illuminate\Support\Collection $extras): ?int
+    {
+        if (! $request->filled('menu_id') || $data['kind'] !== MealPlanEntry::KIND_RECIPE) {
+            return null;
+        }
+        $menu = $request->user()->household->savedMenus()->with('recipes')->find((int) $request->input('menu_id'));
+        if ($menu === null) {
+            return null;
+        }
+        $chosen = [(int) $data['recipe_id'], ...$extras->pluck('id')->map(fn ($id) => (int) $id)];
+        $wanted = $menu->recipeIds();
+        sort($chosen);
+        sort($wanted);
+
+        return $chosen === $wanted ? $menu->id : null;
     }
 
     public function edit(Request $request, MealPlanEntry $entry)
@@ -134,14 +232,38 @@ class PlanningController extends Controller
         }
 
         $data = $this->validated($request);
-        $unplaced = DB::transaction(function () use ($entry, $data) {
-            // Modifier un plat proposé par le menu automatique, c'est le garder
-            $entry->update($data + ['proposed_at' => null, 'proposal_reason' => null]);
+        // v0.22.0 : les autres plats du repas suivent (jour, repas, convives), sauf si on décoche « tout le repas »
+        $siblings = $entry->isRecipe() && $request->boolean('tout_le_repas') ? $entry->mealSiblings() : collect();
 
-            return MealPlanner::placeLeftovers($entry->fresh());
+        $unplaced = DB::transaction(function () use ($entry, $data, $siblings) {
+            // Modifier un plat proposé par le menu automatique, c'est le garder ; changer de recette le détache du menu
+            $entry->update($data + ['proposed_at' => null, 'proposal_reason' => null]
+                + ((int) $data['recipe_id'] !== (int) $entry->recipe_id ? ['saved_menu_id' => null] : []));
+
+            // Tout le repas d'abord, les restes ensuite : ceux d'un repas composé restent ensemble
+            foreach ($siblings as $sibling) {
+                $shared = ['date' => $data['date'], 'slot' => $data['slot'], 'proposed_at' => null, 'proposal_reason' => null];
+                if ($data['kind'] === MealPlanEntry::KIND_RECIPE && $data['batch_quantity'] === null) {
+                    $shared += ['eaters' => $data['eaters'], 'guest_adults' => $data['guest_adults'], 'guest_children' => $data['guest_children']];
+                }
+                $sibling->update($shared);
+                $sibling->leftovers()->update(['proposed_at' => null, 'proposal_reason' => null]);
+            }
+
+            $unplaced = 0;
+            foreach ([$entry, ...$siblings] as $dish) {
+                $unplaced += MealPlanner::placeLeftovers($dish->fresh());
+            }
+
+            return $unplaced;
         });
 
-        return $this->backToWeek($entry, $this->message($entry->fresh(), 'modifié', $unplaced));
+        $message = $this->message($entry->fresh(), 'modifié', $unplaced);
+        if ($siblings->isNotEmpty()) {
+            $message .= ' Aussi appliqué à '.$siblings->map(fn (MealPlanEntry $e) => '« '.$e->recipe?->title.' »')->join(', ', ' et ').'.';
+        }
+
+        return $this->backToWeek($entry, $message);
     }
 
     /** Remplace la recette d'un plat par une autre (plat trop cher) : convives, jour et créneau sont conservés. */
@@ -156,7 +278,7 @@ class PlanningController extends Controller
 
         $old = $entry->recipe;
         $unplaced = DB::transaction(function () use ($entry, $recipe) {
-            $entry->update(['recipe_id' => $recipe->id]);
+            $entry->update(['recipe_id' => $recipe->id, 'saved_menu_id' => null]);
             $entry->leftovers()->update(['recipe_id' => $recipe->id]);
 
             return MealPlanner::placeLeftovers($entry->fresh());
@@ -170,12 +292,17 @@ class PlanningController extends Controller
     {
         $this->authorizeEntry($request, $entry);
 
+        $composed = $entry->isMealDish() && $entry->mealSiblings()->isNotEmpty();
         DB::transaction(function () use ($entry) {
             $entry->leftovers()->delete();
             $entry->delete();
         });
 
-        return $this->backToWeek($entry, $entry->isLeftover() ? 'Restes retirés du planning.' : 'Repas retiré du planning (avec ses restes).');
+        return $this->backToWeek($entry, match (true) {
+            $entry->isLeftover() => 'Restes retirés du planning.',
+            $composed => '« '.$entry->recipe->title.' » retiré de ce repas (avec ses restes) ; le reste du repas est conservé.',
+            default => 'Repas retiré du planning (avec ses restes).',
+        });
     }
 
     /** Restes mis au congélateur (ils quittent la grille) ou ressortis sur leur créneau. */
@@ -262,10 +389,20 @@ class PlanningController extends Controller
 
         $usualEaters = $entry->date ? $household->usualEaters($entry->date, (string) $entry->slot) : null;
 
+        // v0.22.0 : recettes proposées « avec » le plat (portions seulement), accompagnements et entrées d'abord
+        $order = array_flip(['accompagnement', 'entree', 'dessert', 'plat', 'petit-dejeuner', 'gouter', 'boisson', 'base']);
+        $companions = $recipes->where('yield_unit', 'personnes')->groupBy('category')
+            ->sortBy(fn ($items, $category) => $order[$category] ?? 99);
+
         return [
             'entry' => $entry,
             'household' => $household,
             'recipes' => $recipes->groupBy('category'),
+            'companions' => $companions,
+            'menus' => $household->savedMenus()->with('recipes:id,title')->get(),
+            'siblings' => $entry->date && $entry->slot ? $entry->mealSiblings()->load('recipe:id,title') : collect(),
+            'menu' => null,
+            'extras' => [],
             // Repas affichés par le foyer (plus celui du repas modifié s'il a été masqué depuis)
             'slots' => array_filter(MealPlanEntry::SLOTS, fn ($code) => in_array($code, $household->mealSlots(), true) || $code === $entry->slot, ARRAY_FILTER_USE_KEY),
             'eaters' => $entry->eaters ?? $usualEaters ?? $all,
@@ -302,14 +439,14 @@ class PlanningController extends Controller
         return mb_strtolower($entry->slotLabel()).' du '.$entry->date->locale('fr')->isoFormat('dddd D MMMM');
     }
 
-    private function message(MealPlanEntry $entry, string $verb, int $unplaced): string
+    private function message(MealPlanEntry $entry, string $verb, int $unplaced, ?string $headline = null): string
     {
         $what = match ($entry->kind) {
             MealPlanEntry::KIND_RECIPE => '« '.$entry->recipe->title.' »',
             MealPlanEntry::KIND_OUT => 'Repas hors maison',
             default => 'Note',
         };
-        $message = "{$what} {$verb} : ".$this->when($entry).'.';
+        $message = ($headline ?? "{$what} {$verb}").' : '.$this->when($entry).'.';
 
         $leftovers = $entry->leftovers()->where('is_frozen', false)->get();
         if ($leftovers->isNotEmpty()) {

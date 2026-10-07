@@ -46,8 +46,28 @@
             @php
                 $custom = $entry->exists && ($entry->eaters !== null || $entry->guest_adults || $entry->guest_children || $entry->meals > 1 || $entry->parts_manual !== null);
             @endphp
+            @php
+                $otherDishes = $siblings->filter(fn ($e) => $e->recipe)->map(fn ($e) => $e->recipe->title);
+                $extraIds = array_map('intval', (array) (session()->hasOldInput() ? old('avec', []) : $extras));
+                $companionTitles = $companions->flatten()->pluck('title', 'id');
+            @endphp
             <section class="panel">
                 <h2>Quoi ?</h2>
+                @if (! $entry->exists && $otherDishes->isNotEmpty())
+                    {{-- v0.22.0 : ajout à un repas déjà prévu --}}
+                    <p class="alert alert-info meal-already">Ce repas compte déjà : <strong>{{ $otherDishes->join(', ', ' et ') }}</strong>. La recette ajoutée est calculée pour les mêmes convives.</p>
+                @endif
+                @if (! $entry->exists && $menus->isNotEmpty())
+                    <label class="field menu-pick-field">
+                        <span>Un menu enregistré <small class="muted">(facultatif)</small></span>
+                        <select name="menu_id" class="menu-pick">
+                            <option value="">— choisir les recettes une par une —</option>
+                            @foreach ($menus as $saved)
+                                <option value="{{ $saved->id }}" data-recipes='@json($saved->recipes->pluck('id'))' @selected((int) old('menu_id', $menu?->id) === $saved->id)>{{ $saved->name }} · {{ $saved->recipes->pluck('title')->join(' + ') }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                @endif
                 <fieldset class="serving-row">
                     <legend class="sr-only">Type de repas</legend>
                     @foreach (['recette' => 'Une recette', 'hors_maison' => 'Hors maison', 'note' => 'Note libre'] as $value => $label)
@@ -74,6 +94,32 @@
                             @endforeach
                         </select>
                     </label>
+
+                    @unless ($entry->exists)
+                        {{-- v0.22.0 : repas composé : d'autres recettes servies avec le plat, pour les mêmes convives --}}
+                        <div class="meal-extras" data-mode-block="parts">
+                            <h3>Avec <small class="muted">(accompagnement, entrée, dessert… facultatif)</small></h3>
+                            <ul class="extra-list" data-titles='@json($companionTitles)'>
+                                @foreach ($extraIds as $extraId)
+                                    @if ($companionTitles->has($extraId))
+                                        <li><span>{{ $companionTitles[$extraId] }}</span><input type="hidden" name="avec[]" value="{{ $extraId }}"><button type="button" class="btn btn-small btn-ghost" data-extra-remove aria-label="Retirer {{ $companionTitles[$extraId] }}">Retirer</button></li>
+                                    @endif
+                                @endforeach
+                            </ul>
+                            <select class="extra-add" aria-label="Ajouter une recette au repas">
+                                <option value="">+ Ajouter une recette au repas…</option>
+                                @foreach ($companions as $category => $items)
+                                    <optgroup label="{{ \App\Models\Recipe::CATEGORIES[$category][0] ?? $category }}">
+                                        @foreach ($items as $recipe)
+                                            <option value="{{ $recipe->id }}">{{ $recipe->title }}@unless ($recipe->isPublished()) (brouillon)@endunless</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                            @error('avec') <p class="alert alert-error">{{ $message }}</p> @enderror
+                            <p class="hint small">Chaque recette est calculée pour les mêmes convives et le même nombre de repas ; la liste de courses additionne tout.</p>
+                        </div>
+                    @endunless
 
                     <div class="serving-form" data-mode-block="parts">
                         <input type="hidden" name="ajuste" value="1">
@@ -129,6 +175,17 @@
             </section>
         @endunless
 
+        @if ($entry->exists && $entry->isMealDish() && $siblings->isNotEmpty())
+            {{-- v0.22.0 : repas composé : les autres plats suivent le jour, le repas et les convives --}}
+            <section class="panel">
+                <label class="check">
+                    <input type="checkbox" name="tout_le_repas" value="1" @checked(session()->hasOldInput() ? old('tout_le_repas') === '1' : true)>
+                    <span>Appliquer le jour, le repas et les convives à tout le repas : {{ $siblings->filter(fn ($e) => $e->recipe)->map(fn ($e) => $e->recipe->title)->join(', ', ' et ') }}</span>
+                </label>
+                <p class="hint small">Le nombre de repas et les parts restent propres à chaque recette (une purée doublée pour le lendemain, par exemple).</p>
+            </section>
+        @endif
+
         <div class="actions">
             @if ($entry->exists)
                 <a class="btn btn-ghost" href="{{ route('planning.week', \App\Support\MealPlanner::weekStart($date)->toDateString()) }}">Annuler</a>
@@ -139,6 +196,9 @@
 
     @if ($entry->exists)
         <div class="row-actions ticket-actions">
+            @if ($entry->isMealDish())
+                <a class="btn btn-small btn-ghost" href="{{ route('planning.create', ['date' => $date, 'creneau' => $entry->slot]) }}">+ Ajouter une recette à ce repas</a>
+            @endif
             @if ($isLeftover && ! $entry->is_frozen)
                 <form method="post" action="{{ route('planning.freeze', $entry) }}">
                     @csrf
@@ -147,7 +207,8 @@
             @endif
             <form method="post" action="{{ route('planning.destroy', $entry) }}">
                 @csrf @method('delete')
-                <button type="submit" class="btn btn-small btn-danger" @unless ($isLeftover) data-confirm="Retirer ce repas{{ $entry->leftovers()->exists() ? ' et ses restes' : '' }} du planning ?" @endunless>{{ $isLeftover ? 'Retirer ces restes (mangés, jetés)' : 'Retirer ce repas du planning' }}</button>
+                <button type="submit" class="btn btn-small btn-danger" @php $partOfMeal = ! $isLeftover && $entry->isMealDish() && $siblings->isNotEmpty() && $entry->recipe; @endphp
+                <button type="submit" class="btn btn-small btn-danger" @unless ($isLeftover) data-confirm="{{ $partOfMeal ? 'Retirer « '.$entry->recipe->title.' »'.($entry->leftovers()->exists() ? ' et ses restes' : '').' de ce repas ? Le reste du repas est conservé.' : 'Retirer ce repas'.($entry->leftovers()->exists() ? ' et ses restes' : '').' du planning ?' }}" @endunless>{{ $isLeftover ? 'Retirer ces restes (mangés, jetés)' : ($partOfMeal ? 'Retirer « '.$entry->recipe->title.' » de ce repas' : 'Retirer ce repas du planning') }}</button>
             </form>
         </div>
     @endif
@@ -204,6 +265,58 @@
                         var t = o.textContent.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
                         o.hidden = q !== '' && t.indexOf(q) === -1;
                     });
+                });
+            }
+            // v0.22.0 : recettes « avec » le plat, et menu enregistré qui remplit le plat et ses recettes
+            var list = form.querySelector('.extra-list');
+            var adder = form.querySelector('.extra-add');
+            var titles = list ? JSON.parse(list.dataset.titles || '{}') : {};
+            function extraIds() {
+                return Array.prototype.map.call(form.querySelectorAll('[name="avec[]"]'), function (i) { return i.value; });
+            }
+            function addExtra(id) {
+                id = String(id);
+                if (!list || !titles[id] || extraIds().indexOf(id) !== -1 || (select && select.value === id)) return;
+                var li = document.createElement('li');
+                var label = document.createElement('span');
+                label.textContent = titles[id];
+                var input = document.createElement('input');
+                input.type = 'hidden'; input.name = 'avec[]'; input.value = id;
+                var remove = document.createElement('button');
+                remove.type = 'button'; remove.className = 'btn btn-small btn-ghost'; remove.textContent = 'Retirer';
+                remove.setAttribute('data-extra-remove', '');
+                remove.setAttribute('aria-label', 'Retirer ' + titles[id]);
+                li.append(label, input, remove);
+                list.appendChild(li);
+            }
+            if (list) {
+                list.addEventListener('click', function (event) {
+                    var button = event.target.closest('[data-extra-remove]');
+                    if (button) button.closest('li').remove();
+                });
+            }
+            if (adder) {
+                adder.addEventListener('change', function (event) {
+                    event.stopPropagation();
+                    if (adder.value) addExtra(adder.value);
+                    adder.value = '';
+                });
+            }
+            var menuPick = form.querySelector('.menu-pick');
+            if (menuPick) {
+                menuPick.addEventListener('change', function () {
+                    var option = menuPick.options[menuPick.selectedIndex];
+                    var ids = option && option.dataset.recipes ? JSON.parse(option.dataset.recipes) : [];
+                    if (!ids.length) return;
+                    var radio = form.querySelector('[data-kind][value=recette]');
+                    if (radio) radio.checked = true;
+                    if (select) {
+                        select.value = String(ids[0]);
+                        if (filter) { filter.value = ''; filter.dispatchEvent(new Event('input')); }
+                    }
+                    if (list) list.innerHTML = '';
+                    ids.slice(1).forEach(addExtra);
+                    sync();
                 });
             }
             sync();

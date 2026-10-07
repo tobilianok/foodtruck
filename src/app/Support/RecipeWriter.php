@@ -39,6 +39,16 @@ class RecipeWriter
             'draft' => ['nullable', 'boolean'],
             'tags' => ['nullable', 'array'],
             'tags.*' => ['integer', 'exists:tags,id'],
+            'new_tags' => ['nullable', 'string', 'max:200', function ($attribute, $value, $fail) {
+                foreach (self::tagNames($value) as $name) {
+                    if (mb_strlen($name) > Tag::NAME_MAX || Str::slug($name) === '') {
+                        $fail('Étiquette « '.Str::limit($name, 30).' » : '.Tag::NAME_MAX.' caractères au plus, avec au moins une lettre ou un chiffre.');
+                    }
+                }
+                if (count(self::tagNames($value)) > 5) {
+                    $fail('Au plus 5 nouvelles étiquettes à la fois.');
+                }
+            }],
             'equipment' => ['nullable', 'array'],
             'equipment.*' => ['integer', 'exists:equipment,id'],
             'ingredients' => ['nullable', 'array', 'max:60'],
@@ -112,6 +122,7 @@ class RecipeWriter
             'ingredients' => $ingredients,
             'steps' => $steps,
             'tag_ids' => array_map('intval', $data['tags'] ?? []),
+            'new_tags' => self::tagNames($data['new_tags'] ?? null),
             'equipment_ids' => array_map('intval', $data['equipment'] ?? []),
         ];
     }
@@ -260,7 +271,8 @@ class RecipeWriter
                 $recipe->steps()->create($step + ['position' => ($i + 1) * 10]);
             }
 
-            $recipe->tags()->sync($data['tag_ids']);
+            // v0.22.0 : étiquettes créées depuis la recette (« Viandes, Accompagnement »), ou reprises si elles existent déjà
+            $recipe->tags()->sync(array_values(array_unique([...$data['tag_ids'], ...array_map(fn ($name) => Tag::findOrCreateNamed($name)->id, $data['new_tags'] ?? [])])));
 
             // Les appareils cités dans les étapes sont forcément requis.
             $equipment = collect($data['equipment_ids'])
@@ -275,6 +287,10 @@ class RecipeWriter
     public static function uniqueSlug(string $title): string
     {
         $base = Str::limit(Str::slug($title), 120, '') ?: 'recette';
+        // Adresses déjà prises par des pages (/recettes/nouvelle, /recettes/importees, /recettes/etiquettes)
+        if (in_array($base, ['nouvelle', 'importees', 'etiquettes'], true)) {
+            $base .= '-recette';
+        }
         $slug = $base;
         $n = 2;
 
@@ -283,6 +299,20 @@ class RecipeWriter
         }
 
         return $slug;
+    }
+
+    /** « viandes, Accompagnement ; Fêtes » → noms d'étiquettes nettoyés, sans doublon. @return array<int, string> */
+    public static function tagNames(?string $text): array
+    {
+        $names = [];
+        foreach (preg_split('/[,;\n]+/u', (string) $text) as $name) {
+            $name = trim(preg_replace('/\s+/u', ' ', $name));
+            if ($name !== '' && ! isset($names[Str::slug($name)])) {
+                $names[Str::slug($name)] = Str::ucfirst($name);
+            }
+        }
+
+        return array_values($names);
     }
 
     public static function tagIds(array $slugs): array

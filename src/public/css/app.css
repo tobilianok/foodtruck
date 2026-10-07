@@ -951,3 +951,20 @@ details.panel[open] > .more-summary { margin-bottom: 12px; }
 .route-stop.is-current .route-status { color: var(--text-2); font-weight: 600; }
 .next-step form { margin: 0; }
 @media (max-width: 560px) { .route-status { font-size: .7rem; } }
+
+/* v0.22.0 : repas composés et menus enregistrés */
+.meal-sum { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; padding: 2px 4px 0; font-size: .76rem; color: var(--muted); border-top: 1px dashed var(--line); }
+.meal-menu { font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+.meal-save { color: var(--accent-strong); }
+.meal-extras h3 { font-size: .95rem; margin: 12px 0 6px; }
+.extra-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; }
+.extra-list:empty { display: none; }
+.extra-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--accent-soft); }
+.extra-add { width: 100%; }
+.menu-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); }
+.menu-card { display: flex; flex-direction: column; gap: 8px; }
+.menu-card h2 { margin: 0; font-size: 1.05rem; }
+.menu-card ol { margin: 0; padding-left: 1.2rem; }
+.menu-card .row-actions { margin-top: auto; }
+.menu-rename { display: flex; gap: 6px; }
+.menu-rename input { flex: 1; min-width: 0; }

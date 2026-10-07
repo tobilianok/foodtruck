@@ -12,8 +12,10 @@ use App\Http\Controllers\PriceController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\RecipeController;
 use App\Http\Controllers\RecipeImportController;
+use App\Http\Controllers\SavedMenuController;
 use App\Http\Controllers\ShoppingController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\TagController;
 use Illuminate\Support\Facades\Route;
 
 // Connexion via Authentik (OIDC)
@@ -49,6 +51,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/recettes', [RecipeController::class, 'index'])->name('recipes.index');
         Route::get('/recettes/nouvelle', [RecipeController::class, 'create'])->name('recipes.create');
         Route::post('/recettes', [RecipeController::class, 'store'])->name('recipes.store');
+        // v0.22.0 : étiquettes des recettes (créer, renommer, supprimer)
+        Route::get('/recettes/etiquettes', [TagController::class, 'index'])->name('recipes.tags');
+        Route::post('/recettes/etiquettes', [TagController::class, 'store'])->name('recipes.tags.store');
+        Route::put('/recettes/etiquettes/{tag}', [TagController::class, 'update'])->name('recipes.tags.update');
+        Route::delete('/recettes/etiquettes/{tag}', [TagController::class, 'destroy'])->name('recipes.tags.destroy');
         Route::get('/recettes/importees', [RecipeImportController::class, 'index'])->name('recipes.imports.index');
         Route::post('/recettes/importees/synchroniser', [RecipeImportController::class, 'sync'])->name('recipes.imports.sync');
         Route::post('/recettes/importees/tout-supprimer', [RecipeImportController::class, 'discardAll'])->name('recipes.imports.discard-all');
@@ -81,6 +88,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/planning/menu/effacer', [MenuController::class, 'clear'])->name('menu.clear');
         Route::post('/planning/repas/{entry}/garder', [MenuController::class, 'keep'])->name('menu.keep');
         Route::post('/planning/repas/{entry}/autre-idee', [MenuController::class, 'another'])->name('menu.another');
+        // v0.22.0 : menus enregistrés (repas composés réutilisables), créés depuis un repas du planning
+        Route::get('/planning/menus', [SavedMenuController::class, 'index'])->name('planning.menus');
+        Route::get('/planning/menus/nouveau', [SavedMenuController::class, 'create'])->name('planning.menus.create');
+        Route::post('/planning/menus', [SavedMenuController::class, 'store'])->name('planning.menus.store');
+        Route::put('/planning/menus/{menu}', [SavedMenuController::class, 'update'])->name('planning.menus.update');
+        Route::delete('/planning/menus/{menu}', [SavedMenuController::class, 'destroy'])->name('planning.menus.destroy');
         Route::get('/planning/{week}', [PlanningController::class, 'index'])->where('week', '\d{4}-\d{2}-\d{2}')->name('planning.week');
 
         // Liste de courses : calculée depuis le planning, partagée et cochable en direct

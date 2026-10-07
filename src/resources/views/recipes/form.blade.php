@@ -196,7 +196,12 @@
                         </label>
                     @endforeach
                 </div>
-                <small>« De saison », « économique » et « maison rentable » sont calculés automatiquement.</small>
+                <label class="field new-tags">
+                    <span>Nouvelle étiquette <small class="muted">(sépare par des virgules : Viandes, Fêtes…)</small></span>
+                    <input type="text" name="new_tags" value="{{ old('new_tags') }}" maxlength="200" placeholder="Créer une étiquette qui n'existe pas encore" autocomplete="off">
+                </label>
+                @error('new_tags') <p class="alert alert-error">{{ $message }}</p> @enderror
+                <small>« De saison », « économique » et « maison rentable » sont calculés automatiquement. <a href="{{ route('recipes.tags') }}">Gérer les étiquettes</a></small>
             </fieldset>
             <fieldset class="field">
                 <legend>Appareils nécessaires</legend>

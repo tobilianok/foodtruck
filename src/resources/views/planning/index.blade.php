@@ -20,6 +20,7 @@
                 <a class="btn btn-small btn-ghost" href="{{ route('planning.index') }}">Cette semaine</a>
             @endunless
             <a class="btn btn-small btn-ghost" href="{{ route('planning.week', $start->copy()->addWeek()->toDateString()) }}">Semaine suivante →</a>
+            <a class="btn btn-small btn-ghost" href="{{ route('planning.menus') }}">Mes menus</a>
         </nav>
     </x-page-header>
 
@@ -140,6 +141,21 @@
                     @foreach ($cell as $entry)
                         @include('planning._entry', ['entry' => $entry, 'entryCost' => $cost['per_entry'][$entry->id] ?? null])
                     @endforeach
+                    @php
+                        // v0.22.0 : repas composé (au moins deux recettes cuisinées) : coût du repas, menu d'origine ou « Enregistrer comme menu »
+                        $dishes = $cell->filter(fn ($e) => $e->isMealDish());
+                        $menuIds = $dishes->pluck('saved_menu_id')->unique();
+                    @endphp
+                    @if ($dishes->pluck('recipe_id')->unique()->count() >= 2)
+                        <div class="meal-sum">
+                            <span>Repas : {{ $Price::formatCents($dishes->sum(fn ($e) => $cost['per_entry'][$e->id] ?? 0)) }}</span>
+                            @if ($menuIds->count() === 1 && $dishes->first()->savedMenu)
+                                <span class="meal-menu" title="Menu enregistré">☰ {{ $dishes->first()->savedMenu->name }}</span>
+                            @else
+                                <a class="meal-save" href="{{ route('planning.menus.create', ['date' => $day->toDateString(), 'creneau' => $slot]) }}">Enregistrer comme menu</a>
+                            @endif
+                        </div>
+                    @endif
                     <a class="wg-add" href="{{ route('planning.create', ['date' => $day->toDateString(), 'creneau' => $slot]) }}"
                        aria-label="Ajouter : {{ \App\Models\MealPlanEntry::SLOTS[$slot][0] }} du {{ $day->locale('fr')->isoFormat('dddd D') }}">+</a>
                 </div>
@@ -170,6 +186,7 @@
 
     <details class="more">
         <summary>Bon à savoir</summary>
+        <p class="hint">Un repas peut réunir plusieurs recettes (plat, accompagnement, entrée, dessert) : ajoute-les ensemble, ou avec le + de la case ; elles sont calculées pour les mêmes convives. Un repas composé s'enregistre comme menu, à replanifier en un clic (<a href="{{ route('planning.menus') }}">Mes menus</a>).</p>
         <p class="hint">Un plat prévu pour plusieurs repas place ses restes sur les déjeuners et dîners libres suivants où quelqu'un mange à la maison. Les présences habituelles se règlent dans <a href="{{ route('household.show') }}#semaine-type">Mon foyer → Semaine type</a>.</p>
     </details>
 @endsection

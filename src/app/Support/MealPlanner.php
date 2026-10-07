@@ -39,6 +39,9 @@ class MealPlanner
      * où quelqu'un mange à la maison (semaine type).
      * Les restes mis au congélateur sont conservés et comptent. Sans créneau libre, les restes sont mis de côté
      * (« Au congélateur ») pour être planifiés plus tard. Renvoie le nombre de restes mis de côté ainsi.
+     *
+     * v0.22.0 : les restes d'un repas composé restent ensemble : une case qui ne contient que les restes des autres plats
+     * du même repas (jarret et purée pour deux repas) reste libre pour ceux de ce plat.
      */
     public static function placeLeftovers(MealPlanEntry $entry): int
     {
@@ -63,6 +66,7 @@ class MealPlanner
         }
 
         $slots = array_values(array_intersect(MealPlanEntry::LEFTOVER_SLOTS, $entry->household->mealSlots()));
+        $siblings = $entry->mealSiblings()->modelKeys();
 
         $order = MealPlanEntry::slotCodes();
         $rank = array_search($entry->slot, $order, true);
@@ -83,7 +87,10 @@ class MealPlanner
                 }
 
                 $busy = MealPlanEntry::where('household_id', $entry->household_id)
-                    ->whereDate('date', $date->toDateString())->where('slot', $slot)->where('is_frozen', false)->exists();
+                    ->whereDate('date', $date->toDateString())->where('slot', $slot)->where('is_frozen', false)
+                    ->when($siblings !== [], fn ($q) => $q->where(fn ($q) => $q->where('kind', '!=', MealPlanEntry::KIND_LEFTOVER)
+                        ->orWhereNull('source_entry_id')->orWhereNotIn('source_entry_id', $siblings)))
+                    ->exists();
                 if ($busy) {
                     continue;
                 }
