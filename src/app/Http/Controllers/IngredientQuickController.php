@@ -83,11 +83,11 @@ class IngredientQuickController extends Controller
         ]);
     }
 
-    /** Poids d'une pièce ou densité manquants. */
+    /** Poids d'une pièce, densité ou contenance d'une pièce (v0.20.1) manquants. */
     public function storeMeasure(Request $request, Ingredient $ingredient): JsonResponse
     {
         $data = $request->validate([
-            'kind' => ['required', Rule::in(['piece', 'density'])],
+            'kind' => ['required', Rule::in(['piece', 'density', 'contains'])],
             'quantity' => ['required', 'string', 'max:12'],
             'unit' => ['nullable', 'string', 'max:10'],
         ]);
@@ -96,7 +96,14 @@ class IngredientQuickController extends Controller
             return response()->json(['message' => 'Poids invalide (ex. 120).', 'errors' => ['quantity' => ['Poids invalide.']]], 422);
         }
 
-        if ($data['kind'] === 'piece') {
+        if ($data['kind'] === 'contains') {
+            // « 1 bouteille = 2 000 ml » : densité de l'eau supposée si elle n'est pas connue (boissons, bouillons…)
+            $assumed = ! $ingredient->density;
+            $density = $ingredient->density ?: 1.0;
+            $ingredient->update(['density' => $density, 'piece_weight_g' => round($grams * $density, 2)]);
+            $message = "1 pièce de « {$ingredient->name} » = ".Units::number($grams).' ml : retenu.'
+                .($assumed ? ' (Densité de l\'eau supposée, à corriger dans la fiche de l\'ingrédient si besoin.)' : '');
+        } elseif ($data['kind'] === 'piece') {
             $ingredient->update(['piece_weight_g' => $grams]);
             $message = "1 pièce de « {$ingredient->name} » = ".Units::number($grams).' g : retenu.';
         } else {

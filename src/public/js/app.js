@@ -518,6 +518,10 @@
         }
         var from = routes.units[unit], to = routes.units[info.base];
         if (!from || !to || from.dim === to.dim) return null;
+        // v0.20.1 : ml d'un produit compté à la pièce (boisson à la bouteille) : il faut ce que contient une pièce
+        if ((from.dim === 'volume' && to.dim === 'piece') || (from.dim === 'piece' && to.dim === 'volume')) {
+            return info.piece && info.density ? null : { kind: 'contains', info: info };
+        }
         if (from.dim === 'piece' || to.dim === 'piece') return info.piece ? null : { kind: 'piece', info: info };
         return info.density ? null : { kind: 'density', unit: from.dim === 'volume' ? unit : 'cl', info: info };
     }
@@ -639,13 +643,15 @@
         var info = need.info || find(field(row, 'name').value);
         if (!info) { openFix(warning(row, 'Ingrédient absent du référentiel.', 'unknown')); return; }
         var what = need.kind === 'unit' ? '1 ' + (WORDS[need.word] || need.word.replace(/-/g, ' '))
-            : need.kind === 'piece' ? '1 pièce' : '1 ' + unitLabel(need.unit);
-        var base = need.kind === 'unit' ? unitLabel(info.base) : 'g';
+            : (need.kind === 'piece' || need.kind === 'contains') ? '1 pièce' : '1 ' + unitLabel(need.unit);
+        var base = need.kind === 'unit' ? unitLabel(info.base) : (need.kind === 'contains' ? 'ml' : 'g');
         row.setAttribute('data-need', JSON.stringify({ kind: need.kind, word: need.word || null, unit: need.unit || null }));
         warning(row, 'Combien vaut ' + what + ' de « ' + info.name + ' » ?', 'ask');
 
         open('Indiquer l\'équivalence');
-        body.appendChild(make('p', { text: 'Combien vaut ' + what + ' de « ' + info.name + ' » ? Foodtruck le retient pour toutes les recettes.' }));
+        body.appendChild(make('p', { text: need.kind === 'contains'
+            ? '« ' + info.name + ' » s\'achète à la pièce. Que contient 1 pièce (bouteille, brique…), en ml ? Foodtruck le retient pour toutes les recettes.'
+            : 'Combien vaut ' + what + ' de « ' + info.name + ' » ? Foodtruck le retient pour toutes les recettes.' }));
         var value = make('input', { type: 'text', inputmode: 'decimal', maxlength: '12', placeholder: '?', class: 'fix-number' });
         var save = make('button', { type: 'button', class: 'btn', text: 'Enregistrer' });
         body.appendChild(make('div', { class: 'fix-inline' }, [make('strong', { text: what + ' =' }), value, make('span', { text: base }), save]));
@@ -734,6 +740,7 @@
             try { ask = JSON.parse(row.getAttribute('data-need') || button.getAttribute('data-ask') || 'null'); } catch (e) { ask = null; }
             var need = ask ? { kind: ask.kind, word: ask.word, unit: ask.kind === 'density' ? (ask.unit || ask.word || 'cl') : null } : missing(row);
             if (ask && ask.kind === 'piece') need = { kind: 'piece' };
+            if (ask && ask.kind === 'contains') need = { kind: 'contains' };
             if (!need) { resolved(row, 'Équivalence déjà connue.'); return; }
             return openAsk(row, need);
         }
@@ -746,6 +753,61 @@
         event.preventDefault();
         openFix(button);
     });
+
+    // v0.20.1 : unité ou quantité changée : s'il manque une équivalence pour convertir, la ligne le dit tout de suite
+    function checkRow(row) {
+        var name = field(row, 'name') && field(row, 'name').value.trim();
+        if (!name || !find(name)) return null;
+        var need = missing(row);
+        var box = row.querySelector('[data-row-warning]');
+        if (need && need.kind !== 'unknown') {
+            var text = need.kind === 'contains' ? 'Que contient 1 pièce de « ' + need.info.name + ' » (en ml) ?'
+                : need.kind === 'piece' ? 'Combien pèse 1 pièce de « ' + need.info.name + ' » ?'
+                : need.kind === 'density' ? 'Combien pèse 1 ' + unitLabel(need.unit) + ' de « ' + need.info.name + ' » ?'
+                : 'Combien vaut 1 ' + (WORDS[need.word] || need.word) + ' de « ' + need.info.name + ' » ?';
+            row.setAttribute('data-need', JSON.stringify({ kind: need.kind, word: need.word || null, unit: need.unit || null }));
+            warning(row, text, 'ask');
+        } else if (!need && box && row.classList.contains('has-problem') && row.getAttribute('data-need')) {
+            row.removeAttribute('data-need');
+            resolved(row, 'Équivalence connue.');
+        }
+        return need;
+    }
+    document.addEventListener('change', function (event) {
+        var input = event.target.closest('[name$="[unit]"], [name$="[quantity]"]');
+        var row = input && input.closest('[data-row]');
+        if (row && rowsBox.contains(row)) checkRow(row);
+    });
+
+    // v0.20.1 : à l'enregistrement, une équivalence manquante est demandée dans la fenêtre (plus d'aller-retour avec le
+    // serveur) ; une fois indiquée, la recette s'enregistre toute seule
+    var form = rowsBox.closest('form');
+    var submitAfterFix = false;
+    if (form) {
+        form.addEventListener('submit', function (event) {
+            var rows = rowsBox.querySelectorAll('[data-row]');
+            for (var i = 0; i < rows.length; i++) {
+                var need = checkRow(rows[i]);
+                if (need && need.kind !== 'unknown') {
+                    event.preventDefault();
+                    submitAfterFix = true;
+                    openAsk(rows[i], need);
+                    return;
+                }
+            }
+        });
+        dialog.addEventListener('close', function () {
+            if (!submitAfterFix) return;
+            var pending = Array.prototype.some.call(rowsBox.querySelectorAll('[data-row]'), function (row) {
+                var need = checkRow(row);
+                return need && need.kind !== 'unknown';
+            });
+            submitAfterFix = false;
+            if (!pending && typeof form.requestSubmit === 'function') form.requestSubmit();
+        });
+    }
+    // Après un enregistrement refusé par le serveur : les lignes concernées sont signalées dès l'affichage
+    rowsBox.querySelectorAll('[data-row]').forEach(function (row) { if (!row.classList.contains('has-problem')) checkRow(row); });
 
     // Saisie à la main d'un ingrédient inconnu (nouvelle recette comprise) : proposition de le créer, sans quitter la page
     document.addEventListener('change', function (event) {

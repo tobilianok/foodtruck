@@ -1,5 +1,19 @@
 # Journal des versions - Foodtruck
 
+## v0.20.1 - 2026-10-07 - « Choisir mes repas » mène au planning ; ml d'un produit compté à la pièce sans aller-retour
+
+- Demandes de Louis :
+  - à l'accueil, « Choisir mes repas » ouvre le planning de la semaine (et non plus directement « Ajouter un repas ») ;
+  - recette « P'tit Dej' Romy » : « 15 ml d'Oasis Tropical » refusé (« Densité inconnue… impossible de passer du poids au volume ») alors que la fiche de l'ingrédient semblait complète. Cause : l'Oasis se compte à la pièce (bouteille) ; pour convertir des ml en pièces, il manquait ce que contient une pièce, et le message parlait d'autre chose.
+- Recette, sans quitter la page :
+  - dès qu'on choisit une unité qui ne peut pas être convertie (ml d'un produit à la pièce, pièces d'un produit au poids…), la ligne passe en rouge avec « Indiquer l'équivalence » ;
+  - à l'enregistrement, la fenêtre s'ouvre d'elle-même sur la première équivalence manquante ; une fois indiquée, la recette s'enregistre toute seule (plus de refus du serveur suivi d'un aller-retour dans la fiche de l'ingrédient) ;
+  - nouvelle question pour un produit à la pièce : « Que contient 1 pièce (bouteille, brique…), en ml ? » ; la densité de l'eau est supposée si elle n'est pas connue (signalé, corrigeable dans la fiche).
+- Fiche d'un ingrédient : nouveau champ « Ou contenance d'une pièce (ml) » (« Actuellement : 1 pièce ≈ 2 000 ml »).
+- Conditionnement de plus de 500 pièces pour un ingrédient compté à la pièce refusé, avec l'explication (« Bouteille 2L = 2 000 pièces » : une bouteille vaut 1).
+- Messages de conversion plus clairs (« Contenance d'une pièce inconnue… (1 pièce = combien de ml ?) », « … convertir entre volume et poids (1 ml = combien de g ?) »).
+- Aucune migration. 287 tests automatisés (nouveau PieceVolumeTest).
+
 ## v0.20.0 - 2026-10-07 - Accueil cohérent : étapes établies par les faits, plus de liste de courses vide
 
 - Signalé par Louis : camion sur « Courses » alors que le planning et la liste étaient vides. Cause : l'accueil regardait seulement s'il existait une liste ouverte ; il restait deux listes vides du 5 au 11 octobre (une ouverte, une classée), calculées avant la suppression des recettes. Supprimées à la main le 2026-10-07 (sauvegarde faite), et la migration de cette version fait le même ménage.

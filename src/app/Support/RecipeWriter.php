@@ -169,7 +169,7 @@ class RecipeWriter
                 try {
                     Units::toBase($quantity, $unit, $ingredient);
                 } catch (UnitConversionException $e) {
-                    $errors[] = $e->getMessage().' Choisis une autre unité ou complète la fiche de l\'ingrédient.';
+                    $errors[] = $e->getMessage().' Le bouton « Indiquer l\'équivalence » de la ligne la demande sans quitter la recette.';
 
                     continue;
                 }

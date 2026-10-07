@@ -121,6 +121,12 @@ class Units
             return $value;
         }
 
+        // v0.20.1 : volume <-> pièce (« 15 ml » d'une boisson comptée à la bouteille) : il faut ce que contient une pièce
+        if (in_array(self::VOLUME, [$from, $to], true) && in_array(self::PIECE, [$from, $to], true)
+            && (! $ingredient->density || ! $ingredient->piece_weight_g)) {
+            throw new UnitConversionException("Contenance d'une pièce inconnue pour « {$ingredient->name} » (1 pièce = combien de ml ?).");
+        }
+
         // Passage par la masse (g) comme pivot.
         $grams = match ($from) {
             self::MASS => $value,
@@ -266,7 +272,7 @@ class Units
     private static function requireDensity(Ingredient $ingredient): float
     {
         if (! $ingredient->density) {
-            throw new UnitConversionException("Densité inconnue pour « {$ingredient->name} » : impossible de passer du poids au volume.");
+            throw new UnitConversionException("Densité inconnue pour « {$ingredient->name} » : impossible de convertir entre volume et poids (1 ml = combien de g ?).");
         }
 
         return (float) $ingredient->density;

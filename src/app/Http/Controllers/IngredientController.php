@@ -138,7 +138,7 @@ class IngredientController extends Controller
 
     public function storePack(Request $request, Ingredient $ingredient)
     {
-        $data = $this->validatePack($request);
+        $data = $this->validatePack($request, $ingredient);
 
         $ingredient->packs()->create($data + ['position' => ((int) $ingredient->packs()->max('position')) + 10]);
 
@@ -149,7 +149,7 @@ class IngredientController extends Controller
     {
         abort_unless($pack->ingredient_id === $ingredient->id, 404);
 
-        $pack->update($this->validatePack($request));
+        $pack->update($this->validatePack($request, $ingredient));
 
         return back()->with('status', 'Conditionnement enregistré.');
     }
@@ -255,6 +255,9 @@ class IngredientController extends Controller
         ];
     }
 
+    /** Au-delà, un conditionnement « à la pièce » est sûrement une quantité en g ou en ml saisie par erreur. */
+    private const MAX_PIECES = 500;
+
     private function validateIngredient(Request $request): array
     {
         $data = $request->validate([
@@ -263,6 +266,7 @@ class IngredientController extends Controller
             'base_unit' => ['required', Rule::in(array_keys(Units::BASE_CHOICES))],
             'piece_weight_g' => ['nullable', 'numeric', 'gt:0', 'max:20000'],
             'density' => ['nullable', 'numeric', 'min:0.05', 'max:5'],
+            'piece_volume_ml' => ['nullable', 'numeric', 'gt:0', 'max:20000'],
             'season_months' => ['nullable', 'array'],
             'season_months.*' => ['integer', 'between:1,12'],
             'is_fresh' => ['nullable', 'boolean'],
@@ -270,7 +274,14 @@ class IngredientController extends Controller
         ], [], [
             'name' => 'nom', 'aisle_id' => 'rayon', 'base_unit' => 'unité de base',
             'piece_weight_g' => 'poids d\'une pièce', 'density' => 'densité', 'season_months' => 'mois de saison',
+            'piece_volume_ml' => 'contenance d\'une pièce',
         ]);
+
+        // v0.20.1 : contenance d'une pièce (ml) → poids d'une pièce, densité de l'eau supposée si elle n'est pas indiquée
+        if (! empty($data['piece_volume_ml'])) {
+            $data['density'] = ($data['density'] ?? null) ?: 1.0;
+            $data['piece_weight_g'] = round((float) $data['piece_volume_ml'] * (float) $data['density'], 2);
+        }
 
         $months = array_values(array_unique(array_map('intval', $data['season_months'] ?? [])));
         sort($months);
@@ -288,13 +299,19 @@ class IngredientController extends Controller
         ];
     }
 
-    private function validatePack(Request $request): array
+    private function validatePack(Request $request, ?Ingredient $ingredient = null): array
     {
         $data = $request->validate([
             'label' => ['required', 'string', 'max:60'],
             'quantity' => ['required', 'numeric', 'gt:0', 'max:1000000'],
             'is_bulk' => ['nullable', 'boolean'],
         ], [], ['label' => 'libellé', 'quantity' => 'quantité']);
+
+        // v0.20.1 : « Bouteille 2L = 2 000 pièces » pour un ingrédient compté à la pièce (quantité prise pour des ml)
+        if ($ingredient && $ingredient->base_unit === 'piece' && (float) $data['quantity'] > self::MAX_PIECES) {
+            throw ValidationException::withMessages(['quantity' => Units::number((float) $data['quantity'], 0).' pièces dans « '.trim($data['label']).' » ? « '
+                .$ingredient->name.' » se compte à la pièce : une bouteille ou un paquet vaut 1. Pour écrire des ml dans une recette, indique plutôt la contenance d\'une pièce dans les caractéristiques.']);
+        }
 
         return [
             'label' => trim($data['label']),

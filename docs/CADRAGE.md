@@ -126,6 +126,12 @@ Lecture des fiches par un modèle de vision (décision du 2026-10-06, v0.18.0) :
 - Aucun autre outil d'OCR en secours (choix de Louis).
 - Suppression de toutes les recettes (demande de Louis, choix « recettes et dépendances ») : ./ft vider-recettes, à lancer après validation de la v0.18.0 sur une fiche ; les recettes ne viennent plus que de ses fiches.
 
+Unités dans les recettes, sans aller-retour (v0.20.1, 2026-10-07)
+- Volume ↔ pièce (ml d'une boisson achetée à la bouteille) : il faut la contenance d'une pièce, stockée comme poids d'une pièce + densité (densité de l'eau supposée si inconnue). Question dans la fenêtre de la recette (kind « contains » de POST /ingredients/{n}/mesures/rapide) ou champ « contenance d'une pièce (ml) » de la fiche.
+- Formulaire de recette : contrôle des équivalences à chaque changement d'unité ou de quantité, et à l'enregistrement (fenêtre ouverte sur la première équivalence manquante, enregistrement automatique ensuite) ; le serveur garde son contrôle (RecipeWriter) en dernier recours.
+- Conditionnement d'un ingrédient à la pièce : 500 pièces au plus (sinon c'est une quantité en g ou ml saisie par erreur).
+- Accueil : « Choisir mes repas » → planning de la semaine.
+
 Accueil cohérent (décisions du 2026-10-07, v0.20.0)
 - Constat de Louis : camion sur « Courses » avec un planning et une liste vides (deux listes vides restées après ./ft vider-recettes). Choix : étapes établies par les faits avec une ligne d'état sous chaque étape ; planning modifié = bandeau et mise à jour en un clic (pas de mise à jour automatique) ; liste vide supprimée automatiquement.
 - WeekFlow : liste en cours (la plus récente non classée) ; si elle ne correspond plus au planning (ShoppingListBuilder::isStale) et que rien n'est coché → étape « Liste », bouton POST shopping.refresh ; tout coché → « Courses terminées ? » ; sinon « Courses » (rappel si le planning a changé). Sans liste : repas prévus → « Liste », sinon « Repas ». Liste classée récente : bilan. Lignes d'état et liens par étape (WeekFlow::stops).
@@ -339,9 +345,11 @@ Objectif : Foodtruck lit les tickets de caisse rangés dans Paperless-ngx (étiq
 - Cartes HelloFresh : sachets et paquets comptés en pièces ; à décider avec Louis : (1) donner un poids à chaque sachet ou paquet par ingrédient (lu sur les emballages), ou (2) garder la quantité telle quelle, marquée « à estimer ». (3) Lecture avec coordonnées (Tesseract dans l'image PHP, PDF téléchargé depuis Paperless) : option mise de côté, à rouvrir seulement si les cartes à colonnes deviennent trop nombreuses.
 - Liste de courses : à l'usage, dire si la synchronisation toutes les 6 secondes suffit, si le partage doit aussi passer par un message (copier la liste) et quels magasins sont réellement fréquentés chaque semaine.
 
-## Pour reprendre dans une nouvelle conversation (état au 2026-10-07, après la livraison de la v0.20.0)
+## Pour reprendre dans une nouvelle conversation (état au 2026-10-07, après la livraison de la v0.20.1)
 
 État
+- v0.20.1 (« Choisir mes repas » → planning ; ml d'un produit compté à la pièce demandés dans la fenêtre de la recette, enregistrement automatique ; contenance d'une pièce dans la fiche ; garde-fou des conditionnements à la pièce) : livrée le 2026-10-07, script foodtruck-update-v0.20.1.sh (exige la v0.20.0, aucune migration), en attente de validation. 287 tests. À faire chez Louis : conditionnement « Bouteille 2L » de l'Oasis Tropical à corriger (2 000 pièces → 1) ou supprimer.
+- v0.20.0 : appliquée et poussée le 2026-10-07 (commit eee5ef6).
 - v0.20.0 (accueil cohérent : étapes par les faits avec ligne d'état, « Mettre à jour la liste » quand le planning a changé, plus de liste vide) : livrée le 2026-10-07, script foodtruck-update-v0.20.0.sh (exige la v0.19.0, une migration, aucune image), en attente de validation. 284 tests automatisés.
 - v0.19.0 : appliquée et poussée par Louis le 2026-10-07 (commit fba8faa) ; les deux listes vides du 5 au 11 octobre supprimées à la main le même jour.
 - v0.19.0 (tickets lus par l'IA avec découpe des tickets longs, page de contrôle, un document à la fois ; validation systématique avec corrections en fenêtre ; ./ft vider-tickets ; photos des recettes alignées) : livrée le 2026-10-07, script foodtruck-update-v0.19.0.sh (exige la v0.18.1, une migration, image foodtruck-pages reconstruite), en attente de validation. Ensuite, chez Louis : ./ft vider-tickets, puis envoyer les 6 tickets un par un (Paperless 472, 473, 474, 476, 477, 478). 282 tests automatisés.

@@ -35,6 +35,12 @@
         <input type="number" name="piece_weight_g" value="{{ old('piece_weight_g', $ingredient->piece_weight_g) }}" min="0" step="0.5" placeholder="ex. 125 pour une carotte">
         <small>Permet d'écrire « 2 carottes » dans une recette.</small>
     </label>
+    {{-- v0.20.1 : boisson, bouillon… comptés à la pièce : « 15 ml » dans une recette devient une part de bouteille --}}
+    <label class="field">
+        <span>Ou contenance d'une pièce (ml)</span>
+        <input type="number" name="piece_volume_ml" value="{{ old('piece_volume_ml') }}" min="0" step="1" placeholder="ex. 2000 pour une bouteille de 2 L">
+        <small>Permet d'écrire « 15 ml » d'un produit qui s'achète à la pièce.@if ($ingredient->piece_weight_g && $ingredient->density) Actuellement : 1 pièce ≈ {{ \App\Support\Units::number($ingredient->piece_weight_g / $ingredient->density, 0) }} ml.@endif</small>
+    </label>
 </div>
 
 <details class="add-block" @if (old('density', $ingredient->density)) open @endif>

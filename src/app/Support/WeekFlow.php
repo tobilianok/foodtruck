@@ -171,7 +171,8 @@ class WeekFlow
         $this->title = 'Choisis les repas de la semaine';
         $this->text = 'Ajoute quelques plats à ton planning. Foodtruck calcule les quantités pour ton foyer.';
         $this->button = 'Choisir mes repas';
-        $this->url = route('planning.create');
+        // v0.20.1 (demande de Louis) : le planning de la semaine, pas directement « Ajouter un repas »
+        $this->url = route('planning.index');
         $this->more = 'Comment ça marche ?';
         $this->moreUrl = route('help');
     }
